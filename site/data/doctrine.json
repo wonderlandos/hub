@@ -1,0 +1,31 @@
+{
+  "source": "wolos crates/controller/tests/doctrine_docs.rs and docs/THIRD-PARTY.md",
+  "prose": [
+    [
+      "Hyprland",
+      "say the compositor or the desktop"
+    ],
+    [
+      "AUR",
+      "say the community package collection"
+    ]
+  ],
+  "allowed": [
+    [
+      "docs/DOCTRINE.md",
+      "One example: WolOS ships a fork of Hyprland.",
+      "§6 names the upstream whose voices the doctrine does not share"
+    ]
+  ],
+  "credited": [
+    "aether",
+    "anton hvornum",
+    "neil jagdish patel",
+    "omacom",
+    "omapager",
+    "omarchy",
+    "omarchy-iso",
+    "omarchy-zsh",
+    "ryan hughes"
+  ]
+}
