@@ -3,78 +3,391 @@
   "serial": 7,
   "issued": 1793750400,
   "expires": 1794355200,
-  "featured": ["org.wolos.notes", "alicedoe.weather", "examplelabs.markdown-preview"],
+  "featured": [
+    "org.wolos.notes",
+    "alicedoe.weather",
+    "examplelabs.markdown-preview",
+    "rivertools.clock"
+  ],
   "owners": [
-    { "kind": "wolos", "github_id": 0, "login": "wonderlandos", "name": "WolOS", "trust": "wolos", "since": "2026-01", "about": "The people who make WolOS. Everything here is built and signed by WolOS itself." },
-    { "kind": "person", "github_id": 5310001, "login": "alicedoe", "name": "Alice Doe", "trust": "verified", "since": "2026-03", "cert": "a1-0007", "about": "Small tiles and widgets for the desktop." },
-    { "kind": "org", "github_id": 9910002, "login": "examplelabs", "name": "Example Labs", "trust": "community", "since": "2026-09", "about": "A small studio writing tools for people who write." }
+    {
+      "kind": "wolos",
+      "github_id": 0,
+      "login": "wonderlandos",
+      "name": "WolOS",
+      "trust": "wolos",
+      "since": "2026-01",
+      "about": "The people who make WolOS. Everything here is built and signed by WolOS itself."
+    },
+    {
+      "kind": "person",
+      "github_id": 5310001,
+      "login": "alicedoe",
+      "name": "Alice Doe",
+      "trust": "trusted",
+      "since": "2026-03",
+      "cert": "a100000000000000",
+      "about": "Small tiles and widgets for the desktop."
+    },
+    {
+      "kind": "org",
+      "github_id": 9910002,
+      "login": "examplelabs",
+      "name": "Example Labs",
+      "trust": "community",
+      "since": "2026-09",
+      "about": "A small studio writing tools for people who write."
+    },
+    {
+      "kind": "org",
+      "github_id": 7720004,
+      "login": "rivertools",
+      "name": "River Tools",
+      "trust": "origin",
+      "since": "2026-10",
+      "about": "Small, quiet utilities for every day."
+    }
   ],
   "apps": [
     {
-      "id": "org.wolos.notes", "name": "Notes", "version": "1.4.0",
+      "id": "org.wolos.notes",
+      "name": "Notes",
+      "version": "1.4.0",
       "summary": "Quick notes that sync to a folder you choose.",
-      "description": ["Notes opens in a blink and saves as you type. Every note is a plain text file in a folder you pick, so your notes stay yours and any other app can read them.", "Search finds a note by any word in it, and pinned notes stay at the top. Notes follows your Look, light or dark, and your accent colour."],
-      "author": "WolOS", "license": "GPL-2.0-or-later", "kinds": [], "permissions": [], "min_wolos": "0.12",
-      "capabilities": ["files.chosen"], "categories": ["Work"],
+      "description": [
+        "Notes opens in a blink and saves as you type. Every note is a plain text file in a folder you pick, so your notes stay yours and any other app can read them.",
+        "Search finds a note by any word in it, and pinned notes stay at the top. Notes follows your Look, light or dark, and your accent colour."
+      ],
+      "author": "WolOS",
+      "license": "GPL-2.0-or-later",
+      "kinds": [],
+      "permissions": [],
+      "min_wolos": "0.12",
+      "capabilities": [
+        "files.chosen"
+      ],
+      "categories": [
+        "Work"
+      ],
       "url": "https://github.com/wonderlandos/notes/releases/download/v1.4.0/org.wolos.notes-1.4.0.wol",
-      "sha256": "3f6c1e9a0b7d24c58e11f2a39b4d6c0e7a85f13d92c4b06e8a1f57d3c2b9e406", "size": 1843200,
-      "trust": "wolos", "cert": "p-0001",
-      "owner": { "kind": "wolos", "github_id": 0, "login": "wonderlandos" },
-      "source": { "repo": "wonderlandos/notes", "tag": "v1.4.0", "commit": "8d41c0e2a9f37b6d15e0c4a8f2b39d7e6c1a05f4" },
-      "verdict": "pass", "findings": [], "first_seen": 1793664000, "yanked": false,
+      "sha256": "3f6c1e9a0b7d24c58e11f2a39b4d6c0e7a85f13d92c4b06e8a1f57d3c2b9e406",
+      "size": 1843200,
+      "trust": "wolos",
+      "cert": "p-0001",
+      "owner": {
+        "kind": "wolos",
+        "github_id": 0,
+        "login": "wonderlandos"
+      },
+      "source": {
+        "repo": "wonderlandos/notes",
+        "tag": "v1.4.0",
+        "commit": "8d41c0e2a9f37b6d15e0c4a8f2b39d7e6c1a05f4"
+      },
+      "verdict": "pass",
+      "findings": [],
+      "first_seen": 1793664000,
+      "yanked": false,
       "screenshots": [
-        { "src": "/img/listings/notes-list.png", "alt": "Notes with the list of notes on the left and an open note on the right" },
-        { "src": "/img/listings/notes-search.png", "alt": "Notes finding every note with the word garden" }
+        {
+          "src": "/img/listings/notes-list.png",
+          "alt": "Notes with the list of notes on the left and an open note on the right"
+        },
+        {
+          "src": "/img/listings/notes-search.png",
+          "alt": "Notes finding every note with the word garden"
+        }
       ],
       "releases": [
-        { "version": "1.4.0", "tag": "v1.4.0", "url": "https://github.com/wonderlandos/notes/releases/download/v1.4.0/org.wolos.notes-1.4.0.wol", "sha256": "3f6c1e9a0b7d24c58e11f2a39b4d6c0e7a85f13d92c4b06e8a1f57d3c2b9e406", "size": 1843200, "verdict": "pass", "findings": [], "first_seen": 1793664000, "yanked": false },
-        { "version": "1.3.2", "tag": "v1.3.2", "url": "https://github.com/wonderlandos/notes/releases/download/v1.3.2/org.wolos.notes-1.3.2.wol", "sha256": "b07e52d9c14a3f86e0d9b2c75a1e48f3d6c90b2a7e15f4d83c6a0b9e2d71f5c8", "size": 1798144, "verdict": "pass", "findings": [], "first_seen": 1791763200, "yanked": false }
-      ]
+        {
+          "version": "1.4.0",
+          "tag": "v1.4.0",
+          "url": "https://github.com/wonderlandos/notes/releases/download/v1.4.0/org.wolos.notes-1.4.0.wol",
+          "sha256": "3f6c1e9a0b7d24c58e11f2a39b4d6c0e7a85f13d92c4b06e8a1f57d3c2b9e406",
+          "size": 1843200,
+          "verdict": "pass",
+          "findings": [],
+          "first_seen": 1793664000,
+          "yanked": false,
+          "checked_at": 1793664600,
+          "statement": {
+            "url": "https://wolos.squareweb.app/plugins/statements/org.wolos.notes/1.4.0.wsig",
+            "serial": "5b209436d510496f"
+          }
+        },
+        {
+          "version": "1.3.2",
+          "tag": "v1.3.2",
+          "url": "https://github.com/wonderlandos/notes/releases/download/v1.3.2/org.wolos.notes-1.3.2.wol",
+          "sha256": "b07e52d9c14a3f86e0d9b2c75a1e48f3d6c90b2a7e15f4d83c6a0b9e2d71f5c8",
+          "size": 1798144,
+          "verdict": "pass",
+          "findings": [],
+          "first_seen": 1791763200,
+          "yanked": false,
+          "checked_at": 1791763800,
+          "statement": {
+            "url": "https://wolos.squareweb.app/plugins/statements/org.wolos.notes/1.3.2.wsig",
+            "serial": "00c4de3496ad92bf"
+          }
+        }
+      ],
+      "icon": {
+        "sha256": "f7612e862d97e95d891578486324e505effe93903ff67149a6e00629763cf5f4",
+        "type": "image/png",
+        "width": 128,
+        "height": 128,
+        "size": 1970
+      }
+    },
+    {
+      "id": "rivertools.clock",
+      "name": "Clock",
+      "version": "1.1.0",
+      "summary": "World clocks, alarms and a timer in one small window.",
+      "description": [
+        "Clock shows the time in the places you care about, wakes you with an alarm and counts down a timer while you cook.",
+        "It lives in one small window and follows your Look, light or dark."
+      ],
+      "author": "River Tools",
+      "license": "MIT",
+      "capabilities": [
+        "notifications"
+      ],
+      "categories": [
+        "Utilities"
+      ],
+      "min_wolos": "0.12",
+      "url": "https://github.com/rivertools/clock/releases/download/v1.1.0/rivertools.clock-1.1.0.wol",
+      "sha256": "4b1d7e0c93a25f68d0e4c1b79a3f52e8d6c07b14a9e3f5d82c61b0a7e4d9f3c2",
+      "size": 912384,
+      "trust": "origin",
+      "cert": "c10000000000004d",
+      "owner": {
+        "kind": "org",
+        "github_id": 7720004,
+        "login": "rivertools"
+      },
+      "source": {
+        "repo": "rivertools/clock",
+        "repo_id": 88120004,
+        "tag": "v1.1.0",
+        "commit": null
+      },
+      "verdict": "pass",
+      "findings": [],
+      "first_seen": 1793836800,
+      "yanked": false,
+      "releases": [
+        {
+          "version": "1.1.0",
+          "tag": "v1.1.0",
+          "url": "https://github.com/rivertools/clock/releases/download/v1.1.0/rivertools.clock-1.1.0.wol",
+          "sha256": "4b1d7e0c93a25f68d0e4c1b79a3f52e8d6c07b14a9e3f5d82c61b0a7e4d9f3c2",
+          "size": 912384,
+          "verdict": "pass",
+          "findings": [],
+          "first_seen": 1793836800,
+          "checked_at": 1793837400,
+          "yanked": false,
+          "statement": {
+            "url": "https://wolos.squareweb.app/plugins/statements/rivertools.clock/1.1.0.wsig",
+            "serial": "5e0c2b8a91d4f763"
+          }
+        },
+        {
+          "version": "1.0.0",
+          "tag": "v1.0.0",
+          "url": "https://github.com/rivertools/clock/releases/download/v1.0.0/rivertools.clock-1.0.0.wol",
+          "sha256": "d29a6c1f04b87e53a1c0d9f6e2b48a37c5d1e08f9b6a2c74e3d0f81b5a9c6e27",
+          "size": 903168,
+          "verdict": "pass",
+          "findings": [],
+          "first_seen": 1793232000,
+          "checked_at": 1793232600,
+          "yanked": false,
+          "withdrawn": true
+        }
+      ],
+      "icon": {
+        "sha256": "d29f66faf81b9b348ec33a8c3a264c876ec7bf24c3f06bd0fd10263cfd0dd97c",
+        "type": "image/png",
+        "width": 128,
+        "height": 128,
+        "size": 4764
+      }
     }
   ],
   "plugins": [
     {
-      "id": "alicedoe.weather", "name": "Weather tile", "version": "2.1.0",
+      "id": "alicedoe.weather",
+      "name": "Weather tile",
+      "version": "2.1.0",
       "summary": "Today's weather in the menu bar, the week in a tile.",
-      "description": ["A small sun, cloud or raindrop sits in the menu bar with the temperature beside it. Click it for the next hours, or add the tile to Control Center for the whole week.", "It asks for your town once and reads the forecast from one weather service. Nothing else leaves your PC."],
-      "author": "Alice Doe", "license": "MIT", "kinds": ["menubar", "tile"], "permissions": ["http", "notifications"], "min_wolos": "0.12",
+      "description": [
+        "A small sun, cloud or raindrop sits in the menu bar with the temperature beside it. Click it for the next hours, or add the tile to Control Center for the whole week.",
+        "It asks for your town once and reads the forecast from one weather service. Nothing else leaves your PC."
+      ],
+      "author": "Alice Doe",
+      "license": "MIT",
+      "kinds": [
+        "menubar",
+        "tile"
+      ],
+      "permissions": [
+        "http",
+        "notifications"
+      ],
+      "min_wolos": "0.12",
       "url": "https://github.com/alicedoe/weather-tile/releases/download/v2.1.0/alicedoe.weather-2.1.0.wolplug",
-      "sha256": "9c2e7a41f0b35d68e4a1c97b02f5d83e6b10a4c79d2e5f8b31c06a7d94e2b5f1", "size": 48213,
-      "trust": "verified", "cert": "a1-0007",
-      "owner": { "kind": "person", "github_id": 5310001, "login": "alicedoe" },
-      "source": { "repo": "alicedoe/weather-tile", "tag": "v2.1.0", "commit": "c4e19a7d03b2f58e61a0d9c4b7e23f5a8d16c0b9" },
-      "verdict": "pass", "findings": [], "first_seen": 1793577600, "yanked": false,
+      "sha256": "9c2e7a41f0b35d68e4a1c97b02f5d83e6b10a4c79d2e5f8b31c06a7d94e2b5f1",
+      "size": 48213,
+      "trust": "trusted",
+      "cert": "a1000000000000c7",
+      "owner": {
+        "kind": "person",
+        "github_id": 5310001,
+        "login": "alicedoe"
+      },
+      "source": {
+        "repo": "alicedoe/weather-tile",
+        "tag": "v2.1.0",
+        "commit": "c4e19a7d03b2f58e61a0d9c4b7e23f5a8d16c0b9"
+      },
+      "verdict": "pass",
+      "findings": [],
+      "first_seen": 1793577600,
+      "yanked": false,
       "screenshots": [
-        { "src": "/img/listings/weather-tile.png", "alt": "The weather tile in Control Center with the forecast for the week" }
+        {
+          "src": "/img/listings/weather-tile.png",
+          "alt": "The weather tile in Control Center with the forecast for the week"
+        }
       ],
       "releases": [
-        { "version": "2.1.0", "tag": "v2.1.0", "url": "https://github.com/alicedoe/weather-tile/releases/download/v2.1.0/alicedoe.weather-2.1.0.wolplug", "sha256": "9c2e7a41f0b35d68e4a1c97b02f5d83e6b10a4c79d2e5f8b31c06a7d94e2b5f1", "size": 48213, "verdict": "pass", "findings": [], "first_seen": 1793577600, "yanked": false },
-        { "version": "2.0.3", "tag": "v2.0.3", "url": "https://github.com/alicedoe/weather-tile/releases/download/v2.0.3/alicedoe.weather-2.0.3.wolplug", "sha256": "1d8f3b6a92e04c7d5b1e8a3f6c09d2b47e5a1c8d3f6b09e2a7c4d1f5b8e3a6c0", "size": 47102, "verdict": "pass", "findings": [], "first_seen": 1790985600, "yanked": true }
-      ]
+        {
+          "version": "2.1.0",
+          "tag": "v2.1.0",
+          "url": "https://github.com/alicedoe/weather-tile/releases/download/v2.1.0/alicedoe.weather-2.1.0.wolplug",
+          "sha256": "9c2e7a41f0b35d68e4a1c97b02f5d83e6b10a4c79d2e5f8b31c06a7d94e2b5f1",
+          "size": 48213,
+          "verdict": "pass",
+          "findings": [],
+          "first_seen": 1793577600,
+          "yanked": false,
+          "checked_at": 1793578200,
+          "statement": {
+            "url": "https://wolos.squareweb.app/plugins/statements/alicedoe.weather/2.1.0.wsig",
+            "serial": "07117ee8a0e976f2"
+          }
+        },
+        {
+          "version": "2.0.3",
+          "tag": "v2.0.3",
+          "url": "https://github.com/alicedoe/weather-tile/releases/download/v2.0.3/alicedoe.weather-2.0.3.wolplug",
+          "sha256": "1d8f3b6a92e04c7d5b1e8a3f6c09d2b47e5a1c8d3f6b09e2a7c4d1f5b8e3a6c0",
+          "size": 47102,
+          "verdict": "pass",
+          "findings": [],
+          "first_seen": 1790985600,
+          "yanked": true,
+          "checked_at": 1790986200
+        }
+      ],
+      "categories": [
+        "Utilities"
+      ],
+      "icon": {
+        "sha256": "e4529fe0237e8f50e52e6d96e90c6b3f3e1452efe25ab00c5f38f56975f1317e",
+        "type": "image/png",
+        "width": 128,
+        "height": 128,
+        "size": 3732
+      }
     }
   ],
   "extensions": [
     {
-      "id": "examplelabs.markdown-preview", "name": "Markdown preview", "version": "0.9.1", "host": "org.wolos.notes",
+      "id": "examplelabs.markdown-preview",
+      "name": "Markdown preview",
+      "version": "0.9.1",
+      "host": "org.wolos.notes",
       "summary": "Shows a note written in Markdown as a formatted page beside it.",
-      "description": ["Write with stars and hashes, read it as headings, lists and bold words. The preview follows the note as you type and scrolls with it.", "Press Ctrl+Shift+M in Notes to show or hide it."],
-      "author": "Example Labs", "license": "Apache-2.0", "kinds": [], "permissions": ["open"], "min_wolos": "0.13",
+      "description": [
+        "Write with stars and hashes, read it as headings, lists and bold words. The preview follows the note as you type and scrolls with it.",
+        "Press Ctrl+Shift+M in Notes to show or hide it."
+      ],
+      "author": "Example Labs",
+      "license": "Apache-2.0",
+      "kinds": [],
+      "permissions": [
+        "open"
+      ],
+      "min_wolos": "0.13",
       "url": "https://github.com/examplelabs/notes-markdown/releases/download/v0.9.1/examplelabs.markdown-preview-0.9.1.wolext",
-      "sha256": "e5a09c3d71b28f4e6d0a1b9c58e3f27d4a6c1e0b93d5f82a7c4e61b0d9f3a2c7", "size": 120334,
+      "sha256": "e5a09c3d71b28f4e6d0a1b9c58e3f27d4a6c1e0b93d5f82a7c4e61b0d9f3a2c7",
+      "size": 120334,
       "trust": "community",
-      "owner": { "kind": "org", "github_id": 9910002, "login": "examplelabs" },
-      "source": { "repo": "examplelabs/notes-markdown", "tag": "v0.9.1", "commit": "f2b07d9e4c13a8b56e0d2c7f91a3e4b58d6c02a1" },
+      "owner": {
+        "kind": "org",
+        "github_id": 9910002,
+        "login": "examplelabs"
+      },
+      "source": {
+        "repo": "examplelabs/notes-markdown",
+        "tag": "v0.9.1",
+        "commit": "f2b07d9e4c13a8b56e0d2c7f91a3e4b58d6c02a1"
+      },
       "verdict": "flag",
       "findings": [
-        { "rule": "permissions.more", "sentence": "Asks for more now: it can open links in your browser, which the last release could not.", "evidence": "open" }
+        {
+          "rule": "permissions.more",
+          "sentence": "Asks for more now: it can open links in your browser, which the last release could not.",
+          "evidence": "open"
+        }
       ],
-      "first_seen": 1793491200, "yanked": false,
+      "first_seen": 1793491200,
+      "yanked": false,
       "screenshots": [
-        { "src": "/img/listings/markdown-preview.png", "alt": "A note on the left and its formatted preview on the right" }
+        {
+          "src": "/img/listings/markdown-preview.png",
+          "alt": "A note on the left and its formatted preview on the right"
+        }
       ],
       "releases": [
-        { "version": "0.9.1", "tag": "v0.9.1", "url": "https://github.com/examplelabs/notes-markdown/releases/download/v0.9.1/examplelabs.markdown-preview-0.9.1.wolext", "sha256": "e5a09c3d71b28f4e6d0a1b9c58e3f27d4a6c1e0b93d5f82a7c4e61b0d9f3a2c7", "size": 120334, "verdict": "flag", "findings": [ { "rule": "permissions.more", "sentence": "Asks for more now: it can open links in your browser, which the last release could not.", "evidence": "open" } ], "first_seen": 1793491200, "yanked": false }
-      ]
+        {
+          "version": "0.9.1",
+          "tag": "v0.9.1",
+          "url": "https://github.com/examplelabs/notes-markdown/releases/download/v0.9.1/examplelabs.markdown-preview-0.9.1.wolext",
+          "sha256": "e5a09c3d71b28f4e6d0a1b9c58e3f27d4a6c1e0b93d5f82a7c4e61b0d9f3a2c7",
+          "size": 120334,
+          "verdict": "flag",
+          "findings": [
+            {
+              "rule": "permissions.more",
+              "sentence": "Asks for more now: it can open links in your browser, which the last release could not.",
+              "evidence": "open"
+            }
+          ],
+          "first_seen": 1793491200,
+          "yanked": false,
+          "checked_at": 1793491800,
+          "statement": {
+            "url": "https://wolos.squareweb.app/plugins/statements/examplelabs.markdown-preview/0.9.1.wsig",
+            "serial": "d57a569fd1c47472"
+          }
+        }
+      ],
+      "categories": [
+        "Work"
+      ],
+      "icon": {
+        "sha256": "ef6ae9b648e36f13546a2ecae98a5ccc7199fd9606951d9ed3787f59861c91bc",
+        "type": "image/png",
+        "width": 128,
+        "height": 128,
+        "size": 2772
+      }
     }
   ]
 }

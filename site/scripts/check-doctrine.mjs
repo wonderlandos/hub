@@ -56,6 +56,7 @@ const self = [
   scan(visible("<body><p>See docs/adr/0016-arch.md and CHANGELOG · ADR 0023 · rel012 · tests/test-installer.sh</p></body>"), [ENGINEER]).length >= 5,
   scan(visible("<body><p>Not yet proven on real hardware. Coming soon. In review for the next build.</p></body>"), [HEDGES]).length >= 4,
   scan(visible("<body><p>It reads JSON from the API and is safe.</p></body>"), [HUB_TALK]).length >= 3,
+  scan(visible("<body><template><p>Secure and approved software.</p></template></body>"), [HUB_TALK]).length >= 2,
   scan(visible('<body><pre>commit 0123456789abcdef0123456789abcdef01234567</pre><p>sha256 9c2e7a41f0b35d68e4a1c97b02f5d83e6b10a4c79d2e5f8b31c06a7d94e2b5f1</p><img alt="x"></body>'), [ENGINEER, HEDGES, HUB_TALK]).length === 0,
 ];
 if (self.includes(false)) { console.error(`check-doctrine: scanner self-test failed: ${JSON.stringify(self)}`); process.exit(1); }
@@ -69,11 +70,21 @@ for (const route of routes) {
   const vis = visible(read(file));
   lines += vis.length;
   vis.forEach((l) => lineCheck(`${route} (text)`, l));
-  for (const [line, token, why] of scan(vis, [ENGINEER, HEDGES, HUB_TALK])) bad.push(`${route}: ${why} "${token}": ${line.slice(0, 140)}`);
+  // The legal texts may name the hub's processors and file formats (a privacy policy must); the safety words still never pass.
+  const lists = route.startsWith("/terms/") ? [HEDGES, HUB_TALK.slice(1)] : [ENGINEER, HEDGES, HUB_TALK];
+  for (const [line, token, why] of scan(vis, lists)) bad.push(`${route}: ${why} "${token}": ${line.slice(0, 140)}`);
 }
-// The script's own messages are read by people too: scan the strings in src/hub.js.
-const js = read(at("src/hub.js")).split("\n").flatMap((l) => [...l.matchAll(/"((?:[^"\\\n]|\\.){12,})"/g)].map((m) => m[1])).filter((s) => /\s/.test(s));
-for (const [line, token, why] of scan(js, [HEDGES, HUB_TALK])) bad.push(`src/hub.js: ${why} "${token}": ${line.slice(0, 140)}`);
+// The scripts' own messages are read by people too (the admin panel has all its words there): scan their strings.
+let strings = 0;
+for (const f of walk(at("src"), [".js"])) {
+  const js = read(f).split("\n").flatMap((l) => [...l.matchAll(/"((?:[^"\\\n]|\\.){12,})"/g)].map((m) => m[1])).filter((s) => /\s/.test(s) && !/[<>]/.test(s));
+  strings += js.length;
+  for (const [line, token, why] of scan(js, [ENGINEER.slice(0, 4), HEDGES, HUB_TALK])) bad.push(`${relative(ROOT, f)}: ${why} "${token}": ${line.slice(0, 140)}`);
+}
+// The admin page is a closed shell: no visible words, no links to it from anywhere.
+const adminFile = resolve(DIST, "admin", "index.html");
+if (!existsSync(adminFile)) bad.push("/admin: no shell");
+else if (visible(read(adminFile)).length) bad.push(`/admin: the shell shows words: ${visible(read(adminFile)).join(" | ").slice(0, 140)}`);
 
 if (bad.length) { console.error(`check-doctrine: ${bad.length} problem(s)\n  ${bad.join("\n  ")}`); process.exit(1); }
-console.log(`check-doctrine: ${files.length} source files and ${routes.length} built pages (${lines} lines of visible text), ${list.prose.length + list.credited.length} names: no upstream names, no engineer talk, no hedges`);
+console.log(`check-doctrine: ${files.length} source files, ${strings} script messages and ${routes.length} built pages (${lines} lines of visible text, templates included), ${list.prose.length + list.credited.length} names: no upstream names, no engineer talk, no hedges, never "safe", "secure" or "approved software"; the admin shell has no words`);

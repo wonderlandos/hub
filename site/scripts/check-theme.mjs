@@ -12,12 +12,13 @@ import { builtPages } from "./lib/visible.mjs";
 
 const read = (p) => readFileSync(p, "utf8");
 const bad = [];
-const css = read(at("src/hub.css")), js = read(at("src/hub.js")), tokens = read(at("src/tokens.css"));
+const css = read(at("src/hub.css")), tokens = read(at("src/tokens.css"));
+const js = ["hub", "search", "account", "admin"].map((n) => read(at(`src/${n}.js`))).join("\n");
 
 const strip = (c) => c.replace(/\/\*[\s\S]*?\*\//g, "");
 const LIT = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(|(?<![-\w])(?:white|black|red|green|blue|gray|grey|orange|yellow|purple|pink|teal|navy)(?![-\w])/g;
 const LIT_JS = /["']#[0-9a-fA-F]{3,8}["']|\b(?:rgba?|hsla?)\(/g;
-for (const [name, text, re] of [["src/hub.css", strip(css), LIT], ["src/hub.js", js.replace(/\/\*[\s\S]*?\*\//g, ""), LIT_JS]]) {
+for (const [name, text, re] of [["src/hub.css", strip(css), LIT], ["src/*.js", js.replace(/\/\*[\s\S]*?\*\//g, ""), LIT_JS]]) {
   for (const m of text.matchAll(re)) bad.push(`${name}: colour literal "${m[0]}" near "${text.slice(Math.max(0, m.index - 30), m.index + 20).replace(/\s+/g, " ")}"`);
 }
 for (const m of strip(css).matchAll(/font-size:\s*([^;}]+)/g)) if (!/^var\(--text-(?:xs|sm|base|lg|xl|2xl|3xl)\)$|^inherit$/.test(m[1].trim()) && !/^\.\d+em$/.test(m[1].trim())) bad.push(`src/hub.css: font-size "${m[1].trim()}" is not a step of the scale`);
@@ -45,7 +46,8 @@ for (const r of pages) {
   const head = html.slice(0, html.indexOf("</head>"));
   if (!/<script src="\/assets\/theme\.[0-9a-f]+\.js">/.test(head) || head.indexOf("theme.") > head.indexOf('rel="stylesheet"')) bad.push(`${r}: the look is not set before the stylesheet`);
   if (!/<meta name="color-scheme" content="light dark">/.test(head)) bad.push(`${r}: no color-scheme meta`);
-  for (const k of ["auto", "light", "dark"]) if (!html.includes(`data-theme="${k}"`)) bad.push(`${r}: no ${k} button`);
+  // The closed admin shell has no words of its own; it follows the look chosen on the hub.
+  if (r !== "/admin") for (const k of ["auto", "light", "dark"]) if (!html.includes(`data-theme="${k}"`)) bad.push(`${r}: no ${k} button`);
   if (/<html\b[^>]*\sdata-theme=/.test(html)) bad.push(`${r}: data-theme is set in the static HTML`);
   for (const m of html.matchAll(/\sstyle="([^"]*)"/g)) if (!/^max-width:\d+px$/.test(m[1])) bad.push(`${r}: inline style "${m[1]}" (only a picture's max-width is allowed)`);
 }

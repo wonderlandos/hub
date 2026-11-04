@@ -45,17 +45,18 @@ export const HEDGES = [
 /** Words of the hub's own build that a person never needs: how it is made, not what it does for them. */
 export const HUB_TALK = [
   [/\b(?:JSON|API|endpoint|Cloudflare|wasm|WebAssembly|D1|KV|CORS|webhook|OAuth|JWT|HMAC|Ed25519|ML-DSA|SLH-DSA)\b/g, "a build word"],
-  [/\b(?:safe|safely|secure|secured)\b/gi, "a promise of safety (a clean check only means no rule broke)"],
+  [/\b(?:safe|safely|safety|secure|secured|security)\b/gi, "a promise of safety (say checked, or verified identity)"],
+  [/\bapproved (?:software|apps?|plugins?|extensions?)\b/gi, "\"approved software\" (the hub checks files and verifies identities)"],
   [/\bplaceholder\b|\bTODO\b|\blorem\b/gi, "placeholder text"],
 ];
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", "#39": "'", "#x27": "'" };
 const decode = (t) => t.replace(/&(#x?[0-9a-f]+|\w+);/gi, (m, e) => ENTITIES[e] ?? (e[0] === "#" ? String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : +e.slice(1)) : m));
 
-/** The visible lines of one built page: text outside script, style, svg, template and code blocks, plus alt text. */
+/** The visible lines of one built page: text outside script, style, svg and code blocks (a <template> counts: scripts show it), plus alt text. */
 export function visible(html) {
   let h = html.slice(Math.max(0, html.indexOf("<body")));
-  h = h.replace(/<(script|style|svg|template|noscript|pre)\b[\s\S]*?<\/\1>/gi, " ");
+  h = h.replace(/<(script|style|svg|noscript|pre)\b[\s\S]*?<\/\1>/gi, " ");
   const alts = [...h.matchAll(/\balt="([^"]*)"/g)].map((m) => m[1]);
   return decode(h.replace(/<[^>]+>/g, "\n") + "\n" + alts.join("\n")).split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
 }
