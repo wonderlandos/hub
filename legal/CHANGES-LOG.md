@@ -51,6 +51,7 @@ Version 1, effective 2026-11-04.
 - **Contributor Licence Agreement (/terms/cla)**: version 1, effective 2026-11-04, first version.
 - **Privacy Policy (/terms/privacy)**: version 1, effective 2026-11-04, first version.
 - **Privacy Policy (/terms/privacy)**: version 2, effective 2026-11-04: section 3.7 now says what the sign-in record keeps (one-way codes of your network and Cloudflare location, your browser family, times), why (to notice a stolen sign-in), for 90 days, and who sees it; rate counters (3.9) key an address by a one-way code, so the hub's database stores no IP address.
+- Privacy Policy version 2 keeps less data than version 1 and takes nothing new, so, like the changes in section 2.3, it takes effect at once.
 - **Cookie Notice (/terms/cookies)**: version 1, effective 2026-11-04, first version.
 - **Publisher Agreement (/terms/publisher)**: version 1, effective 2026-11-04, first version.
 - **Trust Terms (/terms/trust)**: version 1, effective 2026-11-04, first version.

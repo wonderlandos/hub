@@ -21,7 +21,7 @@ Version 1 of every text, effective 2026-11-04 (the Privacy Policy is at version 
 | `DMCA-AND-NOTICES.md` | /terms/notices | Notices and Takedown | 1 | 2026-11-04 | 1878 | `c3a1b4bfde109b34430f86349074f4d4caff15aaa273c3ca32070260b9dbb893` | part of the Terms of Use |
 | `SECURITY-POLICY.md` | /terms/disclosure | Disclosure Policy | 1 | 2026-11-04 | 1073 | `52afa496d11f5b28b42087073a01ce68441a955c1fc47ba35f2165933d249309` | part of the Terms of Use |
 | `TRADEMARK.md` | /terms/trademark | Trade Mark Policy | 1 | 2026-11-04 | 994 | `d752ae17bcdf4fa1ca8c71a5dc1f579dc30b0107a63424315fce4de2eefc883e` | part of the Terms of Use |
-| `CHANGES-LOG.md` | /terms/changes | Changes Log | 1 | 2026-11-04 | 764 | `6bef521ead2ad9832ed404480f49e7bbace3a82fca0d6e5e6dcea1160b9e6ef1` | part of the Terms of Use |
+| `CHANGES-LOG.md` | /terms/changes | Changes Log | 1 | 2026-11-04 | 791 | `8916de9627f0ddbf42e75e788dc52ff9579c34a90b3da219304583c87d68486f` | part of the Terms of Use |
 
 `RESEARCH.md` is internal: the sources, the duty table and the style sheet behind these texts. It is not served and has no route.
 
