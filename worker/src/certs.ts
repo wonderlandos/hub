@@ -11,7 +11,7 @@ import { now } from "./env";
 import { hex, random, sha256hex, unb64url } from "./crypto";
 import { fail, json, readJson, sameOrigin, str } from "./http";
 import { requireSession } from "./session";
-import { requireCla } from "./cla";
+import { acceptedText, acceptTerms, requireCla } from "./cla";
 import { getOrgMembership, getUser, hubRole } from "./github";
 import { namespaceOf, RESERVED } from "./listings";
 import { pipelineAuth } from "./pipeline";
@@ -147,8 +147,11 @@ export async function postCertRequest(ctx: Ctx): Promise<Response> {
   const s = await requireSession(ctx);
   await limit(ctx.env, RULES.writePerson, s.person.github_id);
   await requireCla(ctx.env, "person", s.person.github_id);
-  const r = requestShape(await readJson(ctx.req));
-  await limit(ctx.env, RULES.certRequests, s.person.github_id);
+  // The body is the woltrust request plus trust_terms: {version, sha256} of the Trust Terms accepted with it.
+  const { trust_terms: tt, ...raw } = await readJson(ctx.req);
+  if (!tt || typeof tt !== "object" || Array.isArray(tt)) fail(403, "trust-terms-needed", "Accept the Trust Terms with the request: send trust_terms {version, sha256}.");
+  const terms = await acceptedText(ctx.env, "trust", tt as Record<string, unknown>);
+  const r = requestShape(raw);
   const db = ctx.env.DB;
   const token = await s.token();
   // The account, checked with GitHub at this moment: this is the certificate's verified_at.
@@ -179,13 +182,15 @@ export async function postCertRequest(ctx: Ctx): Promise<Response> {
   const open = await db.prepare("SELECT id FROM cert_requests WHERE kind = ? AND subject_id = ? AND status IN ('pending','approved')")
     .bind(r.kind, r.subject.github_id).first<{ id: string }>();
   if (open) fail(409, "request-open", `Request ${open.id} for ${r.subject.login} is still being handled.`);
+  await limit(ctx.env, RULES.certRequests, s.person.github_id); // counts requests that would be stored
   const id = `r-${hex(random(8))}`;
   const t = now();
   await db.batch([
     db.prepare(
       "INSERT INTO cert_requests (id, kind, subject_id, login, requested_by, ed25519, body, verified_at, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
     ).bind(id, r.kind, r.subject.github_id, r.subject.login, s.person.github_id, r.keys.ed25519, JSON.stringify(r), t, t),
-    audit(db, "person", s.person.github_id, "cert.request", `request:${id}`, { kind: r.kind, subject: r.subject.github_id, key: await keyId(r.keys.ed25519) }),
+    audit(db, "person", s.person.github_id, "cert.request", `request:${id}`, { kind: r.kind, subject: r.subject.github_id, key: await keyId(r.keys.ed25519), trust_terms: terms.version }),
+    ...acceptTerms(db, "trust", s.person.github_id, terms),
   ]);
   const row = await db.prepare("SELECT * FROM cert_requests WHERE id = ?").bind(id).first<RequestRow>();
   return json({ request: await requestView(ctx.env, row!) }, 201);
@@ -233,8 +238,9 @@ export async function pipelineRequest(ctx: Ctx, id: string): Promise<Response> {
   const b = JSON.parse(row!.body) as RequestBody;
   log("pipeline.request", { request: id, run: c.run_id ?? "?" });
   // The request file of hub-index schema/request.schema.json, in its order.
+  // Every request the Worker approves goes through an admin: tier trusted (hub-index schema, lead 2026-11-04).
   return json({
-    format: 1, action: "issue", id: row!.id, kind: b.kind, subject: b.subject, namespaces: b.namespaces, keys: b.keys, proof: b.proof,
+    format: 1, action: "issue", id: row!.id, tier: "trusted", kind: b.kind, subject: b.subject, namespaces: b.namespaces, keys: b.keys, proof: b.proof,
     ...(b.level ? { level: b.level } : {}), months: b.months, requested_at: b.requested_at,
     verified_at: row!.verified_at, approved_by: [row!.decided_login], approved_at: row!.decided_at,
   });

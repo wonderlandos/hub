@@ -45,7 +45,7 @@ fn the_command_and_the_library_print_the_same_bytes() {
         inspected,
         hubcheck::api::inspect_json(&wol, "app", &f.store_json(), f.now, None)
     );
-    assert!(inspected.contains("\"trust\":\"verified\""));
+    assert!(inspected.contains("\"trust\":\"origin\""));
     let m = tmp("plugin.toml");
     std::fs::write(&m, Fixture::plugin_toml("alice.weather", "\"http\"")).unwrap();
     assert_eq!(

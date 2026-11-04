@@ -1,5 +1,5 @@
 -- SPDX-License-Identifier: GPL-2.0-or-later
--- Migration 0002: release facts from the check, takedowns, certificate requests and certificates. Only adds.
+-- Migration 0002: release facts from the check, takedowns, certificate requests, certificates, terms acceptances. Only adds.
 
 -- What the check found inside a release file (hubcheck's report, through the verdict): the
 -- plugin kinds and permissions, the WolOS version it needs, and the signature. Shown in the index.
@@ -64,3 +64,15 @@ CREATE TABLE certs (
 );
 CREATE INDEX certs_subject ON certs (kind, subject_id);
 CREATE INDEX certs_login ON certs (login);
+
+-- The Publisher Agreement (before the first publish) and the Trust Terms (with every certificate
+-- request), accepted by a person. The CLA keeps its own table above.
+CREATE TABLE terms_acceptances (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  doc         TEXT NOT NULL CHECK (doc IN ('publisher','trust')),
+  github_id   INTEGER NOT NULL REFERENCES persons (github_id),
+  version     TEXT NOT NULL,
+  sha256      TEXT NOT NULL,             -- of the text accepted
+  accepted_at INTEGER NOT NULL,
+  UNIQUE (doc, github_id, version)
+);

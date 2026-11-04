@@ -697,5 +697,5 @@ pub fn validate_manifest(text: &str, kind: Kind) -> Report {
         r.file = FileId::of(&p.id, &p.version);
         crate::files::name_rules(&p.name, &p.description, &mut r);
     }
-    r.report(woltrust::Trust::Community)
+    r.report(crate::report::Trust::Community)
 }

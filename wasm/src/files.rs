@@ -4,12 +4,11 @@
 //! caps, compiled programs and scripts inside, and the Wonderland Doctrine on names. Pure: bytes in,
 //! findings out; nothing is written, run or fetched, and every loop is bounded by the caps below.
 use crate::manifest::{self, Plugin};
-use crate::report::{FileId, Report};
+use crate::report::{FileId, Report, Trust};
 use crate::rules::{Kind, Rules};
 use crate::tar::{self, Member};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
-use woltrust::Trust;
 
 /// Largest `.wol` read: the hub downloads at most 1 GiB (ADR 0047, H6).
 pub const MAX_WOL: usize = 1 << 30;

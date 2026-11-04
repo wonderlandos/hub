@@ -17,6 +17,7 @@ export const RULES = {
   reports: { name: "reports", limit: 5, window: 86400 },       // per person
   releases: { name: "releases", limit: 20, window: 86400 },    // per listing owner
   pipeline: { name: "pipeline", limit: 120, window: 60 },      // per pipeline run
+  certRequests: { name: "cert-requests", limit: 3, window: 86400 }, // per person
 } satisfies Record<string, Rule>;
 
 export const MAX_LISTINGS_PER_PERSON = 50;

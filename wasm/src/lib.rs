@@ -22,7 +22,7 @@ pub mod trust;
 
 pub use files::check;
 pub use manifest::validate_manifest;
-pub use report::{FileId, Report};
+pub use report::{CertInfo, Class, FileId, Report, Trust};
 pub use rules::Kind;
 pub use trust::{Anchors, RevokedList, StoreFile, Trusted, inspect, verify, verify_seen};
-pub use woltrust::{CertInfo, Finding, Origin, Trust, Verdict};
+pub use woltrust::{Finding, Origin, Verdict};

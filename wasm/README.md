@@ -12,8 +12,11 @@ inspect(bytes, kind, store, now)    -> Report   both: verdict from the rules, tr
 ```
 
 The report (I7): `{verdict, findings, trust, cert?, origin?, file?}`, keys omitted when absent.
-`cert` is woltrust's `{serial, subject, level, verified_at?}` (`subject.org` when the person signs for an
-organisation). `origin` is `{repo, tag, commit, built}`, present only when the signature carries an origin that
+`trust` is `wolos | trusted | origin | community | withdrawn | invalid` (two certificate classes, lead 02:18Z,
+TRUST-core-4 #plan 7293). `cert` is `{serial, subject, level, class?, verified_at?}` (`subject.org` when the person
+signs for an organisation); `class` is `origin` or `trusted`, omitted for WolOS signers. Until woltrust reports the
+class, hubcheck reads `"class"` from the signer's signed body (absent = `origin`) and turns woltrust's `verified`
+into `trusted` or `origin`; the vector replay still compares woltrust's own report, so it keeps `verified`. `origin` is `{repo, tag, commit, built}`, present only when the signature carries an origin that
 checked out: woltrust checks that the repository owner is the certificate's login or organisation (WolOS signers:
 `wonderlandos`), else trust is `invalid` with the finding `trust/origin-mismatch` and no `origin`. `file` is
 `{id, version?}` read from the manifest (`Info.json`, `plugin.toml`, `extension.toml`), present when the id has

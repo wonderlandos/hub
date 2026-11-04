@@ -34,17 +34,17 @@ test("no publish without the CLA; after accepting, the listing is created as a d
 
 test("a new CLA version must be accepted again; a stale hash is refused", async () => {
   const c = await signIn(env, gh, alice);
-  expect((await req(env, "POST", "/api/cla", { cookie: c, body: { version: "0-placeholder", sha256: "0".repeat(64) } })).status).toBe(409);
+  expect((await req(env, "POST", "/api/cla", { cookie: c, body: { version: "1", sha256: "0".repeat(64) } })).status).toBe(409);
   await acceptCla(env, c);
   const { CLAS } = await import("../src/cla");
-  CLAS["1"] = "Version one.";
-  const env2 = { ...env, CLA_VERSION: "1" };
+  CLAS["2"] = "Version two.";
+  const env2 = { ...env, CLA_VERSION: "2" };
   try {
     const r = await req(env2, "POST", "/api/listings", { cookie: c, body: listing() });
     expect(((await r.json()) as any).error).toBe("cla-needed");
     const me = await (await req(env2, "GET", "/api/me", { cookie: c })).json() as any;
-    expect(me.cla).toMatchObject({ current: "1", accepted: "0-placeholder", ok: false });
-  } finally { delete CLAS["1"]; }
+    expect(me.cla).toMatchObject({ current: "2", accepted: "1", ok: false });
+  } finally { delete CLAS["2"]; }
 });
 
 test("a listing must be in the owner's namespace, bound to a public repository the owner owns", async () => {

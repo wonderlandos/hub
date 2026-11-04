@@ -6,7 +6,7 @@ import type { Env } from "./env";
 import { now } from "./env";
 import { fail, json, readJson, sameOrigin, str } from "./http";
 import { requireSession } from "./session";
-import { requireCla } from "./cla";
+import { requireCla, requireTerms } from "./cla";
 import { liveRole } from "./orgs";
 import { getRepo } from "./github";
 import { limit, MAX_LISTINGS_PER_PERSON, RULES } from "./ratelimit";
@@ -83,6 +83,7 @@ export async function postListing(ctx: Ctx): Promise<Response> {
   const s = await requireSession(ctx);
   await limit(ctx.env, RULES.writePerson, s.person.github_id);
   await requireCla(ctx.env, "person", s.person.github_id);
+  await requireTerms(ctx.env, "publisher", s.person.github_id);
   const b = await readJson(ctx.req);
 
   const id = str(b.id, "id", 128).toLowerCase();

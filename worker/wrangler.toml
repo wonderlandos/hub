@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# The hub Worker: sign-in, CLA, listings, release webhooks, reports, pipeline API.
+# The hub Worker: sign-in, CLA, listings, release webhooks, reports, pipeline API,
+# certificate requests and the admin panel.
 # Free plan only: no paid bindings. Secrets are set by the lead (see README.md).
 name = "wolos-hub"
 main = "src/index.ts"
 compatibility_date = "2026-11-03"
 workers_dev = false
+# cla/CLA.md is bundled as text (src/cla.ts).
+rules = [{ type = "Text", globs = ["**/*.md"], fallthrough = false }]
 routes = [
   { pattern = "hub.wolos.org/auth/*", zone_name = "wolos.org" },
   { pattern = "hub.wolos.org/api/*", zone_name = "wolos.org" },
@@ -18,8 +21,16 @@ PIPELINE_CHECK_WORKFLOW = "wonderlandos/hub-index/.github/workflows/check.yml@re
 PIPELINE_CHECK_ENVIRONMENT = "check"
 PIPELINE_SIGN_WORKFLOW = "wonderlandos/hub-index/.github/workflows/sign.yml@refs/heads/main"
 PIPELINE_SIGN_ENVIRONMENT = "sign"
+PIPELINE_CA_WORKFLOW = "wonderlandos/hub-index/.github/workflows/ca.yml@refs/heads/main"
+PIPELINE_CA_ENVIRONMENT = "ca"
 RATE_STORE = "d1"
-CLA_VERSION = "0-placeholder"
+# The version line of cla/CLA.md.
+CLA_VERSION = "1"
+# Hub admins (GitHub logins, comma separated): approve certificate requests, handle reports.
+# Keep it equal to the hub-index variable CA_APPROVERS.
+ADMINS = "kleeedolinux"
+# "true" starts ca.yml as a dry run (TEST CA) after an approval; "false" issues for real.
+CA_DISPATCH_DRY_RUN = "false"
 
 # Created by the lead with `wrangler d1 create wolos-hub`; the id below is a placeholder.
 [[d1_databases]]

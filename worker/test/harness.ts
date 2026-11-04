@@ -6,7 +6,7 @@ import { Database } from "bun:sqlite";
 import { readFileSync } from "node:fs";
 import { handle } from "../src/index";
 import type { Env } from "../src/env";
-import { b64url, utf8, webhookSignature } from "../src/crypto";
+import { b64url, unb64url, utf8, webhookSignature } from "../src/crypto";
 import { resetJwksCache } from "../src/pipeline";
 
 export const ORIGIN = "https://hub.wolos.org";
@@ -80,7 +80,9 @@ export function makeEnv(over: Partial<Env> = {}): Env & { DB: FakeD1; KV: FakeKV
     PIPELINE_CHECK_ENVIRONMENT: "check",
     PIPELINE_SIGN_WORKFLOW: "wonderlandos/hub-index/.github/workflows/sign.yml@refs/heads/main",
     PIPELINE_SIGN_ENVIRONMENT: "sign",
-    RATE_STORE: "d1", CLA_VERSION: "0-placeholder",
+    PIPELINE_CA_WORKFLOW: "wonderlandos/hub-index/.github/workflows/ca.yml@refs/heads/main",
+    PIPELINE_CA_ENVIRONMENT: "ca",
+    RATE_STORE: "d1", CLA_VERSION: "1", ADMINS: "carol-ca, dave",
     GITHUB_WEB: "https://gh.test", GITHUB_API: "https://api.gh.test", OIDC_ISSUER: "https://oidc.test",
     ...over,
   } as never;
@@ -89,6 +91,8 @@ export function makeEnv(over: Partial<Env> = {}): Env & { DB: FakeD1; KV: FakeKV
 // ---- mocked GitHub -----------------------------------------------------------------------
 export interface FakeUser { id: number; login: string; name: string; created_at: string }
 export interface FakeRepo { id: number; full_name: string; private: boolean; owner: { id: number; login: string; type: string } }
+
+const INSTALL_TOKEN = "ghs_installationtoken000000000";
 
 export class FakeGitHub {
   users = new Map<string, FakeUser>();        // access token -> user
@@ -99,6 +103,40 @@ export class FakeGitHub {
   tokenBodies: Record<string, string>[] = [];
   jwks: JsonWebKey[] = [];
   expiresIn: number | undefined = 28800;
+  // The hub GitHub App acting as itself (ghapp.ts): its public key, its installation, what it was asked.
+  app: { publicKey: CryptoKey; installationId: number } | null = null;
+  installTokenBodies: Record<string, unknown>[] = [];
+  dispatches: { path: string; token: string; body: Record<string, unknown> }[] = [];
+  dispatchStatus = 204;
+
+  /** GitHub App endpoints (JWT, installation token, workflow dispatch); null when the path is not one. */
+  async appCall(path: string, method: string, tok: string, body: unknown): Promise<Response | null> {
+    const j = (b: unknown, status = 200) => new Response(b === null ? null : JSON.stringify(b), { status, headers: { "content-type": "application/json" } });
+    const appJwtOk = async () => {
+      if (!this.app) return false;
+      const [h, p, sig] = tok.split(".");
+      if (!sig) return false;
+      const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", this.app.publicKey, unb64url(sig), utf8(`${h}.${p}`));
+      const c = JSON.parse(new TextDecoder().decode(unb64url(p)));
+      const t = Math.floor(Date.now() / 1000);
+      return ok && c.iss === SECRETS.GITHUB_APP_ID && c.exp > t && c.exp - c.iat <= 600;
+    };
+    if (path === "/repos/wonderlandos/hub-index/installation" && method === "GET") {
+      return (await appJwtOk()) ? j({ id: this.app!.installationId }) : j({ message: "A JSON web token could not be decoded" }, 401);
+    }
+    const it = path.match(/^\/app\/installations\/(\d+)\/access_tokens$/);
+    if (it && method === "POST") {
+      if (!(await appJwtOk()) || Number(it[1]) !== this.app!.installationId) return j({ message: "Bad credentials" }, 401);
+      this.installTokenBodies.push(JSON.parse(String(body)));
+      return j({ token: INSTALL_TOKEN, expires_at: "2099-01-01T00:00:00Z", permissions: { actions: "write" } }, 201);
+    }
+    if (/^\/repos\/[^/]+\/[^/]+\/actions\/workflows\/[^/]+\/dispatches$/.test(path) && method === "POST") {
+      if (tok !== INSTALL_TOKEN) return j({ message: "Bad credentials" }, 401);
+      this.dispatches.push({ path, token: tok, body: JSON.parse(String(body)) });
+      return j(this.dispatchStatus === 204 ? null : { message: "No ref found" }, this.dispatchStatus);
+    }
+    return null;
+  }
 
   addUser(u: FakeUser, token = `ghu_${u.login}token0000000000`) { this.users.set(token, u); return token; }
 
@@ -124,6 +162,8 @@ export class FakeGitHub {
     }
     if (url.origin === "https://api.gh.test") {
       const tok = (new Headers(init?.headers).get("authorization") ?? "").replace("Bearer ", "");
+      const app = await this.appCall(url.pathname, init?.method ?? "GET", tok, init?.body);
+      if (app) return app;
       const u = this.users.get(tok);
       if (!u) return j({ message: "Bad credentials" }, 401);
       if (url.pathname === "/user") return j(u);
@@ -138,6 +178,18 @@ export class FakeGitHub {
     if (url.origin === "https://oidc.test" && url.pathname === "/.well-known/jwks") return j({ keys: this.jwks });
     return new Response("unexpected " + url, { status: 599 });
   };
+}
+
+/** Registers the hub GitHub App with a fresh RSA key; returns its private key as PEM (PKCS#8 or GitHub's PKCS#1). */
+export async function appKey(gh: FakeGitHub, format: "pkcs8" | "pkcs1" = "pkcs1"): Promise<string> {
+  const { generateKeyPairSync } = await import("node:crypto");
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const spki = publicKey.export({ type: "spki", format: "der" });
+  gh.app = {
+    publicKey: await crypto.subtle.importKey("spki", spki, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]),
+    installationId: 4242,
+  };
+  return privateKey.export({ type: format, format: "pem" }) as string;
 }
 
 export function install(gh: FakeGitHub) {
@@ -180,14 +232,28 @@ export async function signIn(env: Env, gh: FakeGitHub, u: FakeUser, next = "/"):
   return cookiePair(cookieFrom(r2, "__Host-hub_session"));
 }
 
-export async function acceptCla(env: Env, cookie: string) {
+/** Accepts what a publisher needs: the CLA and the Publisher Agreement. */
+export async function acceptCla(env: Env, cookie: string, publisher = true) {
   const cla = await (await req(env, "GET", "/api/cla")).json() as { version: string; sha256: string };
-  return req(env, "POST", "/api/cla", { cookie, body: { version: cla.version, sha256: cla.sha256 } });
+  const r = await req(env, "POST", "/api/cla", { cookie, body: { version: cla.version, sha256: cla.sha256 } });
+  if (publisher) await acceptTerms(env, cookie, "publisher");
+  return r;
+}
+export async function acceptTerms(env: Env, cookie: string, doc: "publisher" | "trust") {
+  return req(env, "POST", `/api/terms/${doc}`, { cookie, body: await termsAnswer(env, doc) });
+}
+/** {version, sha256} of the current text, as the site sends it after showing the text. */
+export async function termsAnswer(env: Env, doc: "cla" | "publisher" | "trust") {
+  const t = await (await req(env, "GET", `/api/terms/${doc}`)).json() as { version: string; sha256: string };
+  return { version: t.version, sha256: t.sha256 };
 }
 
 export const OLD = "2020-01-01T00:00:00Z";
 export const alice: FakeUser = { id: 1001, login: "Alice", name: "Alice Doe", created_at: OLD };
 export const bob: FakeUser = { id: 1002, login: "bob", name: "Bob Roe", created_at: OLD };
+/** Hub admins (makeEnv ADMINS). */
+export const carol: FakeUser = { id: 1003, login: "carol-ca", name: "Carol Admin", created_at: OLD };
+export const dave: FakeUser = { id: 1004, login: "Dave", name: "Dave Admin", created_at: OLD };
 
 // ---- webhooks and OIDC -------------------------------------------------------------------
 export async function hook(env: Env, event: string, payload: unknown, delivery = crypto.randomUUID(), secret = SECRETS.WEBHOOK_SECRET) {
@@ -210,7 +276,7 @@ export async function oidcKey(gh: FakeGitHub, kid = "k1") {
   return { kid, key: kp.privateKey };
 }
 
-export function claims(job: "check" | "sign", over: Record<string, unknown> = {}) {
+export function claims(job: "check" | "sign" | "ca", over: Record<string, unknown> = {}) {
   const t = Math.floor(Date.now() / 1000);
   return {
     iss: "https://oidc.test", aud: "hub.wolos.org", sub: `repo:wonderlandos/hub-index:environment:${job}`,

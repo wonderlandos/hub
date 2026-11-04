@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The contributor licence agreement. Versioned: a new version must be accepted again
-// before the next publish. The text is the lead's; until then a placeholder.
+// The hub's three texts, each versioned and hashed (SHA-256 of exactly the bytes served):
+//   cla        the contributor agreement, accepted at sign-in (cla/CLA.md; a person, or an org by an owner)
+//   publisher  the Publisher Agreement, accepted before the first publish (cla/PUBLISHER-AGREEMENT.md)
+//   trust      the Trust Terms, accepted with every certificate request (cla/TRUST-TERMS.md)
+// The files are bundled as text (wrangler.toml rules). A text's version is its "Version N, date."
+// line; CLA_VERSION, when set, must name the CLA's. A new version must be accepted again.
 
 import type { Ctx } from "./ctx";
 import type { Env } from "./env";
@@ -9,18 +13,36 @@ import { sha256hex } from "./crypto";
 import { fail, json, readJson, sameOrigin, str } from "./http";
 import { requireSession } from "./session";
 import { audit } from "./audit";
+import CLA_TEXT from "../cla/CLA.md" with { type: "text" };
+import PUBLISHER_TEXT from "../cla/PUBLISHER-AGREEMENT.md" with { type: "text" };
+import TRUST_TEXT from "../cla/TRUST-TERMS.md" with { type: "text" };
 
-export const CLAS: Record<string, string> = {
-  "0-placeholder": "CLA text to come from the lead.",
-};
+/** The version a text names on its "Version N, date." line. */
+export const textVersion = (text: string) => text.match(/^Version ([0-9A-Za-z.-]{1,32}), /m)?.[1] ?? null;
 
+export const DOCS = ["cla", "publisher", "trust"] as const;
+export type Doc = (typeof DOCS)[number];
+export const DOC_NAMES: Record<Doc, string> = { cla: "contributor agreement", publisher: "Publisher Agreement", trust: "Trust Terms" };
+
+const byVersion = (text: string): Record<string, string> => ({ [textVersion(text) ?? "unversioned"]: text });
+/** Known texts per document and version (tests add versions). */
+export const TEXTS: Record<Doc, Record<string, string>> = { cla: byVersion(CLA_TEXT), publisher: byVersion(PUBLISHER_TEXT), trust: byVersion(TRUST_TEXT) };
+export const CLAS = TEXTS.cla;
+const CURRENT: Record<Doc, string> = { cla: textVersion(CLA_TEXT)!, publisher: textVersion(PUBLISHER_TEXT)!, trust: textVersion(TRUST_TEXT)! };
+
+export interface Text { doc: Doc; version: string; text: string; sha256: string }
 export interface Cla { version: string; text: string; sha256: string }
 
+export async function currentText(env: Env, doc: Doc, versionOver?: string): Promise<Text> {
+  const version = versionOver ?? (doc === "cla" ? env.CLA_VERSION ?? CURRENT.cla : CURRENT[doc]);
+  const text = TEXTS[doc][version];
+  if (text === undefined) throw new Error(`no ${doc} text for version ${version}`);
+  return { doc, version, text, sha256: await sha256hex(text) };
+}
+
 export async function currentCla(env: Env): Promise<Cla> {
-  const version = env.CLA_VERSION ?? "0-placeholder";
-  const text = CLAS[version];
-  if (text === undefined) throw new Error("CLA_VERSION names no known text");
-  return { version, text, sha256: await sha256hex(text) };
+  const { version, text, sha256 } = await currentText(env, "cla");
+  return { version, text, sha256 };
 }
 
 export interface ClaStatus { current: string; accepted: string | null; accepted_at: number | null; ok: boolean }
@@ -44,15 +66,40 @@ export async function requireCla(env: Env, kind: "person" | "org", id: number): 
   }
 }
 
-/** Checks that the body names the current version and the hash of its text. */
-export async function acceptedBody(env: Env, body: Record<string, unknown>): Promise<Cla> {
-  const cla = await currentCla(env);
+/** Publisher Agreement and Trust Terms: what the person accepted last. */
+export async function termsStatus(env: Env, doc: "publisher" | "trust", githubId: number): Promise<ClaStatus> {
+  const cur = await currentText(env, doc);
+  const row = await env.DB.prepare(
+    "SELECT version, accepted_at FROM terms_acceptances WHERE doc = ? AND github_id = ? ORDER BY accepted_at DESC, id DESC LIMIT 1",
+  ).bind(doc, githubId).first<{ version: string; accepted_at: number }>();
+  return { current: cur.version, accepted: row?.version ?? null, accepted_at: row?.accepted_at ?? null, ok: row?.version === cur.version };
+}
+
+export async function requireTerms(env: Env, doc: "publisher" | "trust", githubId: number): Promise<void> {
+  const s = await termsStatus(env, doc, githubId);
+  if (!s.ok) fail(403, `${doc}-terms-needed`, `Accept the ${DOC_NAMES[doc]} (version ${s.current}) first.`);
+}
+
+/** Checks that a body names the current version of a text and the hash of exactly that text. */
+export async function acceptedText(env: Env, doc: Doc, body: Record<string, unknown>): Promise<Text> {
+  const cur = await currentText(env, doc);
   const v = str(body.cla_version ?? body.version, "version", 64);
   const h = str(body.cla_sha256 ?? body.sha256, "sha256", 64);
-  if (v !== cla.version || h !== cla.sha256) {
-    fail(409, "cla-changed", "The contributor agreement changed. Read the current version and accept it again.");
+  if (v !== cur.version || h !== cur.sha256) {
+    fail(409, doc === "cla" ? "cla-changed" : "terms-changed", `The ${DOC_NAMES[doc]} changed. Read the current version and accept it again.`);
   }
-  return cla;
+  return cur;
+}
+
+export const acceptedBody = (env: Env, body: Record<string, unknown>): Promise<Cla> => acceptedText(env, "cla", body);
+
+/** The statements that record a person's acceptance of the Publisher Agreement or the Trust Terms. */
+export function acceptTerms(db: D1Database, doc: "publisher" | "trust", githubId: number, t: Text): D1PreparedStatement[] {
+  return [
+    db.prepare("INSERT OR IGNORE INTO terms_acceptances (doc, github_id, version, sha256, accepted_at) VALUES (?, ?, ?, ?, ?)")
+      .bind(doc, githubId, t.version, t.sha256, now()),
+    audit(db, "person", githubId, `${doc}.accept`, `person:${githubId}`, { version: t.version }),
+  ];
 }
 
 export async function getCla(ctx: Ctx): Promise<Response> {
@@ -72,4 +119,25 @@ export async function postCla(ctx: Ctx): Promise<Response> {
     audit(db, "person", s.person.github_id, "cla.accept", `person:${s.person.github_id}`, { version: cla.version }),
   ]);
   return json({ cla: await claStatus(ctx.env, "person", s.person.github_id) });
+}
+
+const docOf = (name: string): Doc => {
+  if (!DOCS.includes(name as Doc)) fail(404, "no-terms", "There is no such text. Ask for cla, publisher or trust.");
+  return name as Doc;
+};
+
+/** GET /api/terms/<cla|publisher|trust>: {doc, version, text, sha256}. */
+export async function getTerms(ctx: Ctx, name: string): Promise<Response> {
+  return json(await currentText(ctx.env, docOf(name)), 200, { "cache-control": "public, max-age=300" });
+}
+
+/** POST /api/terms/<cla|publisher|trust> {version, sha256}: accept the current text. */
+export async function postTerms(ctx: Ctx, name: string): Promise<Response> {
+  const doc = docOf(name);
+  if (doc === "cla") return postCla(ctx);
+  sameOrigin(ctx.req, ctx.env);
+  const s = await requireSession(ctx);
+  const t = await acceptedText(ctx.env, doc, await readJson(ctx.req));
+  await ctx.env.DB.batch(acceptTerms(ctx.env.DB, doc, s.person.github_id, t));
+  return json({ terms: { [doc]: await termsStatus(ctx.env, doc, s.person.github_id) } });
 }

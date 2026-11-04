@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Reports against a listing. Only the reporter and moderators can read a report.
+// Reports against a listing. Only the reporter, moderators and hub admins can read a report.
 
 import type { Ctx } from "./ctx";
 import { now } from "./env";
@@ -8,6 +8,7 @@ import { requireSession } from "./session";
 import { limit, RULES } from "./ratelimit";
 import { validId } from "./listings";
 import { audit } from "./audit";
+import { isAdmin } from "./admin";
 
 export const REASONS = ["malware", "impersonation", "broken", "license", "conduct"] as const;
 export const MIN_ACCOUNT_AGE = 7 * 86400;
@@ -51,7 +52,7 @@ export async function getReport(ctx: Ctx, id: string): Promise<Response> {
   const s = await requireSession(ctx);
   const n = /^[1-9][0-9]{0,15}$/.test(id) ? Number(id) : 0;
   const r = n ? await ctx.env.DB.prepare("SELECT * FROM reports WHERE id = ?").bind(n).first<ReportRow>() : null;
-  const may = r && (r.reporter === s.person.github_id || s.person.role === "moderator");
+  const may = r && (r.reporter === s.person.github_id || s.person.role === "moderator" || isAdmin(ctx.env, s.person));
   if (!may) fail(404, "no-report", "There is no report with that number that you can see.");
   return json({ report: view(r!) });
 }

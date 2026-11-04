@@ -2,7 +2,7 @@
 //! A fixture `.wol` in the package format of the OS (format 2 with CHAIN and SHA256.wsig) goes
 //! through `verify` and `inspect`, and the I7 JSON has exactly the frozen shape.
 use hubcheck::fixtures::{Fixture, Signer};
-use hubcheck::{Kind, Trust, Verdict};
+use hubcheck::{Class, Kind, Trust, Verdict};
 use woltrust::revoked::Reason;
 
 fn run(f: &Fixture, bytes: &[u8], kind: Kind, now: u64) -> hubcheck::Trusted {
@@ -13,15 +13,35 @@ fn run(f: &Fixture, bytes: &[u8], kind: Kind, now: u64) -> hubcheck::Trusted {
 #[test]
 fn a_person_an_organisation_and_wolos_are_told_apart() {
     let f = Fixture::new();
-    for (id, who, trust, level) in [
-        ("alice.notes", Signer::Alice, Trust::Verified, "verified"),
-        ("examplelabs.tool", Signer::Org, Trust::Verified, "verified"),
-        ("org.wolos.notes", Signer::Wolos, Trust::Wolos, "wolos"),
+    for (id, who, trust, level, class) in [
+        (
+            "alice.notes",
+            Signer::Alice,
+            Trust::Origin,
+            "verified",
+            Some(Class::Origin),
+        ),
+        (
+            "examplelabs.tool",
+            Signer::Org,
+            Trust::Origin,
+            "verified",
+            Some(Class::Origin),
+        ),
+        (
+            "org.wolos.notes",
+            Signer::Wolos,
+            Trust::Wolos,
+            "wolos",
+            None,
+        ),
     ] {
         let t = run(&f, &f.wol(id, who), Kind::App, f.now);
         assert_eq!((t.trust, t.code.as_str()), (trust, "ok"), "{id}");
         let c = t.cert.expect("cert");
         assert_eq!(serde_json::to_value(c.level).unwrap(), level);
+        // The fixture certificates carry no "class": absent is origin; WolOS signers have none.
+        assert_eq!(c.class, class, "{id}");
         assert!(t.findings.is_empty());
     }
 }
@@ -62,7 +82,7 @@ fn unsigned_wrong_namespace_expired_revoked_and_tampered() {
     let plug = f.plugin("alice.weather", &[("plugin.toml", b"x")], Signer::Alice);
     let as_ext = run(&f, &plug, Kind::Extension, f.now);
     assert_eq!(as_ext.code, "bad-signature");
-    assert_eq!(run(&f, &plug, Kind::Plugin, f.now).trust, Trust::Verified);
+    assert_eq!(run(&f, &plug, Kind::Plugin, f.now).trust, Trust::Origin);
 }
 
 #[test]
@@ -88,7 +108,7 @@ fn changing_a_file_after_signing_is_invalid_and_blocked() {
     // The signature on its own still checks out: it covers the list, not the files.
     assert_eq!(
         hubcheck::verify(&bad, Kind::App, &s.anchors, &s.revoked, f.now).trust,
-        Trust::Verified
+        Trust::Origin
     );
 }
 
@@ -140,7 +160,9 @@ fn the_report_json_has_exactly_the_frozen_keys() {
     );
     let mut c: Vec<_> = v["cert"].as_object().unwrap().keys().cloned().collect();
     c.sort();
-    assert_eq!(c, ["level", "serial", "subject"]);
+    assert_eq!(c, ["class", "level", "serial", "subject"]);
+    assert_eq!(v["cert"]["class"], "origin");
+    assert_eq!(v["trust"], "origin");
     assert_eq!(v["verdict"], "pass");
     // Unsigned: no cert key at all, and one finding with the three keys of I7.
     let u = hubcheck::api::inspect_json(
@@ -165,8 +187,15 @@ fn the_report_json_has_exactly_the_frozen_keys() {
     for x in [&v, &u] {
         assert!(["pass", "flag", "block", "not-checked"].contains(&x["verdict"].as_str().unwrap()));
         assert!(
-            ["wolos", "verified", "community", "withdrawn", "invalid"]
-                .contains(&x["trust"].as_str().unwrap())
+            [
+                "wolos",
+                "trusted",
+                "origin",
+                "community",
+                "withdrawn",
+                "invalid"
+            ]
+            .contains(&x["trust"].as_str().unwrap())
         );
     }
 }
@@ -216,7 +245,7 @@ fn a_signed_origin_is_shown_and_checked_against_the_certificate() {
         &ours, "app", &store, f.now, None,
     ))
     .unwrap();
-    assert_eq!(v["trust"], "verified", "{v}");
+    assert_eq!(v["trust"], "origin", "{v}");
     assert_eq!(v["origin"]["repo"], "https://github.com/Alice/notes");
     assert_eq!(v["origin"]["tag"], "v1.0");
     assert_eq!(
@@ -246,7 +275,7 @@ fn a_signed_origin_is_shown_and_checked_against_the_certificate() {
     // No origin: no key.
     let plain = f.wol("alice.notes", Signer::Alice);
     let v = hubcheck::api::inspect_json(&plain, "app", &store, f.now, None);
-    assert!(!v.contains("\"origin\""), "{v}");
+    assert!(!v.contains("\"origin\":"), "{v}");
 }
 
 #[test]
@@ -290,4 +319,82 @@ fn the_report_names_the_id_and_version_of_the_manifest() {
     let bad_id = toml.replace("id = \"alice.weather\"", "id = \"Alice Weather\"");
     assert!(file(hubcheck::api::manifest_json(&bad_id, "plugin")).is_null());
     assert!(file(hubcheck::api::check_json(b"junk", "app")).is_null());
+}
+
+#[test]
+fn the_class_is_read_from_the_signed_body_and_absent_is_origin() {
+    use woltrust::b64::encode;
+    let f = Fixture::new();
+    let store = hubcheck::trust::store(&f.store().anchors, &f.store().revoked, f.now);
+    let env = |body: &str| {
+        format!(
+            r#"{{"format":1,"body":"{}","sig":{{}}}}"#,
+            encode(body.as_bytes())
+        )
+    };
+    let chain = format!(
+        "[{},{}]",
+        env(r#"{"serial":"00000000000000aa","class":"trusted","origin_cert":"00000000000000bb"}"#),
+        env(r#"{"serial":"00000000000000bb"}"#)
+    );
+    let c = Some(chain.as_bytes());
+    assert_eq!(
+        hubcheck::trust::class_of(c, &store, "00000000000000aa"),
+        Class::Trusted
+    );
+    assert_eq!(
+        hubcheck::trust::class_of(c, &store, "00000000000000bb"),
+        Class::Origin
+    );
+    assert_eq!(
+        hubcheck::trust::class_of(c, &store, "unknown"),
+        Class::Origin
+    );
+    assert_eq!(
+        hubcheck::trust::class_of(Some(b"junk"), &store, "x"),
+        Class::Origin
+    );
+    assert_eq!(hubcheck::trust::class_of(None, &store, "x"), Class::Origin);
+    assert_eq!(Class::of_body(br#"{"class":"Trusted"}"#), Class::Origin);
+    // woltrust's verdicts map one to one; `verified` splits by class.
+    use woltrust::Trust as W;
+    for (w, class, want) in [
+        (W::Verified, Some(Class::Trusted), Trust::Trusted),
+        (W::Verified, Some(Class::Origin), Trust::Origin),
+        (W::Verified, None, Trust::Origin),
+        (W::Wolos, Some(Class::Trusted), Trust::Wolos),
+        (W::Community, Some(Class::Trusted), Trust::Community),
+        (W::Withdrawn, None, Trust::Withdrawn),
+        (W::Invalid, None, Trust::Invalid),
+    ] {
+        assert_eq!(Trust::of(w, class), want, "{w:?} {class:?}");
+    }
+    let words: Vec<String> = [
+        Trust::Wolos,
+        Trust::Trusted,
+        Trust::Origin,
+        Trust::Community,
+        Trust::Withdrawn,
+        Trust::Invalid,
+    ]
+    .iter()
+    .map(|t| {
+        serde_json::to_value(t)
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_owned()
+    })
+    .collect();
+    assert_eq!(
+        words,
+        [
+            "wolos",
+            "trusted",
+            "origin",
+            "community",
+            "withdrawn",
+            "invalid"
+        ]
+    );
 }

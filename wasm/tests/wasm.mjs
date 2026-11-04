@@ -50,15 +50,17 @@ ok(`check, verify and inspect of ${same.length} files print the native bytes`);
 const person = JSON.parse(wasm.inspect(fx("person.wol"), "app", store, Number(now)));
 assert.deepEqual(Object.keys(person).sort(), ["cert", "file", "findings", "trust", "verdict"]);
 assert.deepEqual(person.file, { id: "alice.notes", version: "1.0" });
-assert.equal(person.trust, "verified");
+assert.equal(person.trust, "origin");
+assert.equal(person.cert.class, "origin");
+assert.equal(JSON.parse(wasm.inspect(fx("wolos.wol"), "app", store, Number(now))).cert.class, undefined);
 assert.equal(person.verdict, "pass");
 assert.equal(JSON.parse(wasm.inspect(fx("wolos.wol"), "app", store, Number(now))).trust, "wolos");
 assert.equal(JSON.parse(wasm.verify(fx("namespace.wol"), "app", store, Number(now))).code, "wrong-namespace");
 const origin = JSON.parse(wasm.inspect(fx("origin.wol"), "app", store, Number(now)));
-assert.equal(origin.trust, "verified");
+assert.equal(origin.trust, "origin");
 assert.equal(origin.origin.repo, "https://github.com/alice/notes");
 assert.equal(JSON.parse(wasm.inspect(fx("weather.wolplug"), "plugin", store, Number(now))).findings.some((f) => f.rule === "file/not-compressed" || f.rule === "file/compressed"), false);
-ok("fixture .wol: verified, wolos, wrong namespace, origin; the zstd .wolplug is unpacked");
+ok("fixture .wol: origin class, wolos, wrong namespace, origin; the zstd .wolplug is unpacked");
 
 // A manifest on its own.
 const toml = "schema = 1\nid = \"alice.x\"\nname = \"X\"\nversion = \"1\"\nlicense = \"MIT\"\n";

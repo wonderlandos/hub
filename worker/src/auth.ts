@@ -11,9 +11,10 @@ import {
   clearCookie, OAUTH_COOKIE, optionalSession, requireSession, SESSION_COOKIE, sessionCookie, sessionFromTokens, signValue, verifyValue,
 } from "./session";
 import { memberships, orgView, syncMemberships } from "./orgs";
-import { claStatus } from "./cla";
+import { claStatus, termsStatus } from "./cla";
 import { audit } from "./audit";
 import { log } from "./log";
+import { isAdmin } from "./admin";
 
 interface OAuthState { s: string; v: string; n: string; exp: number }
 
@@ -113,8 +114,9 @@ export async function me(ctx: Ctx): Promise<Response> {
   }
   const p = s.person;
   return json({
-    github_id: p.github_id, login: p.login, name: p.name, avatar: p.avatar, role: p.role,
+    github_id: p.github_id, login: p.login, name: p.name, avatar: p.avatar, role: p.role, admin: isAdmin(ctx.env, p),
     cla: await claStatus(ctx.env, "person", p.github_id),
+    terms: { publisher: await termsStatus(ctx.env, "publisher", p.github_id), trust: await termsStatus(ctx.env, "trust", p.github_id) },
     orgs: await Promise.all(list.map((m) => orgView(ctx, m))),
   });
 }

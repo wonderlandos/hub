@@ -51,7 +51,8 @@ test("callback exchanges the code with the verifier, creates the person and sets
   expect(body.github_id).toBe(1001);
   expect(body.login).toBe("Alice");
   expect(body.name).toBe("Alice Doe");
-  expect(body.cla).toEqual({ current: "0-placeholder", accepted: null, accepted_at: null, ok: false });
+  expect(body.cla).toEqual({ current: "1", accepted: null, accepted_at: null, ok: false });
+  expect(body.admin).toBe(false);
   expect(body.orgs).toEqual([{ github_org_id: 501, login: "examplelabs", role: "owner", linked: false, cla: null }]);
 });
 

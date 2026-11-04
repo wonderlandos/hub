@@ -4,10 +4,10 @@
 //! is read from disk or the clock; the roots, the intermediates, the revocation lists and the time
 //! come in as arguments.
 use crate::files::{self, CHAIN, WSIG};
-use crate::report::Report;
+use crate::report::{CertInfo, Class, Report, Trust};
 use crate::rules::Kind;
 use serde::{Deserialize, Serialize};
-use woltrust::{CertInfo, Finding, Input, Origin, Store, Trust, Verdict};
+use woltrust::{Finding, Input, Origin, Store, Verdict};
 
 /// Pinned roots and known intermediates, as the text of `.wolcert` files.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -168,9 +168,13 @@ pub fn verify_in(
     );
     let list_expires = out.list_expires;
     let stale = out.stale;
-    let cert = out.cert.clone();
+    let class = out
+        .cert
+        .as_ref()
+        .map(|c| class_of(l.get(CHAIN), store, &c.serial));
+    let cert = out.cert.clone().map(|c| CertInfo::of(c, class));
     let origin = out.origin.clone();
-    let trust = out.trust;
+    let trust = Trust::of(out.trust, class);
     let code = out.code.as_str().to_owned();
     let report = out.report(Verdict::Pass, Vec::new());
     Trusted {
@@ -182,6 +186,38 @@ pub fn verify_in(
         origin,
         findings: report.findings,
     }
+}
+
+/// The class of the certificate `serial`, read from its signed body in the file's `CHAIN` or in the
+/// store (`"class"`, absent = `origin`). Read here until woltrust reports it; the pinned woltrust
+/// refuses a body with fields it does not know, so with it every signer it accepts is `origin`.
+pub fn class_of(chain: Option<&[u8]>, store: &Store, serial: &str) -> Class {
+    #[derive(Deserialize)]
+    struct Env {
+        body: String,
+    }
+    let from_chain = chain
+        .and_then(|c| serde_json::from_slice::<Vec<Env>>(c).ok())
+        .into_iter()
+        .flatten()
+        .take(woltrust::MAX_CHAIN_CERTS)
+        .filter_map(|e| woltrust::b64::decode(&e.body, woltrust::MAX_BODY))
+        .find(|b| {
+            serde_json::from_slice::<serde_json::Value>(b)
+                .ok()
+                .is_some_and(|v| {
+                    v.get("serial").and_then(serde_json::Value::as_str) == Some(serial)
+                })
+        });
+    let body = from_chain.or_else(|| {
+        store
+            .intermediates
+            .iter()
+            .chain(store.roots.iter())
+            .find(|c| c.body.serial == serial)
+            .map(|c| c.body_bytes.clone())
+    });
+    body.map_or(Class::Origin, |b| Class::of_body(&b))
 }
 
 /// [`verify_seen`] without a first-seen time. Interface I6: `verify(bytes, store, revoked, now) -> Trust`.

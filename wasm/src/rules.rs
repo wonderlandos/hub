@@ -3,8 +3,8 @@
 //! the system itself enforces broke, `not-checked` when the file could not be read to the end,
 //! `flag` for everything that is listed with a sentence, `pass` when nothing broke. A clean
 //! result means only that no rule broke (ADR 0022).
-use crate::report::{FileId, Report};
-use woltrust::{Finding, Trust, Verdict};
+use crate::report::{FileId, Report, Trust};
+use woltrust::{Finding, Verdict};
 
 /// Most findings kept in one report; the rest are counted in the last one.
 pub const MAX_FINDINGS: usize = 100;

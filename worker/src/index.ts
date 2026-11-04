@@ -7,13 +7,15 @@ import { makeCtx, type Ctx } from "./ctx";
 import { errorResponse, fail, HttpError, json } from "./http";
 import { limit, purge, RULES } from "./ratelimit";
 import { callback, login, logout, me } from "./auth";
-import { getCla, postCla } from "./cla";
+import { getCla, getTerms, postCla, postTerms } from "./cla";
 import { getOrgs, postOrgs } from "./orgs";
 import { getListing, postListing } from "./listings";
 import { webhook } from "./webhook";
 import { getReport, postReport } from "./reports";
 import { getPreview } from "./preview";
 import { exportIndex, pending, postVerdicts } from "./pipeline";
+import { getCerts, getMyCertRequests, pipelineCerts, pipelineRequest, postCertRequest } from "./certs";
+import { approveRequest, queue, refuseRequest, resolveReport, takedown } from "./admin";
 import { log } from "./log";
 
 export type { Env };
@@ -40,6 +42,19 @@ export const ROUTES: Route[] = [
   { method: "GET", path: /^\/api\/pipeline\/pending$/, handler: pending },
   { method: "POST", path: /^\/api\/pipeline\/verdicts$/, handler: postVerdicts },
   { method: "GET", path: /^\/api\/pipeline\/export$/, handler: exportIndex },
+  // Phase 2: the agreements, certificates and the admin panel.
+  { method: "GET", path: /^\/api\/terms\/([a-z]{1,16})$/, handler: getTerms },
+  { method: "POST", path: /^\/api\/terms\/([a-z]{1,16})$/, handler: postTerms, ipLimit: true },
+  { method: "POST", path: /^\/api\/cert\/request$/, handler: postCertRequest, ipLimit: true },
+  { method: "GET", path: /^\/api\/cert\/requests$/, handler: getMyCertRequests },
+  { method: "GET", path: /^\/api\/certs\/([^/]{1,39})$/, handler: getCerts },
+  { method: "GET", path: /^\/api\/pipeline\/requests\/([^/]{1,64})$/, handler: pipelineRequest },
+  { method: "POST", path: /^\/api\/pipeline\/certs$/, handler: pipelineCerts },
+  { method: "GET", path: /^\/api\/admin\/queue$/, handler: queue },
+  { method: "POST", path: /^\/api\/admin\/requests\/([^/]{1,64})\/approve$/, handler: approveRequest, ipLimit: true },
+  { method: "POST", path: /^\/api\/admin\/requests\/([^/]{1,64})\/refuse$/, handler: refuseRequest, ipLimit: true },
+  { method: "POST", path: /^\/api\/admin\/reports\/([^/]{1,20})\/resolve$/, handler: resolveReport, ipLimit: true },
+  { method: "POST", path: /^\/api\/admin\/reports\/([^/]{1,20})\/takedown$/, handler: takedown, ipLimit: true },
 ];
 
 function withCookies(r: Response, cookies: string[]): Response {
