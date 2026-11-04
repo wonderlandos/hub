@@ -7,6 +7,17 @@ WOLPACK = os.path.join(HERE, "wolpack.py")
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d49484452000001000000010008000000")  # header only: enough for the member rules
 
 
+def package(files):
+    """A .pkg.tar.zst with these (path, bytes) files and a .PKGINFO, as makepkg would write one."""
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as t:
+        for name, data in [(".PKGINFO", b"pkgname = notes\n")] + files:
+            m = tarfile.TarInfo(name)
+            m.size = len(data)
+            t.addfile(m, io.BytesIO(data))
+    return subprocess.run(["zstd", "-q", "-c"], input=buf.getvalue(), capture_output=True, check=True).stdout
+
+
 def run(*a):
     return subprocess.run([sys.executable, "-I", WOLPACK, *a], capture_output=True, text=True)
 
@@ -17,7 +28,7 @@ class T(unittest.TestCase):
         p = lambda n: os.path.join(self.d, n)
         json.dump({"id": "alice.notes", "version": "0", "name": "Notes", "summary": "Quick notes", "package": "notes",
                    "targets": [{"abi": "linux", "arch": "amd64", "entry": "bin/notes"}]}, open(p("Info.json"), "w"))
-        open(p("payload.pkg.tar.zst"), "wb").write(b"\x28\xb5\x2f\xfd" + b"x" * 20)
+        open(p("payload.pkg.tar.zst"), "wb").write(package([("usr/bin/notes", b"#!/bin/sh\n")]))
         open(p("icon.png"), "wb").write(PNG)
 
     def members(self, path):
@@ -48,6 +59,32 @@ class T(unittest.TestCase):
         open(f"{self.d}/bad.pkg", "wb").write(b"not zstd")
         r = run("wol", "--info", f"{self.d}/Info.json", "--payload", f"{self.d}/bad.pkg", "--version", "1.0-1", "--out", self.d)
         self.assertEqual(r.returncode, 2)
+
+    def wol_with(self, files, name="payload2.pkg.tar.zst"):
+        open(f"{self.d}/{name}", "wb").write(package(files))
+        return run("wol", "--info", f"{self.d}/Info.json", "--payload", f"{self.d}/{name}", "--version", "1.0-1", "--out", self.d)
+
+    def test_a_web_app_under_opt_reaches_the_kit_by_its_absolute_path(self):
+        # ADR 0048: the kit is /usr/share/wolos/webapps/kit/; from /opt/wolos/webapps/<slug>/ "../kit/" is outside the policy.
+        page = lambda href: f'<link rel="stylesheet" href="{href}wolkit.css"><script src="{href}bridge.js"></script>'.encode()
+        ok = self.wol_with([("opt/wolos/webapps/hello/index.html", page("/usr/share/wolos/webapps/kit/")),
+                            ("opt/wolos/webapps/hello/app.toml", b'id = "org.wolos.webapp.hello"\n')])
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        bad = self.wol_with([("opt/wolos/webapps/hello/index.html", page("../kit/"))])
+        self.assertEqual(bad.returncode, 2)
+        self.assertIn("../kit/", bad.stderr)
+        self.assertIn("/usr/share/wolos/webapps/kit/", bad.stderr)
+        js = self.wol_with([("opt/wolos/webapps/hello/app.js", b'import("../kit/wolkit.js")')])
+        self.assertEqual(js.returncode, 2, js.stderr)
+        # a package never ships the kit, and its pages do not name a kit under /opt
+        own = self.wol_with([("opt/wolos/webapps/kit/wolkit.css", b"a{}"), ("opt/wolos/webapps/hello/index.html", page("/usr/share/wolos/webapps/kit/"))])
+        self.assertEqual(own.returncode, 2)
+        self.assertIn("never ships the kit", own.stderr)
+        under = self.wol_with([("opt/wolos/webapps/hello/index.html", page("/opt/wolos/webapps/kit/"))])
+        self.assertEqual(under.returncode, 2)
+        # other packages, and web files outside /opt/wolos/webapps, are not looked at
+        other = self.wol_with([("usr/share/doc/notes/index.html", page("../kit/")), ("usr/bin/notes", b"x")])
+        self.assertEqual(other.returncode, 0, other.stderr)
 
     def test_wolplug(self):
         pd = os.path.join(self.d, "plug")

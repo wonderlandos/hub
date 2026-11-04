@@ -30,7 +30,14 @@ import re
 import subprocess
 import sys
 import tarfile
+import threading
 
+# A web app of others installs to /opt/wolos/webapps/<slug>/ (ADR 0048); the kit is the image's, one copy, and the
+# runtime's policy lets such an app reach exactly its own folder and that kit (webengine::bridge::manifest::kit_for).
+WEBAPPS = "opt/wolos/webapps/"
+SYSTEM_KIT = "/usr/share/wolos/webapps/kit/"
+PAGE_SUFFIX = (".html", ".htm", ".js", ".css")
+MAX_PAGE = 4 << 20
 VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._,+~-]{0,63}$")
 SHOT = re.compile(r"^[a-z0-9_-]{1,32}\.(png|webp)$")
 MAX_SHOTS = 8
@@ -84,6 +91,38 @@ def write(path, data):
     os.replace(tmp, path)
 
 
+def check_kit(payload, name):
+    """A payload with a web app under /opt/wolos/webapps ships no kit and its pages name the kit by its absolute path.
+
+    "../kit/" from /opt/wolos/webapps/<slug>/ is /opt/wolos/webapps/kit/: a folder no package installs and the policy
+    does not allow. The kit is /usr/share/wolos/webapps/kit/ (the host and the policy agree, ADR 0048)."""
+    p = subprocess.Popen(["zstd", "-dc"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    feeder = threading.Thread(target=lambda: (p.stdin.write(payload), p.stdin.close()), daemon=True)
+    feeder.start()
+    bad = []
+    try:
+        with tarfile.open(fileobj=p.stdout, mode="r|") as t:
+            for m in t:
+                n = m.name[2:] if m.name.startswith("./") else m.name
+                if not n.startswith(WEBAPPS):
+                    continue
+                if n.startswith(WEBAPPS + "kit/") or n == WEBAPPS + "kit":
+                    bad.append(f"{n}: a package never ships the kit; it comes with the image ({SYSTEM_KIT})")
+                elif m.isfile() and n.endswith(PAGE_SUFFIX) and m.size <= MAX_PAGE:
+                    text = t.extractfile(m).read().decode("utf-8", "replace")
+                    if "../kit/" in text or "/opt/wolos/webapps/kit/" in text:
+                        bad.append(f"{n}: names the kit as ../kit/; under /opt it is {SYSTEM_KIT}")
+    except tarfile.TarError as e:
+        die(f"{name}: the payload is not a readable pacman package ({e})")
+    finally:
+        p.stdout.close()
+        p.wait()
+    if p.returncode:
+        die(f"{name}: the payload is not a zstd-compressed package")
+    if bad:
+        die("; ".join(bad[:5]))
+
+
 def wol(a):
     info = json.loads(read(a.info))
     if a.id:
@@ -119,6 +158,7 @@ def wol(a):
     payload = read(a.payload)
     if not payload.startswith(b"\x28\xb5\x2f\xfd"):
         die(f"{a.payload}: the payload is a pacman package (.pkg.tar.zst)")
+    check_kit(payload, a.payload)
     members.append(("payload.pkg", payload))
     text = (json.dumps(info, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
     if a.write_info:

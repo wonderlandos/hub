@@ -37,7 +37,7 @@ on:
         type: string
         default: hub/icon.png
       screenshots:
-        description: "app: screenshot files, separated by spaces. Leave empty until the hub's pinned hubcheck and the system's .wol reader accept screenshots/ members"
+        description: "app: screenshot files (.png or .webp, at most 8), separated by spaces; they become screenshots/ members the hub shows on the store page"
         type: string
         default: ""
       pkgbuild:
@@ -59,7 +59,7 @@ on:
       hubcheck_rev:
         description: "Commit of wonderlandos/hub whose hubcheck checks the file: the one the hub's check job pins"
         type: string
-        default: a0fcf58b1494d08cd523ad4b1cdbc568236dd8be
+        default: f2bce733772ea1b1a01fe7a36a35d891d614ecee
       tools_ref:
         description: "Commit of wonderlandos/hub that holds tools/wolpack"
         type: string
