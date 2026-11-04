@@ -28,7 +28,7 @@ export interface SessionData {
 
 export interface Person {
   github_id: number; login: string; name: string | null; avatar: string | null;
-  gh_created: number | null; two_factor: number | null; role: string;
+  gh_created: number | null; two_factor: number | null; two_factor_checked_at: number | null; role: string;
   sessions_after: number; banned_at: number | null; first_seen: number; last_seen: number;
 }
 

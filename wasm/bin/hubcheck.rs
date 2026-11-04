@@ -12,6 +12,7 @@ const USAGE: &str = "usage:
   hubcheck manifest <app|plugin|extension> <file|->
   hubcheck verify <app|plugin|extension> <file> --store <store.json> [--now <unix seconds>] [--first-seen <unix seconds>]
   hubcheck inspect <app|plugin|extension> <file> --store <store.json> [--now <unix seconds>] [--first-seen <unix seconds>]
+  hubcheck extract <file> --out <dir> [--kind <app|plugin|extension>]
   hubcheck version";
 
 /// Reads at most `max` + 1 bytes of `path` (`-` is standard input).
@@ -51,6 +52,9 @@ fn run(args: &[String]) -> Result<String, (u8, String)> {
     let cmd = args.first().map(String::as_str).unwrap_or_default();
     if cmd == "version" {
         return Ok(api::version());
+    }
+    if cmd == "extract" {
+        return extract(args).map_err(|(c, m)| if c == 2 { usage(&m) } else { (c, m) });
     }
     #[cfg(feature = "dev")]
     if matches!(cmd, "vectors" | "fixtures") {
@@ -93,6 +97,67 @@ fn run(args: &[String]) -> Result<String, (u8, String)> {
     }
 }
 
+/// The kind a file name says: `.wol`, `.wolplug`, `.wolext`.
+fn kind_of_name(file: &str) -> Option<&'static str> {
+    let n = file.to_ascii_lowercase();
+    [
+        (".wol", "app"),
+        (".wolplug", "plugin"),
+        (".wolext", "extension"),
+    ]
+    .into_iter()
+    .find(|(e, _)| n.ends_with(e))
+    .map(|(_, k)| k)
+}
+
+/// `extract <file> --out <dir>`: writes the checked icon and screenshots as `<sha256>.<png|webp>`
+/// into `dir` (made when missing) and prints `{"verdict", "facts", "written"}`. The pipeline puts
+/// the written files on the CDN; this command never uses the network.
+fn extract(args: &[String]) -> Result<String, (u8, String)> {
+    let file = args
+        .get(1)
+        .filter(|a| !a.starts_with("--"))
+        .ok_or((2, "a file is needed".to_owned()))?;
+    let out = flag(args, "--out").ok_or((2, "--out is needed".to_owned()))?;
+    let kind_text = match flag(args, "--kind") {
+        Some(k) => k,
+        None => kind_of_name(file)
+            .ok_or((
+                2,
+                "--kind is needed: the name does not end in .wol, .wolplug or .wolext".to_owned(),
+            ))?
+            .to_owned(),
+    };
+    let kind = hubcheck::Kind::parse(&kind_text)
+        .ok_or((2, "the kind must be app, plugin or extension".to_owned()))?;
+    let bytes = read(file, hubcheck::files::MAX_WOL).map_err(|e| (1, e))?;
+    let verdict = hubcheck::check(&bytes, kind).verdict;
+    let (facts, pictures) = hubcheck::files::extract(&bytes, kind).ok_or((
+        1,
+        format!("{file}: no listing facts, the manifest could not be read"),
+    ))?;
+    let dir = std::path::Path::new(&out);
+    std::fs::create_dir_all(dir).map_err(|e| (1, format!("{out}: {e}")))?;
+    let mut written = Vec::new();
+    for (name, b) in &pictures {
+        // Names are <64 hex>.<png|webp>, made here: nothing from the file reaches the path.
+        std::fs::write(dir.join(name), b).map_err(|e| (1, format!("{name}: {e}")))?;
+        written.push(name.clone());
+    }
+    #[derive(serde::Serialize)]
+    struct Extracted {
+        verdict: hubcheck::Verdict,
+        facts: hubcheck::Facts,
+        written: Vec<String>,
+    }
+    serde_json::to_string(&Extracted {
+        verdict,
+        facts,
+        written,
+    })
+    .map_err(|e| (1, e.to_string()))
+}
+
 /// `vectors <dir>` replays the trust crate's recorded vectors; `fixtures <dir>` writes the test files.
 #[cfg(feature = "dev")]
 fn dev(cmd: &str, dir: &str) -> Result<String, String> {
@@ -127,6 +192,24 @@ fn dev(cmd: &str, dir: &str) -> Result<String, String> {
                         ("card.lua", lua.as_bytes()),
                     ],
                     Signer::Alice,
+                ),
+            ),
+            (
+                "listing.wol",
+                f.wol_listing(
+                    &Fixture::info("alice.notes", "1.0").replace(
+                        "\"package\"",
+                        "\"description\":\"Write it down.\\nFind it again.\",\"homepage\":\"https://example.org/notes\",\"license\":\"MIT\",\"screenshots\":[\"screenshots/1.png\",\"screenshots/2.webp\",\"screenshots/small.png\"],\"package\"",
+                    ),
+                    Some(&hubcheck::fixtures::png(256, 256)),
+                    &[
+                        ("screenshots/1.png", &hubcheck::fixtures::png(640, 400)),
+                        ("screenshots/2.webp", &hubcheck::fixtures::webp(1280, 800)),
+                        ("screenshots/small.png", &hubcheck::fixtures::png(32, 32)),
+                    ],
+                    b"pkg payload bytes",
+                    Signer::Alice,
+                    None,
                 ),
             ),
             ("store.json", f.store_json().into_bytes()),

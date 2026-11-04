@@ -12,6 +12,7 @@ exports[`the frozen route table (I4) 1`] = `
   "POST ^\\/api\\/orgs$",
   "POST ^\\/api\\/listings$",
   "GET ^\\/api\\/listings\\/([^/]{1,128})$",
+  "PATCH ^\\/api\\/listings\\/([^/]{1,128})$",
   "POST ^\\/api\\/webhook\\/github$",
   "POST ^\\/api\\/reports$",
   "GET ^\\/api\\/reports\\/([^/]{1,20})$",
@@ -31,5 +32,13 @@ exports[`the frozen route table (I4) 1`] = `
   "POST ^\\/api\\/admin\\/requests\\/([^/]{1,64})\\/refuse$",
   "POST ^\\/api\\/admin\\/reports\\/([^/]{1,20})\\/resolve$",
   "POST ^\\/api\\/admin\\/reports\\/([^/]{1,20})\\/takedown$",
+  "POST ^\\/api\\/pipeline\\/revocations$",
+  "POST ^\\/api\\/pipeline\\/file-certificates$",
+  "POST ^\\/api\\/admin\\/certs\\/([^/]{1,16})\\/revoke$",
+  "POST ^\\/api\\/admin\\/certs\\/([^/]{1,16})\\/downgrade$",
+  "POST ^\\/api\\/admin\\/revocations\\/([^/]{1,20})\\/approve$",
+  "POST ^\\/api\\/admin\\/releases\\/([^/]{1,64})\\/([^/]{1,64})\\/flag$",
+  "GET ^\\/api\\/admin\\/roles$",
+  "POST ^\\/api\\/admin\\/roles$",
 ]
 `;

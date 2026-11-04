@@ -62,7 +62,14 @@ test("a listing must be in the owner's namespace, bound to a public repository t
   expect(await err(listing({ host: "org.wolos.craft" }))).toEqual([400, "bad-host"]);
   expect(await err(listing({ id: "Notes" }))).toEqual([400, "bad-id"]);
   expect(await err(listing({ kind: "theme" }))).toEqual([400, "bad-kind"]);
-  const ok = await req(env, "POST", "/api/listings", { cookie: c, body: listing({ id: "alice.craft-ext", kind: "extension", host: "org.wolos.craft", asset: "ext.tar" }) });
+  // hub-index index.schema.json: extensions are .wolext, ids at most 64 characters without a '-' at a part's edge, names at most 40
+  expect(await err(listing({ id: "alice.craft-ext", kind: "extension", host: "org.wolos.craft", asset: "ext.tar" }))).toEqual([400, "bad-asset"]);
+  expect(await err(listing({ id: "alice." + "n".repeat(59) }))).toEqual([400, "bad-field"]);
+  expect(await err(listing({ id: "alice.notes-" }))).toEqual([400, "bad-id"]);
+  expect(await err(listing({ id: "alice.-notes" }))).toEqual([400, "bad-id"]);
+  expect(await err(listing({ name: "N".repeat(41) }))).toEqual([400, "bad-field"]);
+  expect(await err(listing({ id: "alice." + "n".repeat(58) }))).not.toEqual([400, "bad-id"]); // 64: the limit itself
+  const ok = await req(env, "POST", "/api/listings", { cookie: c, body: listing({ id: "alice.craft-ext", kind: "extension", host: "org.wolos.craft", asset: "craft-*.wolext" }) });
   expect(ok.status).toBe(201);
   expect(((await ok.json()) as any).host).toBe("org.wolos.craft");
 });

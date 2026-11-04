@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The hub GitHub App acting as itself, for one thing only: starting the hub-index ca workflow
-// after an admin approved a certificate request. An App JWT (RS256, GITHUB_APP_PRIVATE_KEY, at
-// most 10 minutes) finds the App's installation on the pipeline repository and asks for an
-// installation token narrowed to that repository and `actions: write`; the token is used once
-// for the workflow dispatch and never stored or logged.
+// The second, private GitHub App "WolOS Hub Pipeline" (installed only on hub-index) acting as itself, for one thing
+// only: starting the hub-index ca workflow for an approved certificate request or revocation. An App JWT (RS256,
+// GITHUB_PIPELINE_APP_PRIVATE_KEY, iss GITHUB_PIPELINE_APP_ID, at most 10 minutes) finds the App's installation on the
+// pipeline repository and asks for an installation token narrowed to that repository and `actions: write`; the token is
+// used once for the workflow dispatch and never stored or logged. The public "WolOS Hub" App never gets Actions.
 
 import type { Env } from "./env";
 import { ghApi, now } from "./env";
@@ -25,7 +25,7 @@ function derLen(n: number): number[] {
 /** GitHub hands out PKCS#1 ("BEGIN RSA PRIVATE KEY"); Web Crypto reads PKCS#8. Wraps the one in the other. */
 export function pkcs8Der(pem: string): Uint8Array<ArrayBuffer> {
   const m = pem.match(/-----BEGIN (RSA )?PRIVATE KEY-----([\s\S]+?)-----END (RSA )?PRIVATE KEY-----/);
-  if (!m) throw new DispatchError("GITHUB_APP_PRIVATE_KEY is not a PEM private key");
+  if (!m) throw new DispatchError("GITHUB_PIPELINE_APP_PRIVATE_KEY is not a PEM private key");
   const bin = atob(m[2].replace(/\s+/g, ""));
   const der = Uint8Array.from(bin, (c) => c.charCodeAt(0));
   if (!m[1]) return der;
@@ -36,14 +36,15 @@ export function pkcs8Der(pem: string): Uint8Array<ArrayBuffer> {
   return new Uint8Array([0x30, ...derLen(inner.length + der.length), ...inner, ...der]);
 }
 
-/** A GitHub App JWT: iss = the App id, valid for 9 minutes from a minute ago (clock drift). */
+/** A GitHub App JWT of the pipeline App: iss = its id, valid for 9 minutes from a minute ago (clock drift). */
 export async function appJwt(env: Env): Promise<string> {
-  if (!env.GITHUB_APP_PRIVATE_KEY) throw new DispatchError("GITHUB_APP_PRIVATE_KEY is not set");
-  const key = await crypto.subtle.importKey("pkcs8", pkcs8Der(env.GITHUB_APP_PRIVATE_KEY),
+  if (!env.GITHUB_PIPELINE_APP_PRIVATE_KEY) throw new DispatchError("GITHUB_PIPELINE_APP_PRIVATE_KEY is not set");
+  if (!env.GITHUB_PIPELINE_APP_ID || !/^[0-9]{1,12}$/.test(env.GITHUB_PIPELINE_APP_ID)) throw new DispatchError("GITHUB_PIPELINE_APP_ID is not set");
+  const key = await crypto.subtle.importKey("pkcs8", pkcs8Der(env.GITHUB_PIPELINE_APP_PRIVATE_KEY),
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
   const t = now();
   const h = b64url(utf8(JSON.stringify({ alg: "RS256", typ: "JWT" })));
-  const p = b64url(utf8(JSON.stringify({ iat: t - 60, exp: t + 540, iss: env.GITHUB_APP_ID })));
+  const p = b64url(utf8(JSON.stringify({ iat: t - 60, exp: t + 540, iss: env.GITHUB_PIPELINE_APP_ID })));
   const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, utf8(`${h}.${p}`));
   return `${h}.${p}.${b64url(sig)}`;
 }
@@ -64,7 +65,7 @@ export async function pipelineToken(env: Env): Promise<string> {
   const jwt = await appJwt(env);
   const repo = env.PIPELINE_REPOSITORY;
   const inst = await call(env, "GET", `/repos/${repo}/installation`, jwt);
-  if (!inst.ok) throw new DispatchError(`the hub GitHub App is not installed on ${repo} (GitHub said ${inst.status})`);
+  if (!inst.ok) throw new DispatchError(`the WolOS Hub Pipeline App is not installed on ${repo} (GitHub said ${inst.status})`);
   const id = ((await inst.json()) as { id?: number }).id;
   if (!Number.isSafeInteger(id)) throw new DispatchError("GitHub gave no installation id");
   const tok = await call(env, "POST", `/app/installations/${id}/access_tokens`, jwt, {
@@ -83,7 +84,7 @@ export function caWorkflowFile(env: Env): string {
   return m[1];
 }
 
-/** Starts hub-index ca.yml on main for one approved request. */
+/** Starts hub-index ca.yml on main for one approved request: an issue (r-...) or a revocation (v-...). */
 export async function dispatchCa(env: Env, requestId: string): Promise<void> {
   const token = await pipelineToken(env);
   const file = caWorkflowFile(env);

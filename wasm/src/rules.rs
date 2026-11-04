@@ -3,6 +3,7 @@
 //! the system itself enforces broke, `not-checked` when the file could not be read to the end,
 //! `flag` for everything that is listed with a sentence, `pass` when nothing broke. A clean
 //! result means only that no rule broke (ADR 0022).
+use crate::listing::Facts;
 use crate::report::{FileId, Report, Trust};
 use woltrust::{Finding, Verdict};
 
@@ -64,6 +65,7 @@ impl Kind {
 /// How bad a finding is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Level {
+    Note,
     Flag,
     Block,
     Unchecked,
@@ -72,7 +74,7 @@ enum Level {
 /// A growing list of findings.
 #[derive(Debug, Default)]
 pub struct Rules {
-    findings: Vec<Finding>,
+    findings: Vec<(Level, Finding)>,
     blocked: bool,
     unchecked: bool,
     more: usize,
@@ -80,6 +82,8 @@ pub struct Rules {
     pub damaged: bool,
     /// The id and version the manifest gave, once it was read.
     pub file: Option<FileId>,
+    /// The listing facts, once the manifest and the pictures were read.
+    pub facts: Option<Facts>,
 }
 
 fn cut(s: String) -> String {
@@ -98,17 +102,27 @@ impl Rules {
         match level {
             Level::Block => self.blocked = true,
             Level::Unchecked => self.unchecked = true,
-            Level::Flag => {}
+            Level::Flag | Level::Note => {}
         }
         if self.findings.len() >= MAX_FINDINGS - 1 {
-            self.more += 1;
+            if level != Level::Note {
+                self.more += 1;
+            }
             return;
         }
-        self.findings.push(Finding {
-            rule: rule.to_owned(),
-            sentence: sentence.to_owned(),
-            evidence: cut(evidence.into()),
-        });
+        self.findings.push((
+            level,
+            Finding {
+                rule: rule.to_owned(),
+                sentence: sentence.to_owned(),
+                evidence: cut(evidence.into()),
+            },
+        ));
+    }
+
+    /// Listed with this sentence, leaving the verdict alone (how the listing looks, rule `listing/...`).
+    pub fn note(&mut self, rule: &str, sentence: &str, evidence: impl Into<String>) {
+        self.add(Level::Note, rule, sentence, evidence);
     }
 
     /// Listed, with this sentence.
@@ -134,12 +148,12 @@ impl Rules {
 
     /// Removes the findings of a rule that does not apply after all (a flag only; blocks stay).
     pub fn forget(&mut self, rule: &str) {
-        self.findings.retain(|f| f.rule != rule);
+        self.findings.retain(|(_, f)| f.rule != rule);
     }
 
     /// Makes an existing finding of this rule block the file.
     pub fn escalate(&mut self, rule: &str) {
-        if self.findings.iter().any(|f| f.rule == rule) {
+        if self.findings.iter().any(|(_, f)| f.rule == rule) {
             self.blocked = true;
         }
     }
@@ -155,7 +169,7 @@ impl Rules {
             Verdict::Block
         } else if self.unchecked {
             Verdict::NotChecked
-        } else if self.findings.is_empty() && self.more == 0 {
+        } else if self.findings.iter().all(|(l, _)| *l == Level::Note) && self.more == 0 {
             Verdict::Pass
         } else {
             Verdict::Flag
@@ -163,21 +177,23 @@ impl Rules {
     }
 
     /// The findings, with the count of those left out at the end.
-    pub fn into_findings(mut self) -> (Verdict, Vec<Finding>) {
+    pub fn into_findings(self) -> (Verdict, Vec<Finding>) {
         let v = self.verdict();
+        let mut out: Vec<Finding> = self.findings.into_iter().map(|(_, f)| f).collect();
         if self.more > 0 {
-            self.findings.push(Finding {
+            out.push(Finding {
                 rule: "rules/more".to_owned(),
                 sentence: "There are more findings than this report holds.".to_owned(),
                 evidence: format!("{} more", self.more),
             });
         }
-        (v, self.findings)
+        (v, out)
     }
 
     /// The I7 report. `trust` is what the signature is worth (community until it is checked).
     pub fn report(mut self, trust: Trust) -> Report {
         let file = self.file.take();
+        let facts = self.facts.take();
         let (verdict, findings) = self.into_findings();
         Report {
             verdict,
@@ -186,6 +202,7 @@ impl Rules {
             cert: None,
             origin: None,
             file,
+            facts,
         }
     }
 }
@@ -211,6 +228,16 @@ mod tests {
         assert_eq!(r.verdict(), Verdict::NotChecked);
         r.block("a/d", "s", "");
         assert_eq!(r.verdict(), Verdict::Block);
+    }
+
+    #[test]
+    fn notes_are_listed_and_leave_the_verdict_alone() {
+        let mut r = Rules::default();
+        r.note("listing/icon-missing", "s", "");
+        assert_eq!(r.verdict(), Verdict::Pass);
+        let rep = r.report(Trust::Community);
+        assert_eq!(rep.findings.len(), 1);
+        assert_eq!(rep.verdict, Verdict::Pass);
     }
 
     #[test]

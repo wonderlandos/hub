@@ -4,7 +4,7 @@
 //! is read from disk or the clock; the roots, the intermediates, the revocation lists and the time
 //! come in as arguments.
 use crate::files::{self, CHAIN, WSIG};
-use crate::report::{CertInfo, Class, Report, Trust};
+use crate::report::{CertInfo, Report, Trust};
 use crate::rules::Kind;
 use serde::{Deserialize, Serialize};
 use woltrust::{Finding, Input, Origin, Store, Verdict};
@@ -168,13 +168,13 @@ pub fn verify_in(
     );
     let list_expires = out.list_expires;
     let stale = out.stale;
-    let class = out
+    let origin_cert = out
         .cert
         .as_ref()
-        .map(|c| class_of(l.get(CHAIN), store, &c.serial));
-    let cert = out.cert.clone().map(|c| CertInfo::of(c, class));
+        .and_then(|c| origin_cert_of(l.get(CHAIN), store, &c.serial));
+    let cert = out.cert.clone().map(|c| CertInfo::of(c, origin_cert));
     let origin = out.origin.clone();
-    let trust = Trust::of(out.trust, class);
+    let trust = Trust::of(out.trust);
     let code = out.code.as_str().to_owned();
     let report = out.report(Verdict::Pass, Vec::new());
     Trusted {
@@ -188,36 +188,25 @@ pub fn verify_in(
     }
 }
 
-/// The class of the certificate `serial`, read from its signed body in the file's `CHAIN` or in the
-/// store (`"class"`, absent = `origin`). Read here until woltrust reports it; the pinned woltrust
-/// refuses a body with fields it does not know, so with it every signer it accepts is `origin`.
-pub fn class_of(chain: Option<&[u8]>, store: &Store, serial: &str) -> Class {
-    #[derive(Deserialize)]
-    struct Env {
-        body: String,
-    }
-    let from_chain = chain
-        .and_then(|c| serde_json::from_slice::<Vec<Env>>(c).ok())
+/// The `origin_cert` of the certificate `serial` (the origin certificate a `trusted` one is bound
+/// to), from the file's `CHAIN` or the store. woltrust checks the link when it verifies; its
+/// `CertInfo` does not carry the serial, so it is read here from the certificate woltrust parses.
+pub fn origin_cert_of(chain: Option<&[u8]>, store: &Store, serial: &str) -> Option<String> {
+    let in_chain = chain
+        .and_then(|c| woltrust::cert::parse_chain(c).ok())
         .into_iter()
         .flatten()
-        .take(woltrust::MAX_CHAIN_CERTS)
-        .filter_map(|e| woltrust::b64::decode(&e.body, woltrust::MAX_BODY))
-        .find(|b| {
-            serde_json::from_slice::<serde_json::Value>(b)
-                .ok()
-                .is_some_and(|v| {
-                    v.get("serial").and_then(serde_json::Value::as_str) == Some(serial)
-                })
-        });
-    let body = from_chain.or_else(|| {
-        store
-            .intermediates
-            .iter()
-            .chain(store.roots.iter())
-            .find(|c| c.body.serial == serial)
-            .map(|c| c.body_bytes.clone())
-    });
-    body.map_or(Class::Origin, |b| Class::of_body(&b))
+        .find(|c| c.body.serial == serial)
+        .map(|c| c.body.origin_cert.clone());
+    in_chain
+        .or_else(|| {
+            store
+                .intermediates
+                .iter()
+                .find(|c| c.body.serial == serial)
+                .map(|c| c.body.origin_cert.clone())
+        })
+        .flatten()
 }
 
 /// [`verify_seen`] without a first-seen time. Interface I6: `verify(bytes, store, revoked, now) -> Trust`.
@@ -260,6 +249,7 @@ pub fn inspect(
         t.origin = None;
     }
     let file = rules.file.take();
+    let facts = rules.facts.take();
     let (verdict, mut findings) = rules.into_findings();
     findings.extend(t.findings);
     Report {
@@ -269,5 +259,6 @@ pub fn inspect(
         cert: t.cert,
         origin: t.origin,
         file,
+        facts,
     }
 }

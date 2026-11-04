@@ -37,7 +37,7 @@ ok("a changed expectation is caught in wasm");
 const store = fx("store.json").toString();
 const now = fx("now.txt").toString();
 const same = [];
-for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.wol", "app"], ["unsigned.wol", "app"], ["namespace.wol", "app"], ["origin.wol", "app"], ["weather.wolplug", "plugin"]]) {
+for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.wol", "app"], ["unsigned.wol", "app"], ["namespace.wol", "app"], ["origin.wol", "app"], ["listing.wol", "app"], ["weather.wolplug", "plugin"]]) {
   const bytes = fx(file);
   const p = join(root, "fixtures", file);
   assert.equal(wasm.check(bytes, kind), native("check", kind, p), `check ${file}`);
@@ -48,7 +48,12 @@ for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.w
 ok(`check, verify and inspect of ${same.length} files print the native bytes`);
 
 const person = JSON.parse(wasm.inspect(fx("person.wol"), "app", store, Number(now)));
-assert.deepEqual(Object.keys(person).sort(), ["cert", "file", "findings", "trust", "verdict"]);
+assert.deepEqual(Object.keys(person).sort(), ["cert", "facts", "file", "findings", "trust", "verdict"]);
+const listing = JSON.parse(wasm.inspect(fx("listing.wol"), "app", store, Number(now)));
+assert.equal(listing.verdict, "pass");
+assert.deepEqual(listing.facts.screenshots.map((s) => [s.path, s.mime, s.w, s.h]), [["screenshots/1.png", "image/png", 640, 400], ["screenshots/2.webp", "image/webp", 1280, 800]]);
+assert.deepEqual([listing.facts.icon.w, listing.facts.icon.h, listing.facts.licence, listing.facts.homepage], [256, 256, "MIT", "https://example.org/notes"]);
+assert.deepEqual(listing.findings.map((f) => f.rule), ["listing/screenshot"]);
 assert.deepEqual(person.file, { id: "alice.notes", version: "1.0" });
 assert.equal(person.trust, "origin");
 assert.equal(person.cert.class, "origin");

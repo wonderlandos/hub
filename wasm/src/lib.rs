@@ -13,6 +13,7 @@ pub mod files;
 pub mod fixtures;
 #[cfg(target_arch = "wasm32")]
 mod glue;
+pub mod listing;
 pub mod manifest;
 pub mod report;
 pub mod rules;
@@ -21,6 +22,7 @@ pub mod toml;
 pub mod trust;
 
 pub use files::check;
+pub use listing::{Facts, Image};
 pub use manifest::validate_manifest;
 pub use report::{CertInfo, Class, FileId, Report, Trust};
 pub use rules::Kind;

@@ -48,7 +48,73 @@ pub fn manifest(members: &[(&str, &[u8])]) -> String {
     lines.concat()
 }
 
-const PNG: &[u8] = b"\x89PNG\r\n\x1a\nxxxx";
+fn crc32(parts: &[&[u8]]) -> u32 {
+    let mut c = 0xffff_ffffu32;
+    for b in parts.iter().flat_map(|p| p.iter()) {
+        c ^= u32::from(*b);
+        for _ in 0..8 {
+            c = if c & 1 != 0 {
+                (c >> 1) ^ 0xedb8_8320
+            } else {
+                c >> 1
+            };
+        }
+    }
+    !c
+}
+
+/// A real grey PNG of `w` x `h` pixels (8-bit greyscale, stored deflate blocks): any viewer opens it.
+pub fn png(w: u32, h: u32) -> Vec<u8> {
+    let mut raw = Vec::new();
+    for y in 0..h {
+        raw.push(0u8);
+        raw.extend((0..w).map(|x| ((x ^ y) & 0xff) as u8));
+    }
+    let mut z = vec![0x78, 0x01];
+    let blocks: Vec<&[u8]> = raw.chunks(65535).collect();
+    for (i, b) in blocks.iter().enumerate() {
+        z.push(u8::from(i + 1 == blocks.len()));
+        let n = b.len() as u16;
+        z.extend(n.to_le_bytes());
+        z.extend((!n).to_le_bytes());
+        z.extend(*b);
+    }
+    let (mut a, mut b) = (1u32, 0u32);
+    for x in &raw {
+        a = (a + u32::from(*x)) % 65521;
+        b = (b + a) % 65521;
+    }
+    z.extend(((b << 16) | a).to_be_bytes());
+    let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+    let mut chunk = |kind: &[u8], data: &[u8]| {
+        out.extend((data.len() as u32).to_be_bytes());
+        out.extend(kind);
+        out.extend(data);
+        out.extend(crc32(&[kind, data]).to_be_bytes());
+    };
+    let mut ihdr = w.to_be_bytes().to_vec();
+    ihdr.extend(h.to_be_bytes());
+    ihdr.extend([8, 0, 0, 0, 0]);
+    chunk(b"IHDR", &ihdr);
+    chunk(b"IDAT", &z);
+    chunk(b"IEND", b"");
+    out
+}
+
+/// The header of a still WebP of `w` x `h` (a `VP8X` chunk only): enough for the size rules; it
+/// holds no picture.
+pub fn webp(w: u32, h: u32) -> Vec<u8> {
+    let mut d = vec![0u8, 0, 0, 0];
+    d.extend(&(w - 1).to_le_bytes()[..3]);
+    d.extend(&(h - 1).to_le_bytes()[..3]);
+    let mut body = b"WEBPVP8X".to_vec();
+    body.extend(10u32.to_le_bytes());
+    body.extend(d);
+    let mut out = b"RIFF".to_vec();
+    out.extend((body.len() as u32).to_le_bytes());
+    out.extend(body);
+    out
+}
 
 impl Fixture {
     /// The authority at the clock of the vectors.
@@ -121,13 +187,28 @@ impl Fixture {
         s: Signer,
         origin: Option<&[u8]>,
     ) -> Vec<u8> {
-        let hashed: [(&str, &[u8]); 3] = [
-            ("Info.json", info.as_bytes()),
-            ("icon.png", PNG),
-            ("payload.pkg", payload),
-        ];
+        let icon = png(256, 256);
+        self.wol_listing(info, Some(&icon), &[], payload, s, origin)
+    }
+
+    /// A `.wol` with this icon (none: no `icon.png`) and these `screenshots/<name>` members.
+    pub fn wol_listing(
+        &self,
+        info: &str,
+        icon: Option<&[u8]>,
+        shots: &[(&str, &[u8])],
+        payload: &[u8],
+        s: Signer,
+        origin: Option<&[u8]>,
+    ) -> Vec<u8> {
+        let mut hashed: Vec<(&str, &[u8])> = vec![("Info.json", info.as_bytes())];
+        if let Some(i) = icon {
+            hashed.push(("icon.png", i));
+        }
+        hashed.extend(shots.iter().copied());
+        hashed.push(("payload.pkg", payload));
         let man = manifest(&hashed);
-        let mut members: Vec<(&str, &[u8])> = hashed.to_vec();
+        let mut members: Vec<(&str, &[u8])> = hashed.clone();
         members.push(("SHA256", man.as_bytes()));
         let signed = self.sign_with(s, Purpose::Package, man.as_bytes(), origin);
         if let Some((chain, wsig)) = &signed {

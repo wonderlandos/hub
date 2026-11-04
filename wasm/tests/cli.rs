@@ -94,3 +94,82 @@ fn wrong_use_and_missing_files_have_their_own_exit_codes() {
     assert!(o.status.success());
     assert!(String::from_utf8_lossy(&o.stdout).contains("input/kind"));
 }
+
+#[test]
+fn extract_writes_the_checked_pictures_by_hash_and_prints_the_facts() {
+    let f = Fixture::new();
+    let icon = hubcheck::fixtures::png(256, 256);
+    let info = r#"{"id":"alice.notes","version":"1.0","name":"Notes","summary":"Quick notes","package":"notes","screenshots":["screenshots/1.png"],"targets":[{"abi":"linux","arch":"amd64","entry":"bin/notes"}]}"#;
+    let shot = hubcheck::fixtures::png(640, 400);
+    let wol = f.wol_listing(
+        info,
+        Some(&icon),
+        &[("screenshots/1.png", &shot)],
+        b"p",
+        Signer::None,
+        None,
+    );
+    let file = tmp("x.wol");
+    std::fs::write(&file, &wol).unwrap();
+    let out = tmp("cdn");
+    let _ = std::fs::remove_dir_all(&out);
+    let o = bin()
+        .args([
+            "extract",
+            file.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let v: serde_json::Value = serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(v["verdict"], "pass");
+    let (hi, hs) = (
+        hubcheck::files::sha256_hex(&icon),
+        hubcheck::files::sha256_hex(&shot),
+    );
+    assert_eq!(
+        v["written"],
+        serde_json::json!([format!("{hi}.png"), format!("{hs}.png")])
+    );
+    assert_eq!(v["facts"]["icon"]["sha256"], hi);
+    assert_eq!(std::fs::read(out.join(format!("{hi}.png"))).unwrap(), icon);
+    assert_eq!(std::fs::read(out.join(format!("{hs}.png"))).unwrap(), shot);
+    // No kind from the name and none given; and a file whose manifest cannot be read.
+    let odd = tmp("x.bin");
+    std::fs::write(&odd, &wol).unwrap();
+    let code = |args: &[&str]| bin().args(args).output().unwrap().status.code();
+    assert_eq!(
+        code(&[
+            "extract",
+            odd.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap()
+        ]),
+        Some(2)
+    );
+    assert_eq!(
+        code(&[
+            "extract",
+            odd.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+            "--kind",
+            "app"
+        ]),
+        Some(0)
+    );
+    assert_eq!(code(&["extract", file.to_str().unwrap()]), Some(2));
+    let junk = tmp("junk.wol");
+    std::fs::write(&junk, b"junk").unwrap();
+    assert_eq!(
+        code(&[
+            "extract",
+            junk.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap()
+        ]),
+        Some(1)
+    );
+}

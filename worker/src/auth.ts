@@ -14,7 +14,8 @@ import { memberships, orgView, syncMemberships } from "./orgs";
 import { claStatus, termsStatus } from "./cla";
 import { audit } from "./audit";
 import { log } from "./log";
-import { isAdmin } from "./admin";
+import { roleOf, seedStatements } from "./roles";
+import { tierStates } from "./certs";
 
 interface OAuthState { s: string; v: string; n: string; exp: number }
 
@@ -70,12 +71,14 @@ export async function callback(ctx: Ctx): Promise<Response> {
   if (existing?.banned_at) return failed(ctx, "banned");
   await db.batch([
     db.prepare(
-      "INSERT INTO persons (github_id, login, name, avatar, gh_created, two_factor, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+      "INSERT INTO persons (github_id, login, name, avatar, gh_created, two_factor, two_factor_checked_at, first_seen, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
       "ON CONFLICT (github_id) DO UPDATE SET login = excluded.login, name = excluded.name, avatar = excluded.avatar, " +
-      "gh_created = excluded.gh_created, two_factor = excluded.two_factor, last_seen = excluded.last_seen",
+      "gh_created = excluded.gh_created, two_factor = excluded.two_factor, two_factor_checked_at = excluded.two_factor_checked_at, last_seen = excluded.last_seen",
     ).bind(u.id, u.login, u.name ?? null, u.avatar_url ?? null, Number.isFinite(created) ? created : null,
-      u.two_factor_authentication === undefined ? null : u.two_factor_authentication ? 1 : 0, t, t),
+      u.two_factor_authentication === undefined ? null : u.two_factor_authentication ? 1 : 0, t, t, t),
     audit(db, "person", u.id, "sign-in", `person:${u.id}`, { login: u.login }),
+    // Owners named in ADMINS get their admin_roles row (roles.ts).
+    ...seedStatements(ctx.env, u.id, u.login, t),
   ]);
   try {
     await syncMemberships(ctx, u.id, await getOrgMemberships(ctx.env, tokens.access_token));
@@ -113,10 +116,16 @@ export async function me(ctx: Ctx): Promise<Response> {
     throw e;
   }
   const p = s.person;
+  // The panel role only to the person who holds it (and two-factor on): nobody else learns the panel exists.
+  const staff = p.two_factor === 1 ? await roleOf(ctx.env, p) : null;
   return json({
-    github_id: p.github_id, login: p.login, name: p.name, avatar: p.avatar, role: p.role, admin: isAdmin(ctx.env, p),
+    github_id: p.github_id, login: p.login, name: p.name, avatar: p.avatar, role: p.role, admin: !!staff,
+    ...(staff ? { admin_role: staff } : {}),
     cla: await claStatus(ctx.env, "person", p.github_id),
     terms: { publisher: await termsStatus(ctx.env, "publisher", p.github_id), trust: await termsStatus(ctx.env, "trust", p.github_id) },
+    // Per tier: none, pending, issued or revoked.
+    certs: await tierStates(ctx.env, "person", p.github_id),
+    two_factor: p.two_factor === 1,
     orgs: await Promise.all(list.map((m) => orgView(ctx, m))),
   });
 }

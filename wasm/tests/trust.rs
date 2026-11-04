@@ -153,7 +153,21 @@ fn the_report_json_has_exactly_the_frozen_keys() {
     .unwrap();
     let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
     keys.sort();
-    assert_eq!(keys, ["cert", "file", "findings", "trust", "verdict"]);
+    assert_eq!(
+        keys,
+        ["cert", "facts", "file", "findings", "trust", "verdict"]
+    );
+    let mut fk: Vec<_> = v["facts"].as_object().unwrap().keys().cloned().collect();
+    fk.sort();
+    assert_eq!(fk, ["categories", "icon", "name", "screenshots", "summary"]);
+    let mut ik: Vec<_> = v["facts"]["icon"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .cloned()
+        .collect();
+    ik.sort();
+    assert_eq!(ik, ["h", "mime", "path", "sha256", "size", "w"]);
     assert_eq!(
         v["file"],
         serde_json::json!({"id": "alice.notes", "version": "1.0"})
@@ -338,23 +352,31 @@ fn the_class_is_read_from_the_signed_body_and_absent_is_origin() {
         env(r#"{"serial":"00000000000000bb"}"#)
     );
     let c = Some(chain.as_bytes());
+    let class_of = |c: Option<&[u8]>, serial: &str| {
+        hubcheck::trust::signer_body(c, &store, serial)
+            .as_deref()
+            .map_or(Class::Origin, Class::of_body)
+    };
+    assert_eq!(class_of(c, "00000000000000aa"), Class::Trusted);
+    assert_eq!(class_of(c, "00000000000000bb"), Class::Origin);
+    assert_eq!(class_of(c, "unknown"), Class::Origin);
+    assert_eq!(class_of(Some(b"junk"), "x"), Class::Origin);
+    assert_eq!(class_of(None, "x"), Class::Origin);
+    // origin_cert: only on a trusted body, only 16 lowercase hex.
+    let body = |s: &str| hubcheck::trust::signer_body(c, &store, s).unwrap();
     assert_eq!(
-        hubcheck::trust::class_of(c, &store, "00000000000000aa"),
-        Class::Trusted
+        Class::origin_cert_of_body(&body("00000000000000aa")).as_deref(),
+        Some("00000000000000bb")
+    );
+    assert_eq!(Class::origin_cert_of_body(&body("00000000000000bb")), None);
+    assert_eq!(
+        Class::origin_cert_of_body(br#"{"class":"origin","origin_cert":"00000000000000bb"}"#),
+        None
     );
     assert_eq!(
-        hubcheck::trust::class_of(c, &store, "00000000000000bb"),
-        Class::Origin
+        Class::origin_cert_of_body(br#"{"class":"trusted","origin_cert":"00000000000000BB"}"#),
+        None
     );
-    assert_eq!(
-        hubcheck::trust::class_of(c, &store, "unknown"),
-        Class::Origin
-    );
-    assert_eq!(
-        hubcheck::trust::class_of(Some(b"junk"), &store, "x"),
-        Class::Origin
-    );
-    assert_eq!(hubcheck::trust::class_of(None, &store, "x"), Class::Origin);
     assert_eq!(Class::of_body(br#"{"class":"Trusted"}"#), Class::Origin);
     // woltrust's verdicts map one to one; `verified` splits by class.
     use woltrust::Trust as W;

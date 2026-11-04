@@ -144,6 +144,53 @@ function words(v: unknown, field: string): string[] | null {
 
 export interface Facts { kinds: string[] | null; permissions: string[] | null; min_wolos: string | null; trust: string | null; cert: string | null }
 
+/** A picture hubcheck found in the package (its report's facts, HUB-wasm-3): the pipeline puts the bytes on the CDN as
+ * <sha256>.<png|webp>; only this reference comes here. */
+export interface Picture { path: string; mime: "image/png" | "image/webp"; w: number; h: number; size: number; sha256: string }
+/** What hubcheck read from the package for the store page (report key facts; lead 2026-11-04). */
+export interface Meta { name: string | null; summary: string | null; description: string | null; icon: Picture | null; screenshots: Picture[] | null }
+
+export const PICTURE_TYPES = ["image/png", "image/webp"] as const;
+export const MAX_SCREENSHOTS = 8;
+const PICTURE_KEYS = ["path", "mime", "w", "h", "size", "sha256"];
+
+function picture(v: unknown, field: string): Picture {
+  const o = v as Record<string, unknown>;
+  const ok = !!o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).every((k) => PICTURE_KEYS.includes(k))
+    && typeof o.sha256 === "string" && HEX64.test(o.sha256) && (PICTURE_TYPES as readonly unknown[]).includes(o.mime)
+    && typeof o.path === "string" && o.path.length >= 1 && o.path.length <= 200 && !/[\u0000-\u001f\u007f]/.test(o.path)
+    && [o.w, o.h].every((n) => Number.isSafeInteger(n) && (n as number) >= 1 && (n as number) <= 4096)
+    && Number.isSafeInteger(o.size) && (o.size as number) >= 1 && (o.size as number) <= 2 * 1024 * 1024;
+  if (!ok) fail(400, "bad-field", `'${field}' is {path, mime (image/png or image/webp), w, h (1 to 4096), size (at most 2 MiB), sha256}.`);
+  return { path: o.path as string, mime: o.mime as Picture["mime"], w: o.w as number, h: o.h as number, size: o.size as number, sha256: o.sha256 as string };
+}
+
+const optText = (v: unknown, field: string, max: number): string | null => (v === undefined || v === null || v === "" ? null : str(v, field, max));
+const oneLine = (v: string | null, field: string) => {
+  if (v && /[\n\r\t]/.test(v)) fail(400, "bad-field", `'${field}' is one line.`);
+  return v;
+};
+
+/** The verdict's optional facts (hubcheck's report): name (80), summary (200), description (4000), icon, screenshots
+ * (8). categories, homepage and licence may come along and are not kept. */
+export function metaOf(raw: Record<string, unknown>): Meta {
+  const none: Meta = { name: null, summary: null, description: null, icon: null, screenshots: null };
+  if (raw.facts === undefined || raw.facts === null) return none;
+  const f = raw.facts as Record<string, unknown>;
+  if (typeof f !== "object" || Array.isArray(f)) fail(400, "bad-field", "'facts' is hubcheck's facts object.");
+  const name = oneLine(optText(f.name, "facts.name", 80), "facts.name");
+  const summary = oneLine(optText(f.summary, "facts.summary", 200), "facts.summary");
+  const description = optText(f.description, "facts.description", 4000);
+  const icon = f.icon === undefined || f.icon === null ? null : picture(f.icon, "facts.icon");
+  let screenshots: Picture[] | null = null;
+  if (f.screenshots !== undefined && f.screenshots !== null) {
+    if (!Array.isArray(f.screenshots) || f.screenshots.length > MAX_SCREENSHOTS) fail(400, "bad-field", `'facts.screenshots' is a list of at most ${MAX_SCREENSHOTS}.`);
+    screenshots = (f.screenshots as unknown[]).map((x, i) => picture(x, `facts.screenshots[${i}]`));
+    if (!screenshots.length) screenshots = null;
+  }
+  return { name, summary, description, icon, screenshots };
+}
+
 /** The optional facts a verdict carries about the file (from hubcheck's report). */
 export function factsOf(raw: Record<string, unknown>): Facts {
   const kinds = words(raw.kinds, "kinds");
@@ -194,6 +241,7 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
       evidence: f?.evidence === undefined ? "" : str(f.evidence, "findings.evidence", 1000, 0),
     }));
     const facts = factsOf(raw);
+    const meta = metaOf(raw);
 
     const rel = await db.prepare("SELECT sha256, yanked_at FROM releases WHERE listing_id = ? AND version = ?")
       .bind(listing, version).first<{ sha256: string | null; yanked_at: number | null }>();
@@ -206,6 +254,7 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
     const t = now();
     const keepSha = rel.sha256 ?? sha;
     const hasFacts = facts.kinds || facts.permissions || facts.min_wolos || facts.trust || facts.cert;
+    const hasMeta = meta.name || meta.summary || meta.description || meta.icon || meta.screenshots;
     await db.batch([
       db.prepare(
         "INSERT OR IGNORE INTO verdicts (listing_id, version, verdict, sha256, size, findings, run_id, workflow_sha, posted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -219,6 +268,12 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
         "signature = excluded.signature, cert = excluded.cert, updated_at = excluded.updated_at",
       ).bind(listing, version, facts.kinds && JSON.stringify(facts.kinds), facts.permissions && JSON.stringify(facts.permissions),
         facts.min_wolos, facts.trust, facts.cert, t)] : []),
+      ...(hasMeta ? [db.prepare(
+        "INSERT INTO release_meta (listing_id, version, name, summary, description, icon, screenshots, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+        "ON CONFLICT (listing_id, version) DO UPDATE SET name = excluded.name, summary = excluded.summary, description = excluded.description, " +
+        "icon = excluded.icon, screenshots = excluded.screenshots, updated_at = excluded.updated_at",
+      ).bind(listing, version, meta.name, meta.summary, meta.description, meta.icon && JSON.stringify(meta.icon),
+        meta.screenshots && JSON.stringify(meta.screenshots), t)] : []),
       db.prepare(
         `UPDATE listings SET updated_at = ?, status = CASE
            WHEN EXISTS (SELECT 1 FROM releases r WHERE r.listing_id = listings.id AND r.verdict IN ('pass','flag') AND r.yanked_at IS NULL) THEN 'listed'

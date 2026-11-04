@@ -9,19 +9,27 @@ import { limit, purge, RULES } from "./ratelimit";
 import { callback, login, logout, me } from "./auth";
 import { getCla, getTerms, postCla, postTerms } from "./cla";
 import { getOrgs, postOrgs } from "./orgs";
-import { getListing, postListing } from "./listings";
+import { getListing, patchListing, postListing } from "./listings";
 import { webhook } from "./webhook";
 import { getReport, postReport } from "./reports";
 import { getPreview } from "./preview";
 import { exportIndex, pending, postVerdicts } from "./pipeline";
-import { getCerts, getMyCertRequests, pipelineCerts, pipelineRequest, postCertRequest } from "./certs";
-import { approveRequest, queue, refuseRequest, resolveReport, takedown } from "./admin";
+import {
+  getCerts, getMyCertRequests, pipelineCerts, pipelineFileCertificates, pipelineRequest, pipelineRevocations, postCertRequest,
+} from "./certs";
+import {
+  approveRequest, approveRevocation, downgradeCert, flagRelease, getRoles, postRole, queue, refuseRequest, resolveReport, revokeCert, takedown,
+} from "./admin";
 import { log } from "./log";
 
 export type { Env };
 
 type Handler = (ctx: Ctx, ...params: string[]) => Promise<Response>;
-interface Route { method: "GET" | "POST"; path: RegExp; handler: Handler; ipLimit?: boolean }
+interface Route { method: "GET" | "POST" | "PATCH"; path: RegExp; handler: Handler; ipLimit?: boolean }
+
+/** The closed admin panel: under this prefix nothing tells a stranger that a route exists (roles.ts). */
+const PANEL = /^\/api\/admin(\/|$)/;
+const NOINDEX = { "x-robots-tag": "noindex, nofollow, noarchive" };
 
 /** The frozen I4 table. ipLimit marks person-facing writes counted per address. */
 export const ROUTES: Route[] = [
@@ -35,6 +43,7 @@ export const ROUTES: Route[] = [
   { method: "POST", path: /^\/api\/orgs$/, handler: postOrgs, ipLimit: true },
   { method: "POST", path: /^\/api\/listings$/, handler: postListing, ipLimit: true },
   { method: "GET", path: /^\/api\/listings\/([^/]{1,128})$/, handler: getListing },
+  { method: "PATCH", path: /^\/api\/listings\/([^/]{1,128})$/, handler: patchListing, ipLimit: true },
   { method: "POST", path: /^\/api\/webhook\/github$/, handler: webhook },
   { method: "POST", path: /^\/api\/reports$/, handler: postReport, ipLimit: true },
   { method: "GET", path: /^\/api\/reports\/([^/]{1,20})$/, handler: getReport },
@@ -55,6 +64,15 @@ export const ROUTES: Route[] = [
   { method: "POST", path: /^\/api\/admin\/requests\/([^/]{1,64})\/refuse$/, handler: refuseRequest, ipLimit: true },
   { method: "POST", path: /^\/api\/admin\/reports\/([^/]{1,20})\/resolve$/, handler: resolveReport, ipLimit: true },
   { method: "POST", path: /^\/api\/admin\/reports\/([^/]{1,20})\/takedown$/, handler: takedown, ipLimit: true },
+  // Two certificate tiers, revocations, roles, flags, file certificates (lead 2026-11-04).
+  { method: "POST", path: /^\/api\/pipeline\/revocations$/, handler: pipelineRevocations },
+  { method: "POST", path: /^\/api\/pipeline\/file-certificates$/, handler: pipelineFileCertificates },
+  { method: "POST", path: /^\/api\/admin\/certs\/([^/]{1,16})\/revoke$/, handler: revokeCert, ipLimit: true },
+  { method: "POST", path: /^\/api\/admin\/certs\/([^/]{1,16})\/downgrade$/, handler: downgradeCert, ipLimit: true },
+  { method: "POST", path: /^\/api\/admin\/revocations\/([^/]{1,20})\/approve$/, handler: approveRevocation, ipLimit: true },
+  { method: "POST", path: /^\/api\/admin\/releases\/([^/]{1,64})\/([^/]{1,64})\/flag$/, handler: flagRelease, ipLimit: true },
+  { method: "GET", path: /^\/api\/admin\/roles$/, handler: getRoles },
+  { method: "POST", path: /^\/api\/admin\/roles$/, handler: postRole, ipLimit: true },
 ];
 
 function withCookies(r: Response, cookies: string[]): Response {
@@ -66,6 +84,14 @@ function withCookies(r: Response, cookies: string[]): Response {
 
 export async function handle(req: Request, env: Env, exec?: ExecutionContext): Promise<Response> {
   const ctx = makeCtx(req, env, exec);
+  const r = await dispatch(ctx, req, env);
+  if (!PANEL.test(ctx.url.pathname)) return r;
+  const out = new Response(r.body, r);
+  out.headers.set("x-robots-tag", NOINDEX["x-robots-tag"]);
+  return out;
+}
+
+async function dispatch(ctx: Ctx, req: Request, env: Env): Promise<Response> {
   try {
     if (SECRETS.some((k) => !env[k])) fail(503, "not-configured", "The hub is not set up yet.");
     const path = ctx.url.pathname;
@@ -73,8 +99,10 @@ export async function handle(req: Request, env: Env, exec?: ExecutionContext): P
     const matching = ROUTES.filter((r) => r.path.test(path));
     if (!matching.length) fail(404, "not-found", "There is nothing at this address.");
     const route = matching.find((r) => r.method === method);
+    if (!route && PANEL.test(path)) fail(404, "not-found", "There is nothing at this address.");
     if (!route) fail(405, "wrong-method", `Use ${matching.map((r) => r.method).join(" or ")}.`, { allow: matching.map((r) => r.method).join(", ") });
-    if (route!.ipLimit) await limit(env, RULES.writeIp, ctx.ip);
+    // Panel routes count the address after the role check (roles.ts), so a stranger never sees a 429 there either.
+    if (route!.ipLimit && !PANEL.test(path)) await limit(env, RULES.writeIp, ctx.ip);
     const params = (path.match(route!.path) ?? []).slice(1).map((p) => {
       try { return decodeURIComponent(p); } catch { return ""; }
     });

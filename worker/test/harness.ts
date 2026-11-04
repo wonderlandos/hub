@@ -72,6 +72,9 @@ export const SECRETS = {
   SESSION_SECRET: "test-session-secret-a-long-random-value",
 };
 
+/** The second, private App "WolOS Hub Pipeline" (ghapp.ts): its id; its key comes from appKey(). */
+export const PIPELINE_APP_ID = "777001";
+
 export function makeEnv(over: Partial<Env> = {}): Env & { DB: FakeD1; KV: FakeKV } {
   return {
     DB: new FakeD1() as never, KV: new FakeKV() as never, ...SECRETS,
@@ -82,14 +85,14 @@ export function makeEnv(over: Partial<Env> = {}): Env & { DB: FakeD1; KV: FakeKV
     PIPELINE_SIGN_ENVIRONMENT: "sign",
     PIPELINE_CA_WORKFLOW: "wonderlandos/hub-index/.github/workflows/ca.yml@refs/heads/main",
     PIPELINE_CA_ENVIRONMENT: "ca",
-    RATE_STORE: "d1", CLA_VERSION: "1", ADMINS: "carol-ca, dave",
+    RATE_STORE: "d1", CLA_VERSION: "1", ADMINS: "carol-ca, dave", GITHUB_PIPELINE_APP_ID: PIPELINE_APP_ID,
     GITHUB_WEB: "https://gh.test", GITHUB_API: "https://api.gh.test", OIDC_ISSUER: "https://oidc.test",
     ...over,
   } as never;
 }
 
 // ---- mocked GitHub -----------------------------------------------------------------------
-export interface FakeUser { id: number; login: string; name: string; created_at: string }
+export interface FakeUser { id: number; login: string; name: string; created_at: string; two_factor_authentication?: boolean }
 export interface FakeRepo { id: number; full_name: string; private: boolean; owner: { id: number; login: string; type: string } }
 
 const INSTALL_TOKEN = "ghs_installationtoken000000000";
@@ -103,7 +106,7 @@ export class FakeGitHub {
   tokenBodies: Record<string, string>[] = [];
   jwks: JsonWebKey[] = [];
   expiresIn: number | undefined = 28800;
-  // The hub GitHub App acting as itself (ghapp.ts): its public key, its installation, what it was asked.
+  // The pipeline GitHub App acting as itself (ghapp.ts): its public key, its installation, what it was asked.
   app: { publicKey: CryptoKey; installationId: number } | null = null;
   installTokenBodies: Record<string, unknown>[] = [];
   dispatches: { path: string; token: string; body: Record<string, unknown> }[] = [];
@@ -119,7 +122,7 @@ export class FakeGitHub {
       const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", this.app.publicKey, unb64url(sig), utf8(`${h}.${p}`));
       const c = JSON.parse(new TextDecoder().decode(unb64url(p)));
       const t = Math.floor(Date.now() / 1000);
-      return ok && c.iss === SECRETS.GITHUB_APP_ID && c.exp > t && c.exp - c.iat <= 600;
+      return ok && c.iss === PIPELINE_APP_ID && c.exp > t && c.exp - c.iat <= 600;
     };
     if (path === "/repos/wonderlandos/hub-index/installation" && method === "GET") {
       return (await appJwtOk()) ? j({ id: this.app!.installationId }) : j({ message: "A JSON web token could not be decoded" }, 401);
@@ -180,7 +183,7 @@ export class FakeGitHub {
   };
 }
 
-/** Registers the hub GitHub App with a fresh RSA key; returns its private key as PEM (PKCS#8 or GitHub's PKCS#1). */
+/** Registers the pipeline GitHub App with a fresh RSA key; returns its private key as PEM (PKCS#8 or GitHub's PKCS#1). */
 export async function appKey(gh: FakeGitHub, format: "pkcs8" | "pkcs1" = "pkcs1"): Promise<string> {
   const { generateKeyPairSync } = await import("node:crypto");
   const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -222,12 +225,14 @@ export const cookiePair = (setCookie: string | null) => (setCookie ?? "").split(
 /** Runs the whole sign-in: /auth/login, GitHub's authorize (mocked), /auth/callback. Returns the Cookie header value. */
 export async function signIn(env: Env, gh: FakeGitHub, u: FakeUser, next = "/"): Promise<string> {
   const token = gh.addUser(u);
-  const r1 = await req(env, "GET", `/auth/login?next=${encodeURIComponent(next)}`);
+  // Each person signs in from their own address, so a test with many sign-ins stays under the per-address limit.
+  const ip = `198.51.100.${(u.id % 250) + 1}`;
+  const r1 = await req(env, "GET", `/auth/login?next=${encodeURIComponent(next)}`, { ip });
   const loc = new URL(r1.headers.get("location")!);
   const code = "code-" + Math.random().toString(36).slice(2);
   gh.codes.set(code, { token, challenge: loc.searchParams.get("code_challenge")! });
   const oauth = cookiePair(cookieFrom(r1, "__Host-hub_oauth"));
-  const r2 = await req(env, "GET", `/auth/callback?code=${code}&state=${loc.searchParams.get("state")}`, { cookie: oauth });
+  const r2 = await req(env, "GET", `/auth/callback?code=${code}&state=${loc.searchParams.get("state")}`, { cookie: oauth, ip });
   if (r2.status !== 302) throw new Error("sign-in failed: " + r2.status + " " + (await r2.text()));
   return cookiePair(cookieFrom(r2, "__Host-hub_session"));
 }
@@ -249,11 +254,20 @@ export async function termsAnswer(env: Env, doc: "cla" | "publisher" | "trust") 
 }
 
 export const OLD = "2020-01-01T00:00:00Z";
-export const alice: FakeUser = { id: 1001, login: "Alice", name: "Alice Doe", created_at: OLD };
-export const bob: FakeUser = { id: 1002, login: "bob", name: "Bob Roe", created_at: OLD };
-/** Hub admins (makeEnv ADMINS). */
-export const carol: FakeUser = { id: 1003, login: "carol-ca", name: "Carol Admin", created_at: OLD };
-export const dave: FakeUser = { id: 1004, login: "Dave", name: "Dave Admin", created_at: OLD };
+// Everyone here has two-factor authentication on GitHub unless a test takes it away.
+export const alice: FakeUser = { id: 1001, login: "Alice", name: "Alice Doe", created_at: OLD, two_factor_authentication: true };
+export const bob: FakeUser = { id: 1002, login: "bob", name: "Bob Roe", created_at: OLD, two_factor_authentication: true };
+/** Owners of the admin panel (makeEnv ADMINS). */
+export const carol: FakeUser = { id: 1003, login: "carol-ca", name: "Carol Admin", created_at: OLD, two_factor_authentication: true };
+export const dave: FakeUser = { id: 1004, login: "Dave", name: "Dave Admin", created_at: OLD, two_factor_authentication: true };
+export const erin: FakeUser = { id: 1005, login: "erin", name: "Erin Helper", created_at: OLD, two_factor_authentication: true };
+
+/** Moves the clock (Date.now) by seconds; returns the function that puts it back. */
+export function shiftClock(seconds: number): () => void {
+  const real = Date.now;
+  Date.now = () => real() + seconds * 1000;
+  return () => { Date.now = real; };
+}
 
 // ---- webhooks and OIDC -------------------------------------------------------------------
 export async function hook(env: Env, event: string, payload: unknown, delivery = crypto.randomUUID(), secret = SECRETS.WEBHOOK_SECRET) {
@@ -292,4 +306,20 @@ export async function jwt(k: { kid: string; key: CryptoKey }, payload: unknown, 
   const p = b64url(utf8(JSON.stringify(payload)));
   const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", k.key, utf8(`${h}.${p}`));
   return `${h}.${p}.${b64url(sig)}`;
+}
+
+// ---- certificate requests ----------------------------------------------------------------------------------------
+export const bytes = (n: number, fill = 7) => b64url(new Uint8Array(n).fill(fill));
+export const t0 = () => Math.floor(Date.now() / 1000);
+/** A request as `wol cert request` writes it (woltrust request::Request), with keys of the right sizes. */
+export function woltrustRequest(over: Record<string, unknown> = {}, who = alice) {
+  return {
+    format: 1, action: "issue", kind: "person",
+    subject: { github_id: who.id, login: who.login.toLowerCase(), name: who.name },
+    namespaces: [`${who.login.toLowerCase()}.`],
+    keys: { ed25519: bytes(32, who.id % 256), "ml-dsa-65": bytes(1952), x25519: bytes(32, 9), "ml-kem-768": bytes(1184) },
+    proof: { ed25519: bytes(64), second: bytes(3309) },
+    months: 12, requested_at: t0() - 60,
+    ...over,
+  };
 }

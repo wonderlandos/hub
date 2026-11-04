@@ -461,7 +461,7 @@ dependencies = [
 [[package]]
 name = "woltrust"
 version = "0.12.0"
-source = "git+https://github.com/wonderlandos/wolos?rev=fe64176#fe64176114c38475f38b6ebc75ef4bc8aa9d466c"
+source = "git+https://github.com/wonderlandos/wolos?rev=0b00c1e#0b00c1e96db570cad067a430e24f54b6bb708587"
 dependencies = [
  "ed25519-dalek",
  "fips204",

@@ -10,9 +10,11 @@ export interface Env {
   GITHUB_CLIENT_SECRET: string;
   WEBHOOK_SECRET: string;
   SESSION_SECRET: string;
-  /** PEM private key of the GitHub App, for installation tokens (the ca dispatch). Optional: without it an
-   * approval is stored and the dispatch is reported as not sent. */
-  GITHUB_APP_PRIVATE_KEY?: string;
+  /** The second, private GitHub App "WolOS Hub Pipeline", installed only on the pipeline repository: its id and PEM
+   * private key, for the installation token that starts ca.yml. Optional: without them an approval or a revocation is
+   * stored and the dispatch is reported as not sent. The public "WolOS Hub" App has no Actions permission. */
+  GITHUB_PIPELINE_APP_ID?: string;
+  GITHUB_PIPELINE_APP_PRIVATE_KEY?: string;
   // Variables (wrangler.toml).
   HUB_ORIGIN: string;
   OIDC_AUDIENCE: string;
@@ -23,7 +25,8 @@ export interface Env {
   PIPELINE_SIGN_ENVIRONMENT: string;
   PIPELINE_CA_WORKFLOW: string;
   PIPELINE_CA_ENVIRONMENT: string;
-  /** GitHub logins of the hub admins, comma separated (the same list as hub-index's CA_APPROVERS). */
+  /** GitHub logins seeded as admin-panel owners, comma separated (roles.ts). hub-index's CA_APPROVERS lists everyone
+   * who may approve a trusted request: these and every admin and reviewer granted in the panel. */
   ADMINS?: string;
   /** "true" sends the ca dispatch as a dry run (TEST CA); anything else issues for real. */
   CA_DISPATCH_DRY_RUN?: string;
@@ -41,7 +44,7 @@ export const ghWeb = (env: Env) => env.GITHUB_WEB ?? "https://github.com";
 export const ghApi = (env: Env) => env.GITHUB_API ?? "https://api.github.com";
 export const oidcIssuer = (env: Env) => env.OIDC_ISSUER ?? "https://token.actions.githubusercontent.com";
 
-/** The hub admins, lower case. */
+/** The logins seeded as owners, lower case. */
 export const admins = (env: Env): Set<string> =>
   new Set((env.ADMINS ?? "").split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase()));
 

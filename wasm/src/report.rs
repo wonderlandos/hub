@@ -7,33 +7,11 @@
 use serde::{Deserialize, Serialize};
 use woltrust::{Finding, Level, Origin, Verdict};
 
-/// The class of an author's certificate: body field `"class"`, absent = `origin` (TRUST-core-4).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Class {
-    /// Says who made the file.
-    Origin,
-    /// Also vouches for the maker (needs its `origin_cert`).
-    Trusted,
-}
+/// The class of an author's certificate (woltrust's, body field `"class"`, absent = `origin`).
+pub use woltrust::Class;
 
-impl Class {
-    /// The class named by a certificate body (the exact signed JSON): `trusted` only when the body
-    /// says so, anything else is `origin` (the fail-safe default).
-    pub fn of_body(body: &[u8]) -> Class {
-        let v: Option<serde_json::Value> = serde_json::from_slice(body).ok();
-        match v
-            .as_ref()
-            .and_then(|v| v.get("class"))
-            .and_then(serde_json::Value::as_str)
-        {
-            Some("trusted") => Class::Trusted,
-            _ => Class::Origin,
-        }
-    }
-}
-
-/// What the signature is worth: `wolos | trusted | origin | community | withdrawn | invalid`.
+/// What the signature is worth: `wolos | trusted | origin | legacy | community | withdrawn | invalid`
+/// (woltrust's values, one to one).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Trust {
@@ -43,6 +21,8 @@ pub enum Trust {
     Trusted,
     /// Signed with an `origin` certificate: the maker is known, nobody vouches beyond that.
     Origin,
+    /// Signed only with WolOS's previous key (no certificate, no post-quantum half): never shown as WolOS.
+    Legacy,
     /// Nobody vouches: no signature, an expired certificate or a list too old to rely on.
     Community,
     /// The certificate was withdrawn.
@@ -52,13 +32,13 @@ pub enum Trust {
 }
 
 impl Trust {
-    /// The value for woltrust's verdict and, for an author's certificate, its class (`verified`
-    /// becomes `trusted` or `origin`; the other values are the same).
-    pub fn of(t: woltrust::Trust, class: Option<Class>) -> Trust {
+    /// The value for woltrust's verdict (the same names).
+    pub fn of(t: woltrust::Trust) -> Trust {
         match t {
             woltrust::Trust::Wolos => Trust::Wolos,
-            woltrust::Trust::Verified if class == Some(Class::Trusted) => Trust::Trusted,
-            woltrust::Trust::Verified => Trust::Origin,
+            woltrust::Trust::Trusted => Trust::Trusted,
+            woltrust::Trust::Origin => Trust::Origin,
+            woltrust::Trust::Legacy => Trust::Legacy,
             woltrust::Trust::Community => Trust::Community,
             woltrust::Trust::Withdrawn => Trust::Withdrawn,
             woltrust::Trust::Invalid => Trust::Invalid,
@@ -79,16 +59,26 @@ pub struct CertInfo {
     /// `origin` or `trusted`; omitted for WolOS signers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class: Option<Class>,
+    /// For a `trusted` certificate: the serial of the origin certificate it is bound to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin_cert: Option<String>,
     /// When the hub verified the subject.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_at: Option<u64>,
 }
 
 impl CertInfo {
-    /// woltrust's info with the class of the certificate (none for a WolOS signer).
-    pub fn of(c: woltrust::CertInfo, class: Option<Class>) -> CertInfo {
+    /// woltrust's info (with its `class`) and, for a `trusted` certificate, its `origin_cert`.
+    pub fn of(c: woltrust::CertInfo, origin_cert: Option<String>) -> CertInfo {
+        let wolos = c.level == Level::Wolos;
+        let class = if wolos { None } else { c.class };
         CertInfo {
-            class: if c.level == Level::Wolos { None } else { class },
+            class,
+            origin_cert: if class == Some(Class::Trusted) {
+                origin_cert
+            } else {
+                None
+            },
             serial: c.serial,
             subject: c.subject,
             level: c.level,
@@ -138,6 +128,10 @@ pub struct Report {
     /// The id and version from the manifest, when it gave an id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<FileId>,
+    /// The listing facts (name, summary, description, icon, screenshots, categories, homepage,
+    /// licence), when the manifest could be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub facts: Option<crate::listing::Facts>,
 }
 
 impl Report {

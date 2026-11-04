@@ -25,6 +25,9 @@ const HEADER_KEYS: [&str; 9] = [
     "min_wolos",
     "permissions",
 ];
+/// Header keys of the listing (lead 02:33Z, HUB-wasm-3 #plan 7328): new in WolOS 0.13, so a manifest
+/// that uses one also says `min_wolos = "0.13"`.
+pub const LISTING_KEYS: [&str; 5] = ["icon", "screenshots", "categories", "homepage", "about"];
 /// Permissions a plugin may ask for.
 pub const PERMISSIONS: [&str; 6] = [
     "notifications",
@@ -34,7 +37,7 @@ pub const PERMISSIONS: [&str; 6] = [
     "open",
     "toggles",
 ];
-const CATEGORIES: [&str; 4] = ["Create", "Work", "Play", "Develop"];
+pub const CATEGORIES: [&str; 4] = ["Create", "Work", "Play", "Develop"];
 const CAPABILITIES: [&str; 9] = [
     "network",
     "files",
@@ -164,6 +167,20 @@ pub struct Plugin {
     pub runs_programs: bool,
     /// The host app of an extension.
     pub host: Option<String>,
+    /// `license`, as written.
+    pub license: String,
+    /// `icon`: the listing icon's path in the folder.
+    pub icon: Option<String>,
+    /// `screenshots`: paths in the folder.
+    pub screenshots: Vec<String>,
+    /// `categories`, the known ones.
+    pub categories: Vec<String>,
+    /// `homepage`, as written.
+    pub homepage: Option<String>,
+    /// `about`: the long description.
+    pub about: Option<String>,
+    /// True when a key of [`LISTING_KEYS`] is used.
+    pub listing_keys: bool,
 }
 
 /// What the rest of the check needs from an app's `Info.json`.
@@ -179,6 +196,16 @@ pub struct App {
     pub summary: String,
     /// Declared capabilities.
     pub capabilities: Vec<String>,
+    /// Known categories.
+    pub categories: Vec<String>,
+    /// `description`: the long text.
+    pub description: Option<String>,
+    /// `homepage`.
+    pub homepage: Option<String>,
+    /// `license`.
+    pub license: Option<String>,
+    /// `screenshots`: member names.
+    pub screenshots: Vec<String>,
 }
 
 struct Fields<'a> {
@@ -249,7 +276,9 @@ pub fn read_plugin(text: &str, kind: Kind, r: &mut Rules) -> Option<Plugin> {
     };
     let mut m = Plugin::default();
     for (k, _, line) in &doc.header {
-        let known = HEADER_KEYS.contains(&k.as_str()) || (kind == Kind::Extension && k == "host");
+        let known = HEADER_KEYS.contains(&k.as_str())
+            || LISTING_KEYS.contains(&k.as_str())
+            || (kind == Kind::Extension && k == "host");
         let perms_on_ext = kind == Kind::Extension && k == "permissions";
         if !known || perms_on_ext {
             r.block(
@@ -312,7 +341,7 @@ pub fn read_plugin(text: &str, kind: Kind, r: &mut Rules) -> Option<Plugin> {
         None => r.block("manifest/version", "The manifest has no version.", ""),
     }
     match h.text("license", r) {
-        Some(l) if !l.trim().is_empty() && one_line(l, MAX_NAME) => {}
+        Some(l) if !l.trim().is_empty() && one_line(l, MAX_NAME) => l.clone_into(&mut m.license),
         Some(l) => r.block(
             "manifest/license",
             "The license is a short SPDX name, like \"MIT\".",
@@ -382,8 +411,62 @@ pub fn read_plugin(text: &str, kind: Kind, r: &mut Rules) -> Option<Plugin> {
             ),
         }
     }
+    listing_keys(&h, &mut m, r);
     sections(&doc, kind, &mut m, r);
     Some(m)
+}
+
+/// The listing keys of a plugin or extension header.
+fn listing_keys(h: &Fields, m: &mut Plugin, r: &mut Rules) {
+    m.listing_keys = LISTING_KEYS.iter().any(|k| h.get(k).is_some());
+    let path_ok = |p: &str, r: &mut Rules| {
+        if is_plugin_path(p) {
+            true
+        } else {
+            r.block(
+                "manifest/path",
+                "A file name stays inside the plugin folder: letters, digits, . _ - and /, nothing hidden, no \"..\".",
+                p,
+            );
+            false
+        }
+    };
+    if let Some(i) = h.text("icon", r)
+        && path_ok(i, r)
+    {
+        m.icon = Some(i.to_owned());
+    }
+    if let Some(l) = h.list("screenshots", r) {
+        for p in l {
+            if path_ok(p, r) {
+                m.screenshots.push(p.to_owned());
+            }
+        }
+    }
+    if let Some(l) = h.list("categories", r) {
+        for c in l {
+            if CATEGORIES.contains(&c) {
+                if !m.categories.iter().any(|x| x == c) {
+                    m.categories.push(c.to_owned());
+                }
+            } else {
+                r.block(
+                    "manifest/category",
+                    &format!(
+                        "\"{c}\" is not one of the known categories: {}.",
+                        CATEGORIES.join(", ")
+                    ),
+                    c,
+                );
+            }
+        }
+    }
+    if let Some(u) = h.text("homepage", r) {
+        m.homepage = Some(u.to_owned());
+    }
+    if let Some(a) = h.text("about", r) {
+        m.about = Some(a.to_owned());
+    }
 }
 
 fn sections(doc: &Doc, kind: Kind, m: &mut Plugin, r: &mut Rules) {
@@ -607,6 +690,39 @@ pub fn read_app(text: &str, r: &mut Rules) -> Option<App> {
     if let Some(t) = s("summary") {
         t.clone_into(&mut a.summary);
     }
+    for k in ["description", "homepage", "license"] {
+        match o.get(k) {
+            None => {}
+            Some(serde_json::Value::String(t)) => {
+                let slot = match k {
+                    "description" => &mut a.description,
+                    "homepage" => &mut a.homepage,
+                    _ => &mut a.license,
+                };
+                *slot = Some(t.clone());
+            }
+            Some(_) => r.note(
+                "listing/field",
+                &format!("\"{k}\" in Info.json must be text, so it was left out of the listing."),
+                k,
+            ),
+        }
+    }
+    match o.get("screenshots") {
+        None => {}
+        Some(x) => match x.as_array().and_then(|l| {
+            l.iter()
+                .map(serde_json::Value::as_str)
+                .collect::<Option<Vec<_>>>()
+        }) {
+            Some(l) => a.screenshots = l.into_iter().map(str::to_owned).collect(),
+            None => r.note(
+                "listing/field",
+                "\"screenshots\" in Info.json is a list of member names, so it was left out of the listing.",
+                "screenshots",
+            ),
+        },
+    }
     if let Some(p) = s("package")
         && !p.is_empty()
         && !is_pkg_name(p)
@@ -646,6 +762,8 @@ pub fn read_app(text: &str, r: &mut Rules) -> Option<App> {
                 );
             } else if key == "capabilities" {
                 a.capabilities.push(item.to_owned());
+            } else if !a.categories.iter().any(|c| c == item) {
+                a.categories.push(item.to_owned());
             }
         }
     }

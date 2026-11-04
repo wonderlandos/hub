@@ -259,6 +259,41 @@ pub fn analyse(bytes: &[u8], kind: Kind) -> Rules {
     r
 }
 
+/// The members of a `.wol`, in contract order, and whether each is required. Between `icon.png`
+/// and `payload.pkg` come the listing's screenshots, `screenshots/<name>.png|webp` (see [`is_shot_member`]).
+/// Pictures to put on the CDN: `(<sha256>.<png|webp>, bytes)`.
+pub type Pictures = Vec<(String, Vec<u8>)>;
+
+/// The listing facts of `bytes` and the checked pictures in them, as `(<sha256>.<png|webp>, bytes)`
+/// in the order icon, screenshots: what `hubcheck extract` writes for the pipeline to put on the
+/// CDN. None when the manifest could not be read. Only pictures that passed are returned.
+pub fn extract(bytes: &[u8], kind: Kind) -> Option<(crate::listing::Facts, Pictures)> {
+    let facts = analyse(bytes, kind).facts?;
+    let l = load(bytes, kind).ok()?;
+    let prefix = if kind == Kind::App {
+        String::new()
+    } else {
+        format!("{}/", l.members.first()?.name.split('/').next()?)
+    };
+    let mut out: Pictures = Vec::new();
+    for img in facts.icon.iter().chain(facts.screenshots.iter()) {
+        let b = l.get(&format!("{prefix}{}", img.path))?;
+        if sha256_hex(b) != img.sha256 {
+            return None;
+        }
+        let ext = if img.mime == "image/webp" {
+            "webp"
+        } else {
+            "png"
+        };
+        let name = format!("{}.{ext}", img.sha256);
+        if !out.iter().any(|(n, _)| *n == name) {
+            out.push((name, b.to_vec()));
+        }
+    }
+    Some((facts, out))
+}
+
 const APP_ORDER: [(&str, bool); 7] = [
     ("Info.json", true),
     ("icon.png", false),
@@ -268,25 +303,54 @@ const APP_ORDER: [(&str, bool); 7] = [
     (CHAIN, false),
     (WSIG, false),
 ];
+/// Slot of the screenshot members in [`APP_ORDER`]: after `icon.png`.
+const SHOT_SLOT: usize = 2;
+
+/// `screenshots/<name>.png` or `.webp`, the name of lowercase letters, digits, `-` and `_`, 1 to 32.
+pub fn is_shot_member(n: &str) -> bool {
+    n.strip_prefix("screenshots/").is_some_and(|f| {
+        let stem = f.strip_suffix(".png").or_else(|| f.strip_suffix(".webp"));
+        stem.is_some_and(|x| {
+            !x.is_empty()
+                && x.len() <= 32
+                && x.bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+        })
+    })
+}
 
 fn app(l: &Loaded, r: &mut Rules) {
-    // Exactly the contract members, each once, in contract order.
-    let mut want = APP_ORDER.iter();
+    // Exactly the contract members, each once, in contract order (screenshots: up to 8, by name once).
+    let mut last: Option<usize> = None;
+    let mut shots: Vec<&str> = Vec::new();
     for m in &l.members {
-        loop {
-            match want.next() {
-                Some((n, _)) if *n == m.name => break,
-                Some((_, false)) => {}
-                _ => {
-                    r.broken(
-                        "file/members",
-                        "The file holds a part that does not belong, or holds the parts in the wrong order.",
-                        m.name.clone(),
-                    );
-                    return;
-                }
-            }
+        let at = if is_shot_member(&m.name) {
+            Some(SHOT_SLOT)
+        } else {
+            APP_ORDER
+                .iter()
+                .position(|(n, _)| *n == m.name)
+                .map(|i| if i >= SHOT_SLOT { i + 1 } else { i })
+        };
+        let in_order = match (at, last) {
+            (None, _) => false,
+            (Some(_), None) => true,
+            (Some(a), Some(b)) => a > b || (a == SHOT_SLOT && b == SHOT_SLOT),
+        };
+        let shot_ok = at != Some(SHOT_SLOT)
+            || (!shots.contains(&m.name.as_str()) && shots.len() < crate::listing::MAX_SCREENSHOTS);
+        if !in_order || !shot_ok {
+            r.broken(
+                "file/members",
+                "The file holds a part that does not belong, or holds the parts in the wrong order.",
+                m.name.clone(),
+            );
+            return;
         }
+        if at == Some(SHOT_SLOT) {
+            shots.push(&m.name);
+        }
+        last = at;
     }
     for (n, required) in APP_ORDER {
         if required && l.get(n).is_none() {
@@ -312,15 +376,6 @@ fn app(l: &Loaded, r: &mut Rules) {
             "file/signature",
             "The old-style signature in the file is damaged.",
             format!("{} bytes", sig.len()),
-        );
-    }
-    if let Some(png) = l.get("icon.png")
-        && !png.starts_with(b"\x89PNG\r\n\x1a\n")
-    {
-        r.flag(
-            "file/icon",
-            "The icon is not a PNG picture, so it may not show.",
-            "icon.png",
         );
     }
     if l.get("payload.pkg").is_some_and(<[u8]>::is_empty) {
@@ -351,6 +406,30 @@ fn app(l: &Loaded, r: &mut Rules) {
             );
         }
         name_rules(&a.name, &a.summary, r);
+        for m in &shots {
+            if !a.screenshots.iter().any(|x| x == m) {
+                r.note(
+                    "listing/screenshot",
+                    "A screenshot in the file is not named in Info.json, so it was left out of the listing.",
+                    *m,
+                );
+            }
+        }
+        let named: Vec<(&str, Option<&[u8]>)> = a
+            .screenshots
+            .iter()
+            .map(|n| (n.as_str(), is_shot_member(n).then(|| l.get(n)).flatten()))
+            .collect();
+        let text = crate::listing::Text {
+            name: a.name.clone(),
+            summary: a.summary.clone(),
+            description: a.description.clone(),
+            categories: a.categories.clone(),
+            homepage: a.homepage.clone(),
+            licence: a.license.clone(),
+        };
+        let icon = l.get("icon.png").map(|b| ("icon.png", Some(b)));
+        r.facts = Some(crate::listing::facts(text, icon, &named, "app", r));
     }
 }
 
@@ -364,9 +443,6 @@ fn size_caps(l: &Loaded, r: &mut Rules) {
                 name,
             );
         }
-    }
-    if l.get("icon.png").is_some_and(|b| b.len() > MAX_SMALL) {
-        r.flag("size/part", "The icon is larger than 1 MB.", "icon.png");
     }
     if l.get(CHAIN)
         .is_some_and(|b| b.len() > woltrust::MAX_CHAIN_BYTES)
@@ -688,8 +764,34 @@ fn folder(l: &Loaded, kind: Kind, r: &mut Rules) {
             "A file with an author's certificate needs WolOS 0.13, but the manifest does not say so. Older systems will refuse it.",
             p.min_wolos.clone(),
         );
+    } else if p.listing_keys && !min_wolos_ok(&p.min_wolos) {
+        r.flag(
+            "manifest/min-wolos",
+            &format!("The listing entries of {manifest_name} (icon, screenshots, categories, homepage, about) need WolOS 0.13, but the manifest does not say so. Older systems will refuse it."),
+            p.min_wolos.clone(),
+        );
     }
     contents(l, &rels, &p, kind, r);
+    let find = |path: &str| {
+        rels.iter()
+            .find(|(x, _)| x == path)
+            .map(|(_, m)| l.bytes(m))
+    };
+    let named: Vec<(&str, Option<&[u8]>)> = p
+        .screenshots
+        .iter()
+        .map(|s| (s.as_str(), find(s)))
+        .collect();
+    let icon = p.icon.as_deref().map(|i| (i, find(i)));
+    let text = crate::listing::Text {
+        name: p.name.clone(),
+        summary: p.description.clone(),
+        description: p.about.clone(),
+        categories: p.categories.clone(),
+        homepage: p.homepage.clone(),
+        licence: (!p.license.is_empty()).then(|| p.license.clone()),
+    };
+    r.facts = Some(crate::listing::facts(text, icon, &named, noun, r));
 }
 
 fn min_wolos_ok(v: &str) -> bool {

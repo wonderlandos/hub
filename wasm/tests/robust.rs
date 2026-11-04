@@ -113,3 +113,33 @@ fn a_tar_that_claims_a_huge_size_is_refused() {
     let r = hubcheck::check(&b, Kind::App);
     assert_eq!(r.findings[0].rule, "file/format");
 }
+
+#[test]
+fn picture_headers_never_panic() {
+    let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+    let png = hubcheck::fixtures::png(200, 200);
+    let webp = hubcheck::fixtures::webp(800, 600);
+    for base in [&png, &webp] {
+        for cut in 0..base.len().min(300) {
+            let _ = hubcheck::listing::probe(&base[..cut]);
+        }
+        for _ in 0..3000 {
+            let mut b = base.clone();
+            for _ in 0..4 {
+                let i = (xorshift(&mut seed) as usize) % b.len().min(400);
+                b[i] = xorshift(&mut seed) as u8;
+            }
+            let _ = hubcheck::listing::probe(&b);
+            let _ = hubcheck::listing::image("x.png", &b, hubcheck::listing::Role::Icon);
+        }
+    }
+    for _ in 0..2000 {
+        let n = (xorshift(&mut seed) % 64) as usize;
+        let mut b: Vec<u8> = (0..n).map(|_| xorshift(&mut seed) as u8).collect();
+        if n > 12 {
+            b[..4].copy_from_slice(b"RIFF");
+            b[8..12].copy_from_slice(b"WEBP");
+        }
+        let _ = hubcheck::listing::probe(&b);
+    }
+}

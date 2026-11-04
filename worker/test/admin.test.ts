@@ -76,8 +76,9 @@ test("admins see open reports; resolve closes one, takedown withdraws the listin
   await verdicts([{ listing_id: "alice.notes", version: "1.0.0", verdict: "pass", sha256: SHA, size: 10 }]);
   const rep = async (reason: string) => ((await (await req(env, "POST", "/api/reports", { cookie: cb, body: { listing_id: "alice.notes", reason, text: "It deletes files." } })).json()) as any).report.id;
   const r1 = await rep("broken"), r2 = await rep("malware");
-  expect((await req(env, "GET", "/api/admin/queue", { cookie: cb })).status).toBe(403);
-  expect((await req(env, "POST", `/api/admin/reports/${r1}/resolve`, { cookie: cb })).status).toBe(403);
+  // bob has no role: the panel does not exist for him
+  expect((await req(env, "GET", "/api/admin/queue", { cookie: cb })).status).toBe(404);
+  expect((await req(env, "POST", `/api/admin/reports/${r1}/resolve`, { cookie: cb })).status).toBe(404);
   const a = await signIn(env, gh, carol);
   const q = (await (await req(env, "GET", "/api/admin/queue", { cookie: a })).json()) as any;
   expect(q.reports.map((r: any) => [r.id, r.reason, r.listing.id, r.listing.status])).toEqual([[r1, "broken", "alice.notes", "listed"], [r2, "malware", "alice.notes", "listed"]]);
@@ -103,11 +104,12 @@ test("admins see open reports; resolve closes one, takedown withdraws the listin
   expect(((await (await req(env, "GET", `/api/reports/${r2}`, { cookie: cb })).json()) as any).report).toMatchObject({ state: "actioned", action: "takedown" });
   expect((await req(env, "POST", "/api/admin/reports/999/takedown", { cookie: a })).status).toBe(404);
 
-  const log = env.DB.sqlite.query("SELECT actor_id, action, target FROM audit_log WHERE action IN ('report.resolve','listing.takedown') ORDER BY id").all();
-  expect(log).toEqual([
+  const log = env.DB.sqlite.query("SELECT actor_id, action, target, detail FROM audit_log WHERE action IN ('report.resolve','listing.takedown') ORDER BY id").all() as any[];
+  expect(log.map(({ detail: _d, ...x }) => x)).toEqual([
     { actor_id: "1003", action: "report.resolve", target: `report:${r1}` },
     { actor_id: "1003", action: "listing.takedown", target: "listing:alice.notes" },
   ]);
+  expect(JSON.parse(log[1].detail)).toEqual({ actor: "carol-ca", role: "owner", reason: "Confirmed: it deletes files.", ip_class: "v4", report: r2 });
 });
 
 test("a repository that changed hands is named withdrawn with reason transferred, once it had been listed", async () => {

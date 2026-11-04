@@ -26,10 +26,10 @@ PIPELINE_CA_ENVIRONMENT = "ca"
 RATE_STORE = "d1"
 # The version line of cla/CLA.md.
 CLA_VERSION = "1"
-# Hub admins (GitHub logins, comma separated): approve certificate requests, handle reports.
-# Keep it equal to the hub-index variable CA_APPROVERS.
+# Owners of the admin panel (GitHub logins, comma separated); further roles are granted in the panel.
+# hub-index's CA_APPROVERS lists everyone who may approve trusted requests: these and the admins and reviewers.
 ADMINS = "kleeedolinux"
-# "true" starts ca.yml as a dry run (TEST CA) after an approval; "false" issues for real.
+# "true" starts ca.yml as a dry run (TEST CA) after an approval or revocation; "false" issues for real.
 CA_DISPATCH_DRY_RUN = "false"
 
 # Created by the lead with `wrangler d1 create wolos-hub`; the id below is a placeholder.

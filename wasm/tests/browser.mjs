@@ -26,7 +26,7 @@ try {
   const pki = await text("/tests/vectors/pki.json");
   for (const n of names.filter((n) => n !== "pki.json")) out.replay.push([n, hc.replay_vector(pki, await text("/tests/vectors/" + n))]);
   const store = await text("/fixtures/store.json"), now = Number(await text("/fixtures/now.txt"));
-  for (const [f, k] of [["person.wol","app"],["org.wol","app"],["wolos.wol","app"],["unsigned.wol","app"],["namespace.wol","app"],["origin.wol","app"],["weather.wolplug","plugin"]]) {
+  for (const [f, k] of [["person.wol","app"],["org.wol","app"],["wolos.wol","app"],["unsigned.wol","app"],["namespace.wol","app"],["origin.wol","app"],["listing.wol","app"],["weather.wolplug","plugin"]]) {
     const b = await get("/fixtures/" + f);
     out.same[f] = [hc.check(b, k), hc.verify(b, k, store, now), hc.inspect(b, k, store, now)];
   }

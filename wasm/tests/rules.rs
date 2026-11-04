@@ -21,12 +21,13 @@ fn ck(files: &[(&str, &[u8])]) -> Report {
     hubcheck::check(&plugin(files), Kind::Plugin)
 }
 
-/// A plain tar is flagged for being uncompressed; every other rule is the same either way.
+/// A plain tar is flagged for being uncompressed; every other rule is the same either way. The
+/// listing notes (`listing/...`, tests/listing.rs) leave the verdict alone and are left out here.
 fn rules_of(r: &Report) -> Vec<&str> {
     r.findings
         .iter()
         .map(|f| f.rule.as_str())
-        .filter(|r| *r != "file/not-compressed")
+        .filter(|r| *r != "file/not-compressed" && !r.starts_with("listing/"))
         .collect()
 }
 
