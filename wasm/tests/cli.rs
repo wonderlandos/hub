@@ -38,12 +38,12 @@ fn the_command_and_the_library_print_the_same_bytes() {
     );
     assert_eq!(
         run(&["verify", "app", fp, "--store", sp, "--now", &now]),
-        hubcheck::api::verify_json(&wol, "app", &f.store_json(), f.now, None)
+        hubcheck::api::verify_json(&wol, "app", &f.store_json(), f.now, None, None)
     );
     let inspected = run(&["inspect", "app", fp, "--store", sp, "--now", &now]);
     assert_eq!(
         inspected,
-        hubcheck::api::inspect_json(&wol, "app", &f.store_json(), f.now, None)
+        hubcheck::api::inspect_json(&wol, "app", &f.store_json(), f.now, None, None)
     );
     assert!(inspected.contains("\"trust\":\"origin\""));
     let m = tmp("plugin.toml");

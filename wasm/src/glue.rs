@@ -16,9 +16,16 @@ pub fn validate_manifest(text: &str, kind: &str) -> String {
 }
 
 /// The signature of a file against a store (JSON text: roots, intermediates, revoked lists).
+/// `file_cert`: the index entry's file certificate (bytes of its text), optional.
 #[wasm_bindgen]
-pub fn verify(bytes: &[u8], kind: &str, store: &str, now: f64) -> String {
-    crate::api::verify_json(bytes, kind, store, secs(now), None)
+pub fn verify(
+    bytes: &[u8],
+    kind: &str,
+    store: &str,
+    now: f64,
+    file_cert: Option<Vec<u8>>,
+) -> String {
+    crate::api::verify_json(bytes, kind, store, secs(now), None, file_cert.as_deref())
 }
 
 /// A trust store loaded once (the roots' signatures are checked then), for many files.
@@ -37,16 +44,22 @@ impl Verifier {
             .map_err(|e| JsError::new(&e))
     }
 
-    /// The signature of a file against the loaded store, as JSON.
-    pub fn verify(&self, bytes: &[u8], kind: &str) -> String {
-        self.inner.verify_json(bytes, kind)
+    /// The signature of a file against the loaded store, as JSON (`file_cert` optional).
+    pub fn verify(&self, bytes: &[u8], kind: &str, file_cert: Option<Vec<u8>>) -> String {
+        self.inner.verify_json(bytes, kind, file_cert.as_deref())
     }
 }
 
-/// Rules and signature in one report.
+/// Rules and signature in one report (`file_cert` optional, as in `verify`).
 #[wasm_bindgen]
-pub fn inspect(bytes: &[u8], kind: &str, store: &str, now: f64) -> String {
-    crate::api::inspect_json(bytes, kind, store, secs(now), None)
+pub fn inspect(
+    bytes: &[u8],
+    kind: &str,
+    store: &str,
+    now: f64,
+    file_cert: Option<Vec<u8>>,
+) -> String {
+    crate::api::inspect_json(bytes, kind, store, secs(now), None, file_cert.as_deref())
 }
 
 /// Replays one vector of the trust crate: empty text when it matches the recorded result.
@@ -54,6 +67,13 @@ pub fn inspect(bytes: &[u8], kind: &str, store: &str, now: f64) -> String {
 #[wasm_bindgen]
 pub fn replay_vector(pki: &str, vector: &str) -> String {
     crate::api::replay_vector(pki, vector)
+}
+
+/// Replays one file certificate vector: empty text when it matches the recorded result.
+#[cfg(feature = "dev")]
+#[wasm_bindgen]
+pub fn replay_filecert_vector(vector: &str) -> String {
+    crate::api::replay_filecert_vector(vector)
 }
 
 /// The module version.

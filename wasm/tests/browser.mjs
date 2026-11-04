@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Runs the built wasm in headless Chromium: the 45 replay files, the fixture files against the native bytes, one
+// Runs the built wasm in headless Chromium: the 54 replay files and 7 file certificate vectors, the fixture files against the native bytes, one
 // signature check timed. Build first: ./build.sh test
 // Run: CHROME=/tmp/cw-tools/chrome PLAYWRIGHT=/tmp/cw-tools/node_modules/playwright-core node tests/browser.mjs
 import { createServer } from "node:http";
@@ -25,8 +25,10 @@ try {
   const names = await (await fetch("/tests/vectors/")).json();
   const pki = await text("/tests/vectors/pki.json");
   for (const n of names.filter((n) => n !== "pki.json")) out.replay.push([n, hc.replay_vector(pki, await text("/tests/vectors/" + n))]);
+  out.filecert = [];
+  for (const n of await (await fetch("/tests/vectors/filecert/")).json()) out.filecert.push([n, hc.replay_filecert_vector(await text("/tests/vectors/filecert/" + n))]);
   const store = await text("/fixtures/store.json"), now = Number(await text("/fixtures/now.txt"));
-  for (const [f, k] of [["person.wol","app"],["org.wol","app"],["wolos.wol","app"],["unsigned.wol","app"],["namespace.wol","app"],["origin.wol","app"],["listing.wol","app"],["weather.wolplug","plugin"]]) {
+  for (const [f, k] of [["person.wol","app"],["org.wol","app"],["wolos.wol","app"],["unsigned.wol","app"],["namespace.wol","app"],["origin.wol","app"],["listing.wol","app"],["trusted.wol","app"],["weather.wolplug","plugin"]]) {
     const b = await get("/fixtures/" + f);
     out.same[f] = [hc.check(b, k), hc.verify(b, k, store, now), hc.inspect(b, k, store, now)];
   }
@@ -41,6 +43,7 @@ window.result = out;
 const srv = createServer((req, res) => {
   const p = decodeURIComponent(new URL(req.url, "http://x").pathname);
   if (p === "/") { res.writeHead(200, { "content-type": "text/html" }); return res.end(page); }
+  if (p === "/tests/vectors/filecert/") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(readdirSync(join(root, "tests/vectors/filecert")).filter((f) => f.endsWith(".json")))); }
   if (p === "/tests/vectors/") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(readdirSync(join(root, "tests/vectors")).filter((f) => f.endsWith(".json")))); }
   const f = resolve(root, "." + p);
   if (!f.startsWith(root) || !existsSync(f) || !statSync(f).isFile()) { res.writeHead(404); return res.end(); }
@@ -59,9 +62,12 @@ await browser.close();
 srv.close();
 
 assert.deepEqual(r.errors, []);
-assert.equal(r.replay.length, 44);
+assert.equal(r.replay.length, 53);
 for (const [n, why] of r.replay) assert.equal(why, "", `${n}: ${why}`);
-console.log("ok - 45 replay files (pki.json and 44 vectors) replay to their recorded results in headless Chromium");
+console.log("ok - 54 replay files (pki.json and 53 vectors) replay to their recorded results in headless Chromium");
+assert.equal(r.filecert.length, 7);
+for (const [n, why] of r.filecert) assert.equal(why, "", `${n}: ${why}`);
+console.log("ok - 7 file certificate vectors replay in headless Chromium");
 const bin = join(root, "target/release/hubcheck"), store = join(root, "fixtures/store.json"), now = readFileSync(join(root, "fixtures/now.txt"), "utf8");
 for (const [f, [c, v, i]] of Object.entries(r.same)) {
   const k = f.endsWith(".wolplug") ? "plugin" : "app", p = join(root, "fixtures", f);

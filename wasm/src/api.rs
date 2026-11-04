@@ -35,13 +35,15 @@ fn store_problem(why: &str) -> String {
 }
 
 /// `verify(bytes, store, revoked, now)`: the signature as JSON (`Trusted`). `store` is the store file
-/// (roots, intermediates, revoked lists) as JSON text.
+/// (roots, intermediates, revoked lists) as JSON text; `file_cert` the index entry's file
+/// certificate (its text), when the release has one.
 pub fn verify_json(
     bytes: &[u8],
     kind: &str,
     store: &str,
     now: u64,
     first_seen: Option<u64>,
+    file_cert: Option<&[u8]>,
 ) -> String {
     let Some(k) = Kind::parse(kind) else {
         return kind_problem(kind);
@@ -50,16 +52,23 @@ pub fn verify_json(
         Ok(s) => s,
         Err(e) => return store_problem(&e.to_string()),
     };
-    trust::verify_seen(bytes, k, &s.anchors, &s.revoked, now, first_seen).to_json()
+    let st = trust::store(&s.anchors, &s.revoked, now);
+    let t = trust::verify_in(bytes, k, &st, now, first_seen);
+    match file_cert {
+        Some(fc) => trust::with_file_cert(t, bytes, k, &st, fc),
+        None => t,
+    }
+    .to_json()
 }
 
-/// Rules and signature in one I7 report.
+/// Rules and signature in one I7 report (`file_cert` as in [`verify_json`]).
 pub fn inspect_json(
     bytes: &[u8],
     kind: &str,
     store: &str,
     now: u64,
     first_seen: Option<u64>,
+    file_cert: Option<&[u8]>,
 ) -> String {
     let Some(k) = Kind::parse(kind) else {
         return kind_problem(kind);
@@ -68,7 +77,8 @@ pub fn inspect_json(
         Ok(s) => s,
         Err(e) => return store_problem(&e.to_string()),
     };
-    trust::inspect(bytes, k, &s.anchors, &s.revoked, now, first_seen).to_json()
+    let st = trust::store(&s.anchors, &s.revoked, now);
+    trust::inspect_in(bytes, k, &st, now, first_seen, file_cert).to_json()
 }
 
 /// Replays one test vector of the trust crate (`pki.json` and one vector file as text): empty text
@@ -84,6 +94,18 @@ pub fn replay_vector(pki: &str, vector: &str) -> String {
         Err(e) => return format!("vector: {e}"),
     };
     woltrust::vectors::check(&v, &pki).err().unwrap_or_default()
+}
+
+/// Replays one file certificate vector of the trust crate (its text): empty text when the result
+/// is the recorded one, else the difference.
+#[cfg(any(feature = "dev", test))]
+pub fn replay_filecert_vector(vector: &str) -> String {
+    match serde_json::from_str::<woltrust::filecert_vectors::FileCertVector>(vector) {
+        Ok(v) => woltrust::filecert_vectors::check(&v)
+            .err()
+            .unwrap_or_default(),
+        Err(e) => format!("vector: {e}"),
+    }
 }
 
 /// The crate version, for the page that shows it.
@@ -110,11 +132,16 @@ impl Loaded {
         })
     }
 
-    /// `verify` against the loaded store, as JSON.
-    pub fn verify_json(&self, bytes: &[u8], kind: &str) -> String {
-        match Kind::parse(kind) {
-            Some(k) => trust::verify_in(bytes, k, &self.store, self.now, None).to_json(),
-            None => kind_problem(kind),
+    /// `verify` against the loaded store, as JSON (`file_cert` as in [`verify_json`]).
+    pub fn verify_json(&self, bytes: &[u8], kind: &str, file_cert: Option<&[u8]>) -> String {
+        let Some(k) = Kind::parse(kind) else {
+            return kind_problem(kind);
+        };
+        let t = trust::verify_in(bytes, k, &self.store, self.now, None);
+        match file_cert {
+            Some(fc) => trust::with_file_cert(t, bytes, k, &self.store, fc),
+            None => t,
         }
+        .to_json()
     }
 }

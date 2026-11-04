@@ -41,7 +41,7 @@ fn mutated_files_always_give_a_report() {
     let mut seed = 0x9e37_79b9_7f4a_7c15u64;
     for (bytes, kind) in &files {
         for cut in (0..bytes.len()).step_by(97) {
-            let _ = api::inspect_json(&bytes[..cut], kind, &store, f.now, None);
+            let _ = api::inspect_json(&bytes[..cut], kind, &store, f.now, None, None);
         }
         for _ in 0..150 {
             let mut b = bytes.clone();
@@ -49,7 +49,7 @@ fn mutated_files_always_give_a_report() {
                 let i = (xorshift(&mut seed) as usize) % b.len();
                 b[i] = xorshift(&mut seed) as u8;
             }
-            let out = api::inspect_json(&b, kind, &store, f.now, None);
+            let out = api::inspect_json(&b, kind, &store, f.now, None, None);
             serde_json::from_str::<serde_json::Value>(&out).expect("always JSON");
         }
     }
@@ -63,7 +63,7 @@ fn random_bytes_and_hostile_text() {
             let b: Vec<u8> = (0..n).map(|_| xorshift(&mut seed) as u8).collect();
             let r = api::check_json(&b, kind);
             serde_json::from_str::<serde_json::Value>(&r).expect("JSON");
-            let _ = api::verify_json(&b, kind, "{}", 5, None);
+            let _ = api::verify_json(&b, kind, "{}", 5, None, None);
             let _ = api::manifest_json(&String::from_utf8_lossy(&b), kind);
         }
     }
@@ -88,6 +88,7 @@ fn random_bytes_and_hostile_text() {
         "app",
         junk,
         f.now,
+        None,
         None,
     );
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();

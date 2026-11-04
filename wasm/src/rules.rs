@@ -201,6 +201,7 @@ impl Rules {
             trust,
             cert: None,
             origin: None,
+            file_certificate: None,
             file,
             facts,
         }

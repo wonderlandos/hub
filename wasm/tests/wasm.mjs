@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Runs the built wasm in Node: the 45 replay files of the trust crate, the fixture files against the native
+// Runs the built wasm in Node: the 54 replay files and 7 file certificate vectors of the trust crate, the fixture files against the native
 // command's output (byte for byte), and one signature check timed. Build first: ./build.sh all
 // Run: node tests/wasm.mjs        (HUBCHECK_CHROME=/tmp/cw-tools/chrome/... is not needed for this file)
 import { readFileSync, readdirSync } from "node:fs";
@@ -23,21 +23,28 @@ const ok = (name) => { count++; console.log(`ok - ${name}`); };
 
 // 1. The replay files, byte for byte through the wasm.
 const files = readdirSync(vectors).filter((f) => f.endsWith(".json"));
-assert.equal(files.length, 45);
+assert.equal(files.length, 54);
 const pki = readFileSync(join(vectors, "pki.json"), "utf8");
 for (const f of files.filter((f) => f !== "pki.json")) {
   const why = wasm.replay_vector(pki, readFileSync(join(vectors, f), "utf8"));
   assert.equal(why, "", `${f}: ${why}`);
 }
 ok(`${files.length} replay files replay to their recorded results in wasm`);
-assert.notEqual(wasm.replay_vector(pki, readFileSync(join(vectors, "valid-person.json"), "utf8").replace('"verified"', '"wolos"')), "");
+assert.notEqual(wasm.replay_vector(pki, readFileSync(join(vectors, "valid-person.json"), "utf8").replace('"trust": "origin"', '"trust": "wolos"')), "");
+const fcs = readdirSync(join(vectors, "filecert")).filter((f) => f.endsWith(".json"));
+assert.equal(fcs.length, 7);
+for (const f of fcs) {
+  const why = wasm.replay_filecert_vector(readFileSync(join(vectors, "filecert", f), "utf8"));
+  assert.equal(why, "", `${f}: ${why}`);
+}
+ok(`${fcs.length} file certificate vectors replay in wasm`);
 ok("a changed expectation is caught in wasm");
 
 // 2. The wasm and the native command print the same bytes.
 const store = fx("store.json").toString();
 const now = fx("now.txt").toString();
 const same = [];
-for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.wol", "app"], ["unsigned.wol", "app"], ["namespace.wol", "app"], ["origin.wol", "app"], ["listing.wol", "app"], ["weather.wolplug", "plugin"]]) {
+for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.wol", "app"], ["unsigned.wol", "app"], ["namespace.wol", "app"], ["origin.wol", "app"], ["listing.wol", "app"], ["trusted.wol", "app"], ["weather.wolplug", "plugin"]]) {
   const bytes = fx(file);
   const p = join(root, "fixtures", file);
   assert.equal(wasm.check(bytes, kind), native("check", kind, p), `check ${file}`);
@@ -49,6 +56,14 @@ ok(`check, verify and inspect of ${same.length} files print the native bytes`);
 
 const person = JSON.parse(wasm.inspect(fx("person.wol"), "app", store, Number(now)));
 assert.deepEqual(Object.keys(person).sort(), ["cert", "facts", "file", "findings", "trust", "verdict"]);
+const trusted = JSON.parse(wasm.inspect(fx("trusted.wol"), "app", store, Number(now)));
+assert.deepEqual([trusted.trust, trusted.cert.class, typeof trusted.cert.origin_cert], ["trusted", "trusted", "string"]);
+const fcBytes = fx("person.filecert");
+const withFc = wasm.inspect(fx("person.wol"), "app", store, Number(now), fcBytes);
+assert.equal(withFc, native("inspect", "app", join(root, "fixtures/person.wol"), "--store", join(root, "fixtures/store.json"), "--now", now, "--file-cert", join(root, "fixtures/person.filecert")));
+assert.deepEqual(JSON.parse(withFc).file_certificate, { serial: "a1b2c3d4e5f60718", checked_at: Number(now) - 3600, verdict: "pass" });
+assert.equal(wasm.verify(fx("person.wol"), "app", store, Number(now), fcBytes), native("verify", "app", join(root, "fixtures/person.wol"), "--store", join(root, "fixtures/store.json"), "--now", now, "--file-cert", join(root, "fixtures/person.filecert")));
+assert.equal(JSON.parse(wasm.inspect(fx("org.wol"), "app", store, Number(now), fcBytes)).trust, "invalid");
 const listing = JSON.parse(wasm.inspect(fx("listing.wol"), "app", store, Number(now)));
 assert.equal(listing.verdict, "pass");
 assert.deepEqual(listing.facts.screenshots.map((s) => [s.path, s.mime, s.w, s.h]), [["screenshots/1.png", "image/png", 640, 400], ["screenshots/2.webp", "image/webp", 1280, 800]]);

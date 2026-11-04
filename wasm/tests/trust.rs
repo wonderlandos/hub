@@ -148,7 +148,7 @@ fn the_report_json_has_exactly_the_frozen_keys() {
     let store = f.store_json();
     let wol = f.wol("alice.notes", Signer::Alice);
     let v: serde_json::Value = serde_json::from_str(&hubcheck::api::inspect_json(
-        &wol, "app", &store, f.now, None,
+        &wol, "app", &store, f.now, None, None,
     ))
     .unwrap();
     let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
@@ -185,6 +185,7 @@ fn the_report_json_has_exactly_the_frozen_keys() {
         &store,
         f.now,
         None,
+        None,
     );
     let u: serde_json::Value = serde_json::from_str(&u).unwrap();
     assert!(u.get("cert").is_none());
@@ -220,9 +221,9 @@ fn a_bad_kind_or_store_is_a_report_not_a_panic() {
     let wol = f.wol("alice.notes", Signer::None);
     for out in [
         hubcheck::api::check_json(&wol, "banana"),
-        hubcheck::api::verify_json(&wol, "banana", "{}", 0, None),
-        hubcheck::api::verify_json(&wol, "app", "not json", 0, None),
-        hubcheck::api::inspect_json(&wol, "app", "[]", 0, None),
+        hubcheck::api::verify_json(&wol, "banana", "{}", 0, None, None),
+        hubcheck::api::verify_json(&wol, "app", "not json", 0, None, None),
+        hubcheck::api::inspect_json(&wol, "app", "[]", 0, None, None),
         hubcheck::api::manifest_json("", "banana"),
     ] {
         let v: serde_json::Value = serde_json::from_str(&out).expect("JSON");
@@ -242,8 +243,8 @@ fn a_store_loaded_once_gives_the_same_answers() {
     ] {
         let w = f.wol(id, who);
         assert_eq!(
-            l.verify_json(&w, "app"),
-            hubcheck::api::verify_json(&w, "app", &store, f.now, None)
+            l.verify_json(&w, "app", None),
+            hubcheck::api::verify_json(&w, "app", &store, f.now, None, None)
         );
     }
     assert!(hubcheck::api::Loaded::new("nope", 0).is_err());
@@ -256,7 +257,7 @@ fn a_signed_origin_is_shown_and_checked_against_the_certificate() {
     let info = Fixture::info("alice.notes", "1.0");
     let ours = f.wol_origin(&info, b"p", Signer::Alice, Some(&Fixture::origin("Alice")));
     let v: serde_json::Value = serde_json::from_str(&hubcheck::api::inspect_json(
-        &ours, "app", &store, f.now, None,
+        &ours, "app", &store, f.now, None, None,
     ))
     .unwrap();
     assert_eq!(v["trust"], "origin", "{v}");
@@ -272,7 +273,7 @@ fn a_signed_origin_is_shown_and_checked_against_the_certificate() {
     // Somebody else's repository: woltrust's finding, and no origin shown.
     let theirs = f.wol_origin(&info, b"p", Signer::Alice, Some(&Fixture::origin("bob")));
     let v: serde_json::Value = serde_json::from_str(&hubcheck::api::inspect_json(
-        &theirs, "app", &store, f.now, None,
+        &theirs, "app", &store, f.now, None, None,
     ))
     .unwrap();
     assert_eq!(v["trust"], "invalid", "{v}");
@@ -288,7 +289,7 @@ fn a_signed_origin_is_shown_and_checked_against_the_certificate() {
     assert_eq!(run(&f, &theirs, Kind::App, f.now).code, "origin-mismatch");
     // No origin: no key.
     let plain = f.wol("alice.notes", Signer::Alice);
-    let v = hubcheck::api::inspect_json(&plain, "app", &store, f.now, None);
+    let v = hubcheck::api::inspect_json(&plain, "app", &store, f.now, None, None);
     assert!(!v.contains("\"origin\":"), "{v}");
 }
 
@@ -319,7 +320,7 @@ fn the_report_names_the_id_and_version_of_the_manifest() {
     let want = serde_json::json!({"id": "alice.weather", "version": "1.0"});
     assert_eq!(
         file(hubcheck::api::inspect_json(
-            &plug, "plugin", &store, f.now, None
+            &plug, "plugin", &store, f.now, None, None
         )),
         want
     );
@@ -336,65 +337,50 @@ fn the_report_names_the_id_and_version_of_the_manifest() {
 }
 
 #[test]
-fn the_class_is_read_from_the_signed_body_and_absent_is_origin() {
-    use woltrust::b64::encode;
+fn the_class_and_origin_cert_come_from_the_certificate() {
     let f = Fixture::new();
-    let store = hubcheck::trust::store(&f.store().anchors, &f.store().revoked, f.now);
-    let env = |body: &str| {
-        format!(
-            r#"{{"format":1,"body":"{}","sig":{{}}}}"#,
-            encode(body.as_bytes())
-        )
+    let store = f.store_json();
+    let inspect = |s: Signer| -> serde_json::Value {
+        serde_json::from_str(&hubcheck::api::inspect_json(
+            &f.wol("alice.notes", s),
+            "app",
+            &store,
+            f.now,
+            None,
+            None,
+        ))
+        .unwrap()
     };
-    let chain = format!(
-        "[{},{}]",
-        env(r#"{"serial":"00000000000000aa","class":"trusted","origin_cert":"00000000000000bb"}"#),
-        env(r#"{"serial":"00000000000000bb"}"#)
-    );
-    let c = Some(chain.as_bytes());
-    let class_of = |c: Option<&[u8]>, serial: &str| {
-        hubcheck::trust::signer_body(c, &store, serial)
-            .as_deref()
-            .map_or(Class::Origin, Class::of_body)
-    };
-    assert_eq!(class_of(c, "00000000000000aa"), Class::Trusted);
-    assert_eq!(class_of(c, "00000000000000bb"), Class::Origin);
-    assert_eq!(class_of(c, "unknown"), Class::Origin);
-    assert_eq!(class_of(Some(b"junk"), "x"), Class::Origin);
-    assert_eq!(class_of(None, "x"), Class::Origin);
-    // origin_cert: only on a trusted body, only 16 lowercase hex.
-    let body = |s: &str| hubcheck::trust::signer_body(c, &store, s).unwrap();
+    let t = inspect(Signer::AliceTrusted);
+    assert_eq!(t["trust"], "trusted", "{t}");
+    assert_eq!(t["cert"]["class"], "trusted");
+    assert_eq!(t["cert"]["origin_cert"], f.pki.alice.body.serial.as_str());
+    let o = inspect(Signer::Alice);
     assert_eq!(
-        Class::origin_cert_of_body(&body("00000000000000aa")).as_deref(),
-        Some("00000000000000bb")
+        (o["trust"].as_str(), o["cert"]["class"].as_str()),
+        (Some("origin"), Some("origin"))
     );
-    assert_eq!(Class::origin_cert_of_body(&body("00000000000000bb")), None);
-    assert_eq!(
-        Class::origin_cert_of_body(br#"{"class":"origin","origin_cert":"00000000000000bb"}"#),
-        None
-    );
-    assert_eq!(
-        Class::origin_cert_of_body(br#"{"class":"trusted","origin_cert":"00000000000000BB"}"#),
-        None
-    );
-    assert_eq!(Class::of_body(br#"{"class":"Trusted"}"#), Class::Origin);
-    // woltrust's verdicts map one to one; `verified` splits by class.
+    assert!(o["cert"].get("origin_cert").is_none());
+    let w = inspect(Signer::Wolos);
+    assert!(w["cert"].get("class").is_none() && w["cert"].get("origin_cert").is_none());
+    // woltrust's verdicts map one to one.
     use woltrust::Trust as W;
-    for (w, class, want) in [
-        (W::Verified, Some(Class::Trusted), Trust::Trusted),
-        (W::Verified, Some(Class::Origin), Trust::Origin),
-        (W::Verified, None, Trust::Origin),
-        (W::Wolos, Some(Class::Trusted), Trust::Wolos),
-        (W::Community, Some(Class::Trusted), Trust::Community),
-        (W::Withdrawn, None, Trust::Withdrawn),
-        (W::Invalid, None, Trust::Invalid),
+    for (w, want) in [
+        (W::Wolos, Trust::Wolos),
+        (W::Trusted, Trust::Trusted),
+        (W::Origin, Trust::Origin),
+        (W::Legacy, Trust::Legacy),
+        (W::Community, Trust::Community),
+        (W::Withdrawn, Trust::Withdrawn),
+        (W::Invalid, Trust::Invalid),
     ] {
-        assert_eq!(Trust::of(w, class), want, "{w:?} {class:?}");
+        assert_eq!(Trust::of(w), want, "{w:?}");
     }
     let words: Vec<String> = [
         Trust::Wolos,
         Trust::Trusted,
         Trust::Origin,
+        Trust::Legacy,
         Trust::Community,
         Trust::Withdrawn,
         Trust::Invalid,
@@ -414,9 +400,96 @@ fn the_class_is_read_from_the_signed_body_and_absent_is_origin() {
             "wolos",
             "trusted",
             "origin",
+            "legacy",
             "community",
             "withdrawn",
             "invalid"
         ]
     );
+}
+
+fn file_cert(f: &Fixture, wol: &[u8], id: &str, version: &str, serial: &str) -> Vec<u8> {
+    f.file_cert(wol, id, version, serial)
+}
+
+#[test]
+fn a_file_certificate_is_checked_against_this_exact_file() {
+    let f = Fixture::new();
+    let store = f.store_json();
+    let wol = f.wol("alice.notes", Signer::Alice);
+    let run = |fc: &[u8], store: &str| -> serde_json::Value {
+        let v: serde_json::Value = serde_json::from_str(&hubcheck::api::inspect_json(
+            &wol,
+            "app",
+            store,
+            f.now,
+            None,
+            Some(fc),
+        ))
+        .unwrap();
+        let t: serde_json::Value = serde_json::from_str(&hubcheck::api::verify_json(
+            &wol,
+            "app",
+            store,
+            f.now,
+            None,
+            Some(fc),
+        ))
+        .unwrap();
+        assert_eq!(v["trust"], t["trust"]);
+        assert_eq!(v.get("file_certificate"), t.get("file_certificate"));
+        v
+    };
+    let good = file_cert(&f, &wol, "alice.notes", "1.0", "a1b2c3d4e5f60718");
+    let v = run(&good, &store);
+    assert_eq!(v["trust"], "origin", "{v}");
+    assert_eq!(
+        v["file_certificate"],
+        serde_json::json!({"serial": "a1b2c3d4e5f60718", "checked_at": f.now - 3600, "verdict": "pass"})
+    );
+    // Withdrawn: a withdrawn-version entry for the file certificate's serial.
+    let mut s = f.store();
+    s.revoked = vec![f.list(&[("a1b2c3d4e5f60718", woltrust::Reason::WithdrawnVersion)])];
+    let w = run(&good, &serde_json::to_string(&s).unwrap());
+    assert_eq!(w["trust"], "withdrawn", "{w}");
+    assert!(
+        w["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["rule"] == "trust/withdrawn-version")
+    );
+    assert_eq!(w["file_certificate"]["serial"], "a1b2c3d4e5f60718");
+    // Another file, another version, a changed byte: invalid, no file_certificate.
+    let other = file_cert(
+        &f,
+        &f.wol("alice.other", Signer::Alice),
+        "alice.other",
+        "1.0",
+        "a1b2c3d4e5f60719",
+    );
+    let wrong_version = file_cert(&f, &wol, "alice.notes", "2.0", "a1b2c3d4e5f60720");
+    let mut tampered = good.clone();
+    let at = tampered.len() / 3;
+    tampered[at] = if tampered[at] == b'A' { b'B' } else { b'A' };
+    for (fc, code) in [
+        (&other, "trust/file-cert-other-file"),
+        (&wrong_version, "trust/file-cert-other-file"),
+        (&tampered, ""),
+        (&b"{}".to_vec(), "trust/file-cert-malformed"),
+    ] {
+        let v = run(fc, &store);
+        assert_eq!(v["trust"], "invalid", "{code} {v}");
+        assert!(v.get("file_certificate").is_none());
+        if !code.is_empty() {
+            assert!(
+                v["findings"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|x| x["rule"] == code),
+                "{code} {v}"
+            );
+        }
+    }
 }

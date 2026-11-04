@@ -10,8 +10,8 @@ use std::process::ExitCode;
 const USAGE: &str = "usage:
   hubcheck check <app|plugin|extension> <file>
   hubcheck manifest <app|plugin|extension> <file|->
-  hubcheck verify <app|plugin|extension> <file> --store <store.json> [--now <unix seconds>] [--first-seen <unix seconds>]
-  hubcheck inspect <app|plugin|extension> <file> --store <store.json> [--now <unix seconds>] [--first-seen <unix seconds>]
+  hubcheck verify <app|plugin|extension> <file> --store <store.json> [--now <unix seconds>] [--first-seen <unix seconds>] [--file-cert <file>]
+  hubcheck inspect <app|plugin|extension> <file> --store <store.json> [--now <unix seconds>] [--first-seen <unix seconds>] [--file-cert <file>]
   hubcheck extract <file> --out <dir> [--kind <app|plugin|extension>]
   hubcheck version";
 
@@ -86,11 +86,14 @@ fn run(args: &[String]) -> Result<String, (u8, String)> {
                         .map_or(0, |d| d.as_secs())
                 });
             let seen = number(args, "--first-seen").map_err(|e| usage(&e))?;
+            let fc = flag(args, "--file-cert")
+                .map(|p| read(&p, woltrust::filecert::MAX_FILE).map_err(io))
+                .transpose()?;
             let bytes = read(file, hubcheck::files::MAX_WOL).map_err(io)?;
             Ok(if cmd == "verify" {
-                api::verify_json(&bytes, kind, &store, now, seen)
+                api::verify_json(&bytes, kind, &store, now, seen, fc.as_deref())
             } else {
-                api::inspect_json(&bytes, kind, &store, now, seen)
+                api::inspect_json(&bytes, kind, &store, now, seen, fc.as_deref())
             })
         }
         _ => Err(usage("unknown command")),
@@ -210,6 +213,16 @@ fn dev(cmd: &str, dir: &str) -> Result<String, String> {
                     b"pkg payload bytes",
                     Signer::Alice,
                     None,
+                ),
+            ),
+            ("trusted.wol", f.wol("alice.notes", Signer::AliceTrusted)),
+            (
+                "person.filecert",
+                f.file_cert(
+                    &f.wol("alice.notes", Signer::Alice),
+                    "alice.notes",
+                    "1.0",
+                    "a1b2c3d4e5f60718",
                 ),
             ),
             ("store.json", f.store_json().into_bytes()),

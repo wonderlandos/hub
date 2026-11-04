@@ -62,6 +62,10 @@ pub struct Trusted {
     /// (woltrust checks the repository owner against the certificate: else `origin-mismatch`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
+    /// The file certificate the index published for this exact file, when one was given and it
+    /// checked out (also when the version was withdrawn).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_certificate: Option<FileCertificate>,
     /// The trust sentence, when the file is not plainly trusted (rule `trust/<code>`).
     pub findings: Vec<Finding>,
 }
@@ -104,6 +108,7 @@ fn unreadable(trust: Trust, code: &str, f: &files::Refusal) -> Trusted {
         list_expires: None,
         cert: None,
         origin: None,
+        file_certificate: None,
         findings: vec![Finding {
             rule: format!("trust/{code}"),
             sentence: if trust == Trust::Invalid {
@@ -184,8 +189,88 @@ pub fn verify_in(
         list_expires,
         cert,
         origin,
+        file_certificate: None,
         findings: report.findings,
     }
+}
+
+/// Adds what the file certificate `fc` (the index entry's, text) says about this exact file, as the
+/// system does before it installs (wopkg `check_filecert`): it must verify against `store` for the
+/// file's SHA-256 and name the file's id and version, else trust is `invalid` (code `file-cert-*`);
+/// a withdrawn version makes trust `withdrawn` (code `withdrawn-version`).
+pub fn with_file_cert(
+    mut t: Trusted,
+    bytes: &[u8],
+    kind: Kind,
+    store: &Store,
+    fc: &[u8],
+) -> Trusted {
+    use woltrust::filecert::{self, Checked};
+    let fail = |t: &mut Trusted, trust: Trust, code: &str, sentence: &str, evidence: String| {
+        t.trust = trust;
+        t.code = code.to_owned();
+        if trust == Trust::Invalid {
+            t.origin = None;
+        }
+        t.findings.push(Finding {
+            rule: format!("trust/{code}"),
+            sentence: sentence.to_owned(),
+            evidence,
+        });
+    };
+    let file = files::analyse(bytes, kind).file;
+    match filecert::verify(store, fc, &files::sha256_hex(bytes)) {
+        Err(e) => fail(
+            &mut t,
+            Trust::Invalid,
+            e.as_str(),
+            "The file certificate WolOS Hub published for this file does not check out.",
+            String::new(),
+        ),
+        Ok(c) => {
+            let b = c.body();
+            let same = file
+                .as_ref()
+                .is_some_and(|f| f.id == b.id && f.version.as_deref() == Some(b.version.as_str()));
+            if !same {
+                fail(
+                    &mut t,
+                    Trust::Invalid,
+                    "file-cert-other-file",
+                    "The file certificate is for another app, plugin or version.",
+                    format!("{} {}", b.id, b.version),
+                );
+                return t;
+            }
+            t.file_certificate = Some(FileCertificate {
+                serial: b.serial.clone(),
+                checked_at: b.checked_at,
+                verdict: b.verdict,
+            });
+            if let Checked::Withdrawn(_, at) = c {
+                fail(
+                    &mut t,
+                    Trust::Withdrawn,
+                    "withdrawn-version",
+                    "This version was withdrawn.",
+                    at.to_string(),
+                );
+            }
+        }
+    }
+    t
+}
+
+/// What the file certificate of a release says, as the report shows it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileCertificate {
+    /// The file certificate's own serial (what a `withdrawn-version` entry names).
+    pub serial: String,
+    /// When WolOS Hub checked the file, Unix seconds.
+    pub checked_at: u64,
+    /// The hub's automatic check then.
+    pub verdict: Verdict,
 }
 
 /// The `origin_cert` of the certificate `serial` (the origin certificate a `trusted` one is bound
@@ -231,9 +316,31 @@ pub fn inspect(
     now: u64,
     first_seen: Option<u64>,
 ) -> Report {
+    inspect_in(
+        bytes,
+        kind,
+        &store(anchors, revoked, now),
+        now,
+        first_seen,
+        None,
+    )
+}
+
+/// [`inspect`] against a loaded store, with the index entry's file certificate when there is one.
+pub fn inspect_in(
+    bytes: &[u8],
+    kind: Kind,
+    store: &Store,
+    now: u64,
+    first_seen: Option<u64>,
+    file_cert: Option<&[u8]>,
+) -> Report {
     let mut rules = files::analyse(bytes, kind);
     let damaged = rules.damaged;
-    let mut t = verify_seen(bytes, kind, anchors, revoked, now, first_seen);
+    let mut t = verify_in(bytes, kind, store, now, first_seen);
+    if let Some(fc) = file_cert {
+        t = with_file_cert(t, bytes, kind, store, fc);
+    }
     if t.trust == Trust::Wolos && kind != Kind::Plugin {
         rules.forget("manifest/reserved-id");
     } else {
@@ -258,6 +365,7 @@ pub fn inspect(
         trust: t.trust,
         cert: t.cert,
         origin: t.origin,
+        file_certificate: t.file_certificate,
         file,
         facts,
     }

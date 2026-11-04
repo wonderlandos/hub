@@ -16,8 +16,10 @@ use woltrust::{LIST_LIFETIME, Purpose};
 pub enum Signer {
     /// Nobody.
     None,
-    /// A person (`alice.`).
+    /// A person (`alice.`), with her origin certificate.
     Alice,
+    /// The same person with her trusted certificate (bound to the origin one by `origin_cert`).
+    AliceTrusted,
     /// An organisation (`examplelabs.`).
     Org,
     /// WolOS's own signer (`org.wolos.`).
@@ -129,6 +131,7 @@ impl Fixture {
         match s {
             Signer::None => None,
             Signer::Alice => Some((&self.pki.alice, &self.pki.authors)),
+            Signer::AliceTrusted => Some((&self.pki.alice_trusted, &self.pki.authors)),
             Signer::Org => Some((&self.pki.org, &self.pki.authors)),
             Signer::Wolos => Some((&self.pki.signer, &self.pki.packages)),
         }
@@ -250,6 +253,32 @@ impl Fixture {
         {
             plain
         }
+    }
+
+    /// The file certificate of the `.wol` `wol` (as the hub's sign job makes it, by the Index
+    /// intermediate), for `id` and `version`, with its own `serial`; checked an hour before the clock.
+    pub fn file_cert(&self, wol: &[u8], id: &str, version: &str, serial: &str) -> Vec<u8> {
+        use woltrust::filecert::{Body, FileKind};
+        let manifest = crate::files::load(wol, crate::Kind::App)
+            .ok()
+            .and_then(|l| l.get("SHA256").map(sha256_hex))
+            .unwrap_or_default();
+        let body = Body {
+            format: 1,
+            serial: serial.to_owned(),
+            file_sha256: sha256_hex(wol),
+            manifest_sha256: manifest,
+            id: id.to_owned(),
+            version: version.to_owned(),
+            kind: FileKind::Package,
+            origin: None,
+            cert: self.pki.alice.body.serial.clone(),
+            class: Some(woltrust::Class::Origin),
+            verdict: woltrust::Verdict::Pass,
+            findings: 0,
+            checked_at: self.now - 3600,
+        };
+        woltrust::filecert::make(&body, &self.pki.index.body.serial, &self.pki.index.secret)
     }
 
     /// The `plugin.toml` of a small plugin that uses `wol.http_get`.

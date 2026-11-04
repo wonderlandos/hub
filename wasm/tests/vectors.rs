@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! The 45 replay files of the trust crate (commit fe64176, `crates/woltrust/vectors`: `pki.json` and
-//! 44 verify vectors, 4 of them with an origin) replay to their recorded results, byte for byte,
-//! through the same code the browser module runs. The 13 seal vectors of `vectors/seal/` are not
-//! copied: opening a sealed file needs woltrust's `seal` feature (ring), which this crate leaves off
-//! so it builds for wasm.
+//! The 54 replay files of the trust crate (commit 0b00c1e, `crates/woltrust/vectors`: `pki.json` and
+//! 53 verify vectors, among them the origin and trusted classes) and its 7 file certificate vectors
+//! (`vectors/filecert/`) replay to their recorded results, byte for byte, through the same code the
+//! browser module runs. The seal and request vectors (`vectors/seal/`, `vectors/request/`) are not
+//! copied: they need woltrust's `seal` feature (ring), which this crate leaves off so it builds for wasm.
 use std::path::PathBuf;
 
 fn dir() -> PathBuf {
@@ -22,14 +22,16 @@ fn files() -> Vec<String> {
 }
 
 #[test]
-fn there_are_45_files_and_each_replays_to_its_recorded_result() {
+fn there_are_54_files_and_each_replays_to_its_recorded_result() {
     let names = files();
-    assert_eq!(names.len(), 45, "pki.json and 44 vectors");
+    assert_eq!(names.len(), 54, "pki.json and 53 vectors");
     for o in [
         "valid-origin",
         "valid-origin-organisation",
         "origin-mismatch",
         "origin-tampered",
+        "valid-trusted",
+        "trusted-origin-revoked",
     ] {
         assert!(names.contains(&format!("{o}.json")), "{o}");
     }
@@ -57,9 +59,44 @@ fn the_copies_are_what_the_pinned_generator_writes() {
 fn a_changed_expectation_is_caught() {
     let pki = std::fs::read_to_string(dir().join("pki.json")).expect("pki.json");
     let text = std::fs::read_to_string(dir().join("valid-person.json")).expect("vector");
-    let broken = text.replace("\"trust\": \"verified\"", "\"trust\": \"wolos\"");
+    let broken = text.replace("\"trust\": \"origin\"", "\"trust\": \"wolos\"");
     assert_ne!(broken, text);
     assert!(!hubcheck::api::replay_vector(&pki, &broken).is_empty());
     assert!(!hubcheck::api::replay_vector("{", &text).is_empty());
     assert!(!hubcheck::api::replay_vector(&pki, "{").is_empty());
+}
+
+fn filecert_files() -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(dir().join("filecert"))
+        .expect("filecert dir")
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    v.sort();
+    v
+}
+
+#[test]
+fn the_file_certificate_vectors_replay_and_are_what_the_generator_writes() {
+    let names = filecert_files();
+    assert_eq!(names.len(), 7);
+    for n in &names {
+        let text = std::fs::read_to_string(dir().join("filecert").join(n)).expect("vector");
+        let why = hubcheck::api::replay_filecert_vector(&text);
+        assert!(why.is_empty(), "{n}: {why}");
+        assert!(
+            !hubcheck::api::replay_filecert_vector(
+                &text.replace("\"expect\": \"", "\"expect\": \"x")
+            )
+            .is_empty()
+        );
+    }
+    let vs = woltrust::filecert_vectors::generate().expect("generation succeeds");
+    for v in &vs {
+        let on_disk =
+            std::fs::read_to_string(dir().join("filecert").join(format!("{}.json", v.name)))
+                .expect("file");
+        assert_eq!(woltrust::vectors::to_text(v), on_disk, "{}", v.name);
+    }
+    assert_eq!(vs.len(), names.len());
 }

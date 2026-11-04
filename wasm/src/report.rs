@@ -125,6 +125,10 @@ pub struct Report {
     /// (the repository's owner is the certificate's login or organisation).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin: Option<Origin>,
+    /// What the file certificate the index published for this file says, when one was given and
+    /// it checked out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_certificate: Option<crate::trust::FileCertificate>,
     /// The id and version from the manifest, when it gave an id.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<FileId>,
