@@ -1,0 +1,67 @@
+[package]
+name = "hubcheck"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-2.0-or-later"
+authors = ["Julia Klee"]
+description = "Rule analysis and signature check of .wol, .wolplug and extension files for WolOS Hub: one crate, built as wasm for the browser and the Worker and as a native command for the check job"
+rust-version = "1.85"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "hubcheck"
+path = "bin/hubcheck.rs"
+
+[[test]]
+name = "vectors"
+required-features = ["dev"]
+
+[[test]]
+name = "trust"
+required-features = ["dev"]
+
+[[test]]
+name = "rules"
+required-features = ["dev"]
+
+[[test]]
+name = "robust"
+required-features = ["dev"]
+
+[[test]]
+name = "cli"
+required-features = ["dev"]
+
+[features]
+default = []
+# Test and development helpers: the vector replay and the fixture builder (they use the TEST authority of woltrust).
+dev = []
+# Reads zstd-compressed .wolplug files (the frozen format); pure Rust, off until the CTO approves the dependency.
+zstd = ["dep:ruzstd"]
+
+[dependencies]
+# Pinned by commit: the pure trust crate of ADR 0046 (wolos repo, branch wave3/trust-core).
+# For local work, replace with: woltrust = { path = "/home/ubuntu/wolos/wt/trust-core/crates/woltrust" }
+woltrust = { git = "https://github.com/wonderlandos/wolos", rev = "13655d7", package = "woltrust" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+ruzstd = { version = "0.8", optional = true, default-features = false, features = ["std"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"
+
+# Tests sign and verify with ML-DSA and SLH-DSA: optimise dependencies once so they run in seconds.
+[profile.dev.package."*"]
+opt-level = 2
+
+[workspace]
