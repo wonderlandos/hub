@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The three texts: served exactly, versioned, hashed, accepted at the right moment.
+// The accepted texts from legal/: served exactly, versioned, hashed, accepted at the right moment.
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -10,37 +10,46 @@ let gh: FakeGitHub, undo: () => void, env: ReturnType<typeof makeEnv>;
 beforeEach(() => { gh = new FakeGitHub(); undo = install(gh); env = makeEnv(); });
 afterEach(() => undo());
 
-const FILES = { cla: "CLA.md", publisher: "PUBLISHER-AGREEMENT.md", trust: "TRUST-TERMS.md" } as const;
-const file = (doc: keyof typeof FILES) => readFileSync(new URL(`../cla/${FILES[doc]}`, import.meta.url));
+// The texts live in the repository's legal/ folder; legal/README.md lists the SHA-256 of each.
+const FILES = { cla: "CLA.md", publisher: "PUBLISHER-AGREEMENT.md", trust: "TRUST-TERMS.md", certificates: "CERTIFICATE-TERMS.md" } as const;
+const LEGAL = new URL("../../legal/", import.meta.url);
+const file = (doc: keyof typeof FILES) => readFileSync(new URL(FILES[doc], LEGAL));
+const README = readFileSync(new URL("README.md", LEGAL), "utf8");
 
 for (const doc of Object.keys(FILES) as (keyof typeof FILES)[]) {
-  test(`${doc}: served byte for byte, its hash is the file's, its version is its version line`, async () => {
+  test(`${doc}: served byte for byte, its hash is the file's and legal/README.md's, its version is its version line`, async () => {
     const r = await req(env, "GET", `/api/terms/${doc}`);
     expect(r.status).toBe(200);
     const b = (await r.json()) as any;
     const bytes = file(doc);
     expect(b.text).toBe(bytes.toString("utf8"));
-    expect(b.sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
+    const hash = createHash("sha256").update(bytes).digest("hex");
+    expect(b.sha256).toBe(hash);
+    const row = README.split("\n").find((l) => l.startsWith(`| \`${FILES[doc]}\` |`));
+    expect(row).toContain(`\`${hash}\``);
     expect(b.version).toBe(textVersion(bytes.toString("utf8"))!);
     expect(b.doc).toBe(doc);
   });
 
-  test(`${doc}: a draft for a lawyer, in the hub's wording, with the contacts and the law placeholder`, () => {
+  test(`${doc}: version line, contact, and the hub's wording`, () => {
     const t = file(doc).toString("utf8");
-    expect(t.startsWith("> Draft for review by a lawyer before launch.\n")).toBe(true);
-    expect(t).toMatch(/^Version 1, 2026-11-04\.$/m);
-    expect(t).toContain("julia@wolos.org");
-    expect(t).toContain("Governing law: [to be set by the lawyer].");
+    expect(t).toMatch(/^Version 1, effective 2026-11-04\.$/m);
+    if (doc !== "cla" && doc !== "trust") expect(t).toContain("julia@wolos.org");
     // Store and hub wording rule: "checked" and "verified identity", never these.
     expect(t).not.toMatch(/\bsafe\b|\bsafety\b|\bsecure\b|approved software/i);
     expect(t).not.toContain("\r");
   });
 }
 
-test("the trust terms say what a certificate states and what it never does", () => {
+test("the trust terms say what a certificate states and point to the Certificate Terms", () => {
   const t = file("trust").toString("utf8");
-  for (const s of ["Identity", "Repository", "Each version", "never guarantees the software", "at any time and without notice",
-    "compromised", "no warranty", "To the extent the law allows", "Your keys"]) expect(t).toContain(s);
+  for (const s of ["Identity", "Repository", "at any time", "To the extent the law allows", "/terms/certificates"]) expect(t).toContain(s);
+});
+
+test("the Certificate Terms are served but accepted only with a certificate request", async () => {
+  const c = await signIn(env, gh, alice);
+  const r = await req(env, "POST", "/api/terms/certificates", { cookie: c, body: await termsAnswer(env, "certificates") });
+  expect([r.status, ((await r.json()) as any).error]).toEqual([400, "with-the-request"]);
 });
 
 test("GET /api/cla is the CLA of /api/terms/cla; wrangler.toml names its version", async () => {

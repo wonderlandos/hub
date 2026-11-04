@@ -40,5 +40,9 @@ exports[`the frozen route table (I4) 1`] = `
   "POST ^\\/api\\/admin\\/releases\\/([^/]{1,64})\\/([^/]{1,64})\\/flag$",
   "GET ^\\/api\\/admin\\/roles$",
   "POST ^\\/api\\/admin\\/roles$",
+  "GET ^\\/api\\/my\\/listings$",
+  "GET ^\\/api\\/orgs\\/([^/]{1,39})\\/members$",
+  "POST ^\\/api\\/admin\\/releases\\/([^/]{1,64})\\/([^/]{1,64})\\/withdraw$",
+  "GET ^\\/api\\/admin\\/audit$",
 ]
 `;

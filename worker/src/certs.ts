@@ -194,7 +194,7 @@ export interface OriginGates {
 }
 
 /** Starts ca.yml for an approved request or revocation and records the outcome. */
-export async function startCa(env: Env, table: "cert_requests" | "revocations", id: string, actor: [ "person" | "system", string | number ]): Promise<{ dispatched: boolean; error: string | null }> {
+export async function startCa(env: Env, table: "cert_requests" | "revocations" | "version_withdrawals", id: string, actor: [ "person" | "system", string | number ]): Promise<{ dispatched: boolean; error: string | null }> {
   let dispatched = true, error: string | null = null;
   try {
     await dispatchCa(env, id);
@@ -204,7 +204,7 @@ export async function startCa(env: Env, table: "cert_requests" | "revocations", 
     log("cert.dispatch-failed", { request: id, message: error });
   }
   const db = env.DB;
-  const target = table === "cert_requests" ? `request:${id}` : `revocation:${id}`;
+  const target = table === "cert_requests" ? `request:${id}` : table === "revocations" ? `revocation:${id}` : `withdrawal:${id}`;
   await db.batch([
     dispatched
       ? db.prepare(`UPDATE ${table} SET dispatched_at = ?, dispatch_error = NULL WHERE id = ?`).bind(now(), id)
@@ -221,10 +221,14 @@ export async function postCertRequest(ctx: Ctx): Promise<Response> {
   await requireCla(ctx.env, "person", s.person.github_id);
   // The body is the woltrust request plus trust_terms: {version, sha256} of the Trust Terms accepted with it, and the
   // tier asked for (origin when absent: the lesser one).
-  const { trust_terms: tt, tier: rawTier, ...raw } = await readJson(ctx.req);
+  // The Certificate Terms come with it too (certificate_terms {version, sha256}; legal/TRUST-TERMS.md 1.2).
+  const { trust_terms: tt, certificate_terms: ct, tier: rawTier, ...raw } = await readJson(ctx.req);
   if (!tt || typeof tt !== "object" || Array.isArray(tt)) fail(403, "trust-terms-needed", "Accept the Trust Terms with the request: send trust_terms {version, sha256}.");
+  if (!ct || typeof ct !== "object" || Array.isArray(ct)) fail(403, "certificate-terms-needed", "Accept the Certificate Terms with the request: send certificate_terms {version, sha256}.");
   const tier: Tier = rawTier === undefined || rawTier === null ? "origin" : (TIERS as readonly unknown[]).includes(rawTier) ? rawTier as Tier : bad("'tier' is origin or trusted.");
   const terms = await acceptedText(ctx.env, "trust", tt as Record<string, unknown>);
+  const certTerms = await acceptedText(ctx.env, "certificates", ct as Record<string, unknown>);
+  const termsJson = JSON.stringify({ trust: { version: terms.version, sha256: terms.sha256 }, certificates: { version: certTerms.version, sha256: certTerms.sha256 } });
   const r = requestShape(raw);
   const db = ctx.env.DB;
   const token = await s.token();
@@ -291,11 +295,11 @@ export async function postCertRequest(ctx: Ctx): Promise<Response> {
   const keyRef = await keyId(r.keys.ed25519);
   await db.batch([
     db.prepare(
-      "INSERT INTO cert_requests (id, kind, subject_id, login, requested_by, ed25519, body, verified_at, status, created_at, tier, gates, origin_cert, decided_login, decided_at) " +
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO cert_requests (id, kind, subject_id, login, requested_by, ed25519, body, verified_at, status, created_at, tier, gates, origin_cert, decided_login, decided_at, terms) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     ).bind(id, r.kind, r.subject.github_id, r.subject.login, s.person.github_id, r.keys.ed25519, JSON.stringify(r), t,
-      auto ? "approved" : "pending", t, tier, gates ? JSON.stringify(gates) : null, originCert, auto ? POLICY : null, auto ? t : null),
-    audit(db, "person", s.person.github_id, "cert.request", `request:${id}`, { kind: r.kind, tier, subject: r.subject.github_id, key: keyRef, trust_terms: terms.version, ...(originCert ? { origin_cert: originCert } : {}) }),
+      auto ? "approved" : "pending", t, tier, gates ? JSON.stringify(gates) : null, originCert, auto ? POLICY : null, auto ? t : null, termsJson),
+    audit(db, "person", s.person.github_id, "cert.request", `request:${id}`, { kind: r.kind, tier, subject: r.subject.github_id, key: keyRef, trust_terms: terms.version, certificate_terms: certTerms.version, ...(originCert ? { origin_cert: originCert } : {}) }),
     ...(gates ? [audit(db, "system", POLICY, auto ? "cert.approve" : "cert.review", `request:${id}`, { approved_by: auto ? POLICY : null, gates })] : []),
     ...acceptTerms(db, "trust", s.person.github_id, terms),
   ]);
@@ -397,7 +401,24 @@ export async function pipelineRequest(ctx: Ctx, id: string): Promise<Response> {
   return json({ ...common, approved_by: [row!.decided_login], approved_at: row!.decided_at, origin_cert: row!.origin_cert });
 }
 
+export interface WithdrawalRow {
+  id: string; listing_id: string; version: string; serial: string; reason: string; status: "approved" | "done"; requested_by: number;
+  approvers: string; dispatched_at: number | null; dispatch_error: string | null; done_at: number | null; created_at: number;
+}
+export const withdrawalView = (w: WithdrawalRow) => ({
+  id: w.id, listing_id: w.listing_id, version: w.version, serial: w.serial, reason: w.reason, status: w.status, requested_by: w.requested_by,
+  approved_by: JSON.parse(w.approvers), dispatched_at: w.dispatched_at, dispatch_error: w.dispatch_error, done_at: w.done_at, created_at: w.created_at,
+});
+
 async function revocationFile(ctx: Ctx, id: string, run: string | undefined): Promise<Response> {
+  const w = REQUEST_ID.test(id)
+    ? await ctx.env.DB.prepare("SELECT * FROM version_withdrawals WHERE id = ?").bind(id).first<WithdrawalRow>() : null;
+  if (w) {
+    if (w.status !== "approved") fail(404, "no-request", "There is no approved revocation with this id that waits for the ca job.");
+    log("pipeline.withdrawal", { request: id, run: run ?? "?" });
+    // The file certificate (release statement) serial, reason withdrawn-version (hub-index request.schema.json).
+    return json({ format: 1, action: "revoke", id: w.id, serial: w.serial, reason: "withdrawn-version", approved_by: JSON.parse(w.approvers) as string[], note: w.reason.slice(0, 500) });
+  }
   const row = REQUEST_ID.test(id)
     ? await ctx.env.DB.prepare("SELECT * FROM revocations WHERE id = ?").bind(id).first<RevocationRow>() : null;
   if (!row || row.status !== "approved") fail(404, "no-request", "There is no approved revocation with this id that waits for the ca job.");
@@ -477,6 +498,17 @@ export async function pipelineRevocations(ctx: Ctx): Promise<Response> {
   const serial = str(b.serial, "serial", 16);
   if (!SERIAL.test(serial)) bad("'serial' is 16 lower-case hex digits.");
   const db = ctx.env.DB;
+  const w = await db.prepare("SELECT * FROM version_withdrawals WHERE id = ?").bind(id).first<WithdrawalRow>();
+  if (w) {
+    if (w.serial !== serial) fail(409, "serial-mismatch", `Withdrawal ${id} is for ${w.serial}.`);
+    if (w.status === "done") return json({ stored: true, duplicate: true });
+    const run = `${c.run_id ?? "?"}.${c.run_attempt ?? "1"}`;
+    await db.batch([
+      db.prepare("UPDATE version_withdrawals SET status = 'done', done_at = ? WHERE id = ? AND status = 'approved'").bind(now(), id),
+      audit(db, "pipeline", run, "release.withdrawn", `withdrawal:${id}`, { serial, listing: w.listing_id, version: w.version }),
+    ]);
+    return json({ stored: true });
+  }
   const row = await db.prepare("SELECT * FROM revocations WHERE id = ?").bind(id).first<RevocationRow>();
   if (!row) fail(404, "no-request", "There is no revocation with this id.");
   if (row!.serial !== serial) fail(409, "serial-mismatch", `Revocation ${id} is for ${row!.serial}.`);

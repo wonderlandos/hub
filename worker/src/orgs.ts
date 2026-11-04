@@ -102,3 +102,18 @@ export async function postOrgs(ctx: Ctx): Promise<Response> {
   ]);
   return json({ org: await orgView(ctx, { github_org_id: id, org_login: m!.organization.login, role: "owner", synced_at: t }) }, 201);
 }
+
+/** GET /api/orgs/<login>/members: the members and roles the Worker knows (synced from GitHub at their sign-in), for
+ * members of that organisation only; anyone else gets 404. */
+export async function getOrgMembers(ctx: Ctx, login: string): Promise<Response> {
+  const s = await requireSession(ctx);
+  const db = ctx.env.DB;
+  const org = /^[A-Za-z0-9-]{1,39}$/.test(login)
+    ? await db.prepare("SELECT github_org_id, login FROM orgs WHERE lower(login) = lower(?)").bind(login).first<{ github_org_id: number; login: string }>() : null;
+  const mine = org ? await db.prepare("SELECT 1 FROM memberships WHERE github_org_id = ? AND github_id = ?").bind(org.github_org_id, s.person.github_id).first() : null;
+  if (!org || !mine) fail(404, "no-org", "There is no organisation with that name that you belong to.");
+  const members = (await db.prepare(
+    "SELECT p.login, m.role, m.synced_at FROM memberships m JOIN persons p ON p.github_id = m.github_id WHERE m.github_org_id = ? ORDER BY m.role DESC, p.login LIMIT 500",
+  ).bind(org!.github_org_id).all<{ login: string; role: string; synced_at: number }>()).results;
+  return json({ org: org!.login, members });
+}

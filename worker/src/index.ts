@@ -8,8 +8,8 @@ import { errorResponse, fail, HttpError, json } from "./http";
 import { limit, purge, RULES } from "./ratelimit";
 import { callback, login, logout, me } from "./auth";
 import { getCla, getTerms, postCla, postTerms } from "./cla";
-import { getOrgs, postOrgs } from "./orgs";
-import { getListing, patchListing, postListing } from "./listings";
+import { getOrgMembers, getOrgs, postOrgs } from "./orgs";
+import { getListing, getMyListings, patchListing, postListing } from "./listings";
 import { webhook } from "./webhook";
 import { getReport, postReport } from "./reports";
 import { getPreview } from "./preview";
@@ -18,7 +18,7 @@ import {
   getCerts, getMyCertRequests, pipelineCerts, pipelineFileCertificates, pipelineRequest, pipelineRevocations, postCertRequest,
 } from "./certs";
 import {
-  approveRequest, approveRevocation, downgradeCert, flagRelease, getRoles, postRole, queue, refuseRequest, resolveReport, revokeCert, takedown,
+  approveRequest, approveRevocation, downgradeCert, flagRelease, getAudit, getRoles, withdrawVersion, postRole, queue, refuseRequest, resolveReport, revokeCert, takedown,
 } from "./admin";
 import { log } from "./log";
 
@@ -73,6 +73,11 @@ export const ROUTES: Route[] = [
   { method: "POST", path: /^\/api\/admin\/releases\/([^/]{1,64})\/([^/]{1,64})\/flag$/, handler: flagRelease, ipLimit: true },
   { method: "GET", path: /^\/api\/admin\/roles$/, handler: getRoles },
   { method: "POST", path: /^\/api\/admin\/roles$/, handler: postRole, ipLimit: true },
+  // The author's dashboard, organisation members, version withdrawal, the audit log.
+  { method: "GET", path: /^\/api\/my\/listings$/, handler: getMyListings },
+  { method: "GET", path: /^\/api\/orgs\/([^/]{1,39})\/members$/, handler: getOrgMembers },
+  { method: "POST", path: /^\/api\/admin\/releases\/([^/]{1,64})\/([^/]{1,64})\/withdraw$/, handler: withdrawVersion, ipLimit: true },
+  { method: "GET", path: /^\/api\/admin\/audit$/, handler: getAudit },
 ];
 
 function withCookies(r: Response, cookies: string[]): Response {

@@ -6,7 +6,7 @@ name = "wolos-hub"
 main = "src/index.ts"
 compatibility_date = "2026-11-03"
 workers_dev = false
-# cla/CLA.md is bundled as text (src/cla.ts).
+# The accepted texts in ../legal/ (CLA, Publisher Agreement, Trust Terms, Certificate Terms) are bundled as text (src/cla.ts).
 rules = [{ type = "Text", globs = ["**/*.md"], fallthrough = false }]
 routes = [
   { pattern = "hub.wolos.org/auth/*", zone_name = "wolos.org" },
@@ -24,7 +24,7 @@ PIPELINE_SIGN_ENVIRONMENT = "sign"
 PIPELINE_CA_WORKFLOW = "wonderlandos/hub-index/.github/workflows/ca.yml@refs/heads/main"
 PIPELINE_CA_ENVIRONMENT = "ca"
 RATE_STORE = "d1"
-# The version line of cla/CLA.md.
+# The version line of ../legal/CLA.md.
 CLA_VERSION = "1"
 # Owners of the admin panel (GitHub logins, comma separated); further roles are granted in the panel.
 # hub-index's CA_APPROVERS lists everyone who may approve trusted requests: these and the admins and reviewers.

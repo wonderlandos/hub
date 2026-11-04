@@ -23,7 +23,7 @@ function wolcert(file: any, serial: string, over: Record<string, unknown> = {}) 
   return JSON.stringify({ format: 1, body: b64url(new TextEncoder().encode(JSON.stringify(body))), sig: { ed25519: sig, second: sig } });
 }
 async function issue(cookie: string, tier: "origin" | "trusted", serial: string, approver?: string, who: FakeUser = alice) {
-  const r = await req(env, "POST", "/api/cert/request", { cookie, body: { ...woltrustRequest({}, who), trust_terms: await termsAnswer(env, "trust"), tier } });
+  const r = await req(env, "POST", "/api/cert/request", { cookie, body: { ...woltrustRequest({}, who), trust_terms: await termsAnswer(env, "trust"), certificate_terms: await termsAnswer(env, "certificates"), tier } });
   const id = ((await r.json()) as any).request.id;
   if (approver) await req(env, "POST", `/api/admin/requests/${id}/approve`, { cookie: approver });
   const file = (await (await req(env, "GET", `/api/pipeline/requests/${id}`, { headers: await ca() })).json()) as any;
@@ -89,7 +89,7 @@ test("after a revocation for cause the next origin request goes to a person, not
   const back = shiftClock(8 * 86400);
   try {
     const c = await signIn(env, gh, alice);
-    const n = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: await termsAnswer(env, "trust"), tier: "origin" } });
+    const n = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: await termsAnswer(env, "trust"), certificate_terms: await termsAnswer(env, "certificates"), tier: "origin" } });
     expect(((await n.json()) as any)).toMatchObject({ auto: false, request: { status: "pending", tier: "origin" } });
   } finally { back(); }
 });

@@ -20,13 +20,14 @@ export type Role = (typeof ROLES)[number];
 
 export type Permission =
   | "queue.requests" | "queue.reports" | "request.approve" | "request.refuse" | "cert.revoke" | "cert.downgrade"
-  | "report.resolve" | "report.takedown" | "release.flag" | "roles.manage";
+  | "report.resolve" | "report.takedown" | "release.flag" | "release.withdraw" | "audit.read" | "roles.manage";
 
 /** Least rights per role (lead 2026-11-04). The owner holds every permission, including roles. */
 export const GRANTS: Record<Role, readonly Permission[]> = {
   owner: ["queue.requests", "queue.reports", "request.approve", "request.refuse", "cert.revoke", "cert.downgrade",
-    "report.resolve", "report.takedown", "release.flag", "roles.manage"],
-  admin: ["queue.requests", "queue.reports", "request.approve", "request.refuse", "cert.revoke", "cert.downgrade", "report.takedown"],
+    "report.resolve", "report.takedown", "release.flag", "release.withdraw", "audit.read", "roles.manage"],
+  admin: ["queue.requests", "queue.reports", "request.approve", "request.refuse", "cert.revoke", "cert.downgrade",
+    "report.resolve", "report.takedown", "release.withdraw", "audit.read"],
   reviewer: ["queue.requests", "request.approve", "request.refuse", "release.flag"],
   support: ["queue.reports", "report.resolve"],
 };

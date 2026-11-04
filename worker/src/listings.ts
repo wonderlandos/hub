@@ -83,16 +83,28 @@ export function pictureView(p: Picture) {
 
 interface ViewRelease extends ReleaseRow {
   signature: string | null; cert: string | null; flag_reason: string | null;
-  fc_serial: string | null; fc_url: string | null; fc_checked_at: number | null; fc_verdict: string | null;
+  fc_serial: string | null; fc_url: string | null; fc_checked_at: number | null; fc_verdict: string | null; withdrawn_reason: string | null;
   m_name: string | null; m_summary: string | null; m_description: string | null; m_icon: string | null; m_screenshots: string | null;
+}
+
+/** One version's state: checking, listed, flagged, blocked, not-checked, yanked, withdrawn. */
+export function releaseStatus(r: { verdict: string; yanked_at: number | null; flag_reason?: string | null; withdrawn_reason?: string | null }, listing: string): string {
+  if (r.withdrawn_reason || listing === "withdrawn") return "withdrawn";
+  if (r.yanked_at !== null) return "yanked";
+  if (r.verdict === "pending") return "checking";
+  if (r.verdict === "pass") return r.flag_reason ? "flagged" : "listed";
+  if (r.verdict === "flag") return "flagged";
+  return r.verdict; // block, not-checked
 }
 
 export async function listingView(env: Env, l: ListingRow) {
   const rel = (await env.DB.prepare(
     `SELECT r.*, f.signature, f.cert, g.reason AS flag_reason,
        fc.serial AS fc_serial, fc.url AS fc_url, fc.checked_at AS fc_checked_at, fc.verdict AS fc_verdict,
-       m.name AS m_name, m.summary AS m_summary, m.description AS m_description, m.icon AS m_icon, m.screenshots AS m_screenshots
+       m.name AS m_name, m.summary AS m_summary, m.description AS m_description, m.icon AS m_icon, m.screenshots AS m_screenshots,
+       w.reason AS withdrawn_reason
      FROM releases r
+     LEFT JOIN version_withdrawals w ON w.listing_id = r.listing_id AND w.version = r.version
      LEFT JOIN release_facts f ON f.listing_id = r.listing_id AND f.version = r.version
      LEFT JOIN release_flags g ON g.listing_id = r.listing_id AND g.version = r.version
      LEFT JOIN file_certificates fc ON fc.listing_id = r.listing_id AND fc.version = r.version
@@ -121,6 +133,10 @@ export async function listingView(env: Env, l: ListingRow) {
       first_seen: r.first_seen, checked_at: r.checked_at, yanked: r.yanked_at !== null,
       // The signed statement for this version (the file certificate), once the sign job made it.
       file_certificate: r.fc_serial ? { serial: r.fc_serial, url: r.fc_url, checked_at: r.fc_checked_at, verdict: r.fc_verdict } : null,
+      // Withdrawn by the hub: shown, never offered for install (its file certificate is on the revocation list).
+      withdrawn: r.withdrawn_reason !== null,
+      // Where the version stands, for the author's dashboard.
+      status: releaseStatus(r, l.status), findings: undefined as unknown,
     })),
   };
 }
@@ -245,4 +261,26 @@ export async function patchListing(ctx: Ctx, id: string): Promise<Response> {
   ]);
   const row = await db.prepare("SELECT * FROM listings WHERE id = ?").bind(id).first<ListingRow>();
   return json(await listingView(ctx.env, row!));
+}
+
+/** GET /api/my/listings: the person's listings and their organisations' (as the Worker knows the memberships), every
+ * version with its status and the findings of its last check, including versions not listed yet. */
+export async function getMyListings(ctx: Ctx): Promise<Response> {
+  const s = await requireSession(ctx);
+  const db = ctx.env.DB;
+  const rows = (await db.prepare(
+    `SELECT * FROM listings WHERE (owner_kind = 'person' AND owner_id = ?)
+       OR (owner_kind = 'org' AND owner_id IN (SELECT github_org_id FROM memberships WHERE github_id = ?))
+     ORDER BY id LIMIT 200`,
+  ).bind(s.person.github_id, s.person.github_id).all<ListingRow>()).results;
+  const out = [];
+  for (const l of rows) {
+    const v = await listingView(ctx.env, l);
+    for (const r of v.releases) {
+      const f = await db.prepare("SELECT findings FROM verdicts WHERE listing_id = ? AND version = ? ORDER BY id DESC LIMIT 1").bind(l.id, r.version).first<{ findings: string }>();
+      r.findings = f ? (JSON.parse(f.findings) as { rule: string; sentence: string }[]).map(({ rule, sentence }) => ({ rule, sentence })) : [];
+    }
+    out.push(v);
+  }
+  return json({ listings: out });
 }

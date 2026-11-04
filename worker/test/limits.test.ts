@@ -103,5 +103,5 @@ test("migrations applied in order give exactly schema.sql, and only add", () => 
   const tables = (b.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all() as { name: string }[]).map((t) => t.name);
   expect(tables).toEqual(["admin_roles", "audit_log", "cert_requests", "certs", "cla_acceptances", "deliveries", "file_certificates",
     "listing_overrides", "listings", "memberships", "orgs", "persons", "rate_counters", "release_facts", "release_flags", "release_meta",
-    "releases", "reports", "revocations", "takedowns", "terms_acceptances", "verdicts"]);
+    "releases", "reports", "revocations", "takedowns", "terms_acceptances", "verdicts", "version_withdrawals"]);
 });

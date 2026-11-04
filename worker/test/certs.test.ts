@@ -19,7 +19,7 @@ beforeEach(async () => {
 afterEach(() => undo());
 
 /** What the site sends: the woltrust request and the Trust Terms accepted with it. */
-const withTerms = async (r: Record<string, unknown>) => ({ ...r, trust_terms: await termsAnswer(env, "trust") });
+const withTerms = async (r: Record<string, unknown>) => ({ ...r, trust_terms: await termsAnswer(env, "trust"), certificate_terms: await termsAnswer(env, "certificates") });
 const ca = async (over: Record<string, unknown> = {}) => ({ authorization: `Bearer ${await jwt(key, claims("ca", over))}` });
 
 async function asPerson(u = alice) {
@@ -339,11 +339,19 @@ test("a request needs a session and the hub's origin; it is rate limited", async
 
 test("the Trust Terms are accepted with every request, and recorded", async () => {
   const c = await asPerson();
-  const r2 = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: { version: "1", sha256: "0".repeat(64) } } });
+  const certificates = await termsAnswer(env, "certificates");
+  const r2 = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: { version: "1", sha256: "0".repeat(64) }, certificate_terms: certificates } });
   expect([r2.status, ((await r2.json()) as any).error]).toEqual([409, "terms-changed"]);
+  // the Certificate Terms come with every request too, and a stale hash is refused
+  const r3 = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: await termsAnswer(env, "trust") } });
+  expect([r3.status, ((await r3.json()) as any).error]).toEqual([403, "certificate-terms-needed"]);
+  const r4 = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: await termsAnswer(env, "trust"), certificate_terms: { ...certificates, sha256: "0".repeat(64) } } });
+  expect([r4.status, ((await r4.json()) as any).error]).toEqual([409, "terms-changed"]);
   expect(env.DB.sqlite.query("SELECT count(*) AS n FROM cert_requests").get()).toEqual({ n: 0 });
   expect((await send(c)).r.status).toBe(201);
   expect(env.DB.sqlite.query("SELECT doc, github_id, version FROM terms_acceptances WHERE doc = 'trust'").all()).toEqual([{ doc: "trust", github_id: 1001, version: "1" }]);
+  const stored = JSON.parse((env.DB.sqlite.query("SELECT terms FROM cert_requests").get() as any).terms);
+  expect(stored).toEqual({ trust: await termsAnswer(env, "trust"), certificates });
   expect(((await (await req(env, "GET", "/api/me", { cookie: c })).json()) as any).terms.trust).toMatchObject({ accepted: "1", ok: true });
 });
 

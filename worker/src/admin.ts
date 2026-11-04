@@ -8,9 +8,9 @@ import { admins, now } from "./env";
 import { fail, json, readJson, str } from "./http";
 import { hex, random } from "./crypto";
 import {
-  type CertRow, liveCert, REQUEST_ID, requestView, type RequestRow, type RevocationRow, SERIAL, startCa,
+  type CertRow, liveCert, REQUEST_ID, requestView, type RequestRow, type RevocationRow, SERIAL, startCa, type WithdrawalRow, withdrawalView,
 } from "./certs";
-import { may, requireRole, requireRoleWrite, ROLES, type Role, roleOf, type Staff, staffAudit } from "./roles";
+import { GRANTS, may, requireRole, requireRoleWrite, ROLES, type Role, roleOf, type Staff, staffAudit } from "./roles";
 import { validId } from "./listings";
 
 /** The body's optional or required text field, at most 500 characters. */
@@ -33,7 +33,8 @@ interface ReportRow {
 export async function queue(ctx: Ctx): Promise<Response> {
   const st = await requireRole(ctx, null);
   const db = ctx.env.DB;
-  const out: Record<string, unknown> = { role: st.role };
+  // can: every action this role may take, so the panel shows only those.
+  const out: Record<string, unknown> = { role: st.role, can: GRANTS[st.role] };
   if (may(st.role, "queue.requests")) {
     const reqs = (await db.prepare(
       "SELECT * FROM cert_requests WHERE status IN ('pending','approved') ORDER BY created_at, id LIMIT 200",
@@ -53,6 +54,9 @@ export async function queue(ctx: Ctx): Promise<Response> {
   if (may(st.role, "cert.revoke")) {
     const rv = (await db.prepare("SELECT * FROM revocations WHERE status != 'done' ORDER BY created_at, id LIMIT 200").all<RevocationRow>()).results;
     out.revocations = rv.map(revocationView);
+  }
+  if (may(st.role, "release.withdraw")) {
+    out.withdrawals = (await db.prepare("SELECT * FROM version_withdrawals WHERE status != 'done' ORDER BY created_at, id LIMIT 200").all<WithdrawalRow>()).results.map(withdrawalView);
   }
   return json(out);
 }
@@ -317,6 +321,50 @@ export async function flagRelease(ctx: Ctx, listing: string, version: string): P
     staffAudit(ctx, st, "release.flag", `release:${listing}@${version}`, reason, { verdict: rel!.verdict }),
   ]);
   return json({ release: { listing_id: listing, version, flagged: true, reason } });
+}
+
+/** Withdraw one version: its file certificate goes on the revocation list with reason withdrawn-version (the ca job);
+ * the version is shown as withdrawn and never offered for install; the author's certificate is untouched. */
+export async function withdrawVersion(ctx: Ctx, listing: string, version: string): Promise<Response> {
+  const st = await requireRoleWrite(ctx, "release.withdraw");
+  const { text: reason } = await field(ctx, "reason", true);
+  if (!validId(listing)) fail(404, "no-release", "There is no release with that id and version.");
+  const db = ctx.env.DB;
+  const rel = await db.prepare("SELECT 1 FROM releases WHERE listing_id = ? AND version = ?").bind(listing, version).first();
+  if (!rel) fail(404, "no-release", "There is no release with that id and version.");
+  const fc = await db.prepare("SELECT serial FROM file_certificates WHERE listing_id = ? AND version = ?").bind(listing, version).first<{ serial: string }>();
+  if (!fc) fail(409, "no-file-certificate", "This version has no file certificate yet, so there is nothing to withdraw; take the listing down instead.");
+  if (await db.prepare("SELECT 1 FROM version_withdrawals WHERE listing_id = ? AND version = ?").bind(listing, version).first()) {
+    fail(409, "withdrawn-already", `${listing} ${version} is withdrawn already.`);
+  }
+  const id = `v-${hex(random(8))}`;
+  const t = now();
+  await db.batch([
+    db.prepare("INSERT INTO version_withdrawals (id, listing_id, version, serial, reason, status, requested_by, approvers, created_at) VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?)")
+      .bind(id, listing, version, fc!.serial, reason, st.s.person.github_id, JSON.stringify([st.s.person.login]), t),
+    staffAudit(ctx, st, "release.withdraw", `release:${listing}@${version}`, reason, { withdrawal: id, serial: fc!.serial }),
+  ]);
+  const { dispatched } = await startCa(ctx.env, "version_withdrawals", id, ["person", st.s.person.github_id]);
+  const row = await db.prepare("SELECT * FROM version_withdrawals WHERE id = ?").bind(id).first<WithdrawalRow>();
+  return json({ withdrawal: withdrawalView(row!), dispatched }, dispatched ? 200 : 202);
+}
+
+/** GET /api/admin/audit?before=<id>&limit=<1..100>: the log, newest first, with the actor's login when it is a person. */
+export async function getAudit(ctx: Ctx): Promise<Response> {
+  await requireRole(ctx, "audit.read");
+  const q = ctx.url.searchParams;
+  const before = /^[1-9][0-9]{0,15}$/.test(q.get("before") ?? "") ? Number(q.get("before")) : Number.MAX_SAFE_INTEGER;
+  const lim = /^[0-9]{1,3}$/.test(q.get("limit") ?? "") ? Math.min(100, Math.max(1, Number(q.get("limit")))) : 50;
+  const rows = (await ctx.env.DB.prepare(
+    `SELECT a.id, a.at, a.actor_kind, a.actor_id, p.login AS actor_login, a.action, a.target, a.detail
+     FROM audit_log a LEFT JOIN persons p ON a.actor_kind = 'person' AND p.github_id = CAST(a.actor_id AS INTEGER)
+     WHERE a.id < ? ORDER BY a.id DESC LIMIT ?`,
+  ).bind(before, lim + 1).all<{ id: number; at: number; actor_kind: string; actor_id: string | null; actor_login: string | null; action: string; target: string | null; detail: string }>()).results;
+  const page = rows.slice(0, lim);
+  return json({
+    entries: page.map((r) => ({ ...r, detail: JSON.parse(r.detail) })),
+    next: rows.length > lim ? page[page.length - 1].id : null,
+  });
 }
 
 // ---- roles (owner only) ----------------------------------------------------------------------------------------

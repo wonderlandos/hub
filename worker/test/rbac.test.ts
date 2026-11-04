@@ -85,10 +85,10 @@ test("ADMINS are owners, seeded at sign-in; a role needs two-factor authenticati
   expect(await status(c2, "GET", "/api/admin/queue")).toBe(404);
 });
 
-test("least rights per role: owner everything, admin no roles or resolve, reviewer requests and flags, support reports", async () => {
+test("least rights per role: owner everything, admin all but roles, reviewer requests and flags, support reports", async () => {
   expect(GRANTS.owner).toContain("roles.manage");
   expect(GRANTS.admin).not.toContain("roles.manage");
-  expect(GRANTS.admin).not.toContain("report.resolve");
+  expect(GRANTS.admin).toContain("report.resolve");
   expect(GRANTS.reviewer).toEqual(["queue.requests", "request.approve", "request.refuse", "release.flag"]);
   expect(GRANTS.support).toEqual(["queue.reports", "report.resolve"]);
   const owner = await signIn(env, gh, carol);
@@ -113,10 +113,12 @@ test("least rights per role: owner everything, admin no roles or resolve, review
   expect([qe.role, "requests" in qe, "reports" in qe]).toEqual(["support", false, true]);
   expect(await status(e, "POST", "/api/admin/requests/r-1/approve")).toBe(403);
   expect(await status(e, "POST", "/api/admin/releases/alice.notes/1.0.0/flag", { reason: "x" })).toBe(403);
-  // admin: takedown yes, resolve and roles no
+  // admin: everything but roles; queue.can lists what the role may do
   expect(await status(a, "GET", "/api/admin/roles")).toBe(403);
-  expect(await status(a, "POST", `/api/admin/reports/${rep}/resolve`)).toBe(403);
-  expect(await status(e, "POST", `/api/admin/reports/${rep}/resolve`, { note: "Works here." })).toBe(200);
+  expect(((await (await req(env, "GET", "/api/admin/queue", { cookie: a })).json()) as any).can).toEqual(GRANTS.admin);
+  expect(qb.can).toEqual(GRANTS.reviewer);
+  expect(qe.can).toEqual(["queue.reports", "report.resolve"]);
+  expect(await status(a, "POST", `/api/admin/reports/${rep}/resolve`, { note: "Works here." })).toBe(200);
   // owner: the roles list
   const roles = (await (await req(env, "GET", "/api/admin/roles", { cookie: owner })).json()) as any;
   expect(roles.roles.map((r: any) => [r.login, r.role, r.seeded])).toEqual([["Alice", "admin", false], ["Dave", "owner", true], ["carol-ca", "owner", true], ["bob", "reviewer", false], ["erin", "support", false]]);

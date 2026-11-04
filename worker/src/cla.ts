@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// The hub's three texts, each versioned and hashed (SHA-256 of exactly the bytes served):
-//   cla        the contributor agreement, accepted at sign-in (cla/CLA.md; a person, or an org by an owner)
-//   publisher  the Publisher Agreement, accepted before the first publish (cla/PUBLISHER-AGREEMENT.md)
-//   trust      the Trust Terms, accepted with every certificate request (cla/TRUST-TERMS.md)
-// The files are bundled as text (wrangler.toml rules). A text's version is its "Version N, date."
-// line; CLA_VERSION, when set, must name the CLA's. A new version must be accepted again.
+// The hub's accepted texts, from the repository's legal/ folder, each versioned and hashed (SHA-256 of exactly the
+// bytes served; legal/README.md lists the same hashes, a test compares):
+//   cla           the Contributor Licence Agreement, accepted at sign-in (legal/CLA.md; a person, or an org by an owner)
+//   publisher     the Publisher Agreement, accepted before the first publish (legal/PUBLISHER-AGREEMENT.md)
+//   trust         the Trust Terms, accepted with every certificate request (legal/TRUST-TERMS.md)
+//   certificates  the Certificate Terms, accepted with every certificate request with the Trust Terms (legal/CERTIFICATE-TERMS.md)
+// The files are bundled as text (wrangler.toml rules). A text's version is its "Version N, effective DATE." line;
+// CLA_VERSION, when set, must name the CLA's. A new version must be accepted again.
 
 import type { Ctx } from "./ctx";
 import type { Env } from "./env";
@@ -13,22 +15,29 @@ import { sha256hex } from "./crypto";
 import { fail, json, readJson, sameOrigin, str } from "./http";
 import { requireSession } from "./session";
 import { audit } from "./audit";
-import CLA_TEXT from "../cla/CLA.md" with { type: "text" };
-import PUBLISHER_TEXT from "../cla/PUBLISHER-AGREEMENT.md" with { type: "text" };
-import TRUST_TEXT from "../cla/TRUST-TERMS.md" with { type: "text" };
+import CLA_TEXT from "../../legal/CLA.md" with { type: "text" };
+import PUBLISHER_TEXT from "../../legal/PUBLISHER-AGREEMENT.md" with { type: "text" };
+import TRUST_TEXT from "../../legal/TRUST-TERMS.md" with { type: "text" };
+import CERTIFICATE_TEXT from "../../legal/CERTIFICATE-TERMS.md" with { type: "text" };
 
-/** The version a text names on its "Version N, date." line. */
+/** The version a text names on its "Version N, effective DATE." line. */
 export const textVersion = (text: string) => text.match(/^Version ([0-9A-Za-z.-]{1,32}), /m)?.[1] ?? null;
 
-export const DOCS = ["cla", "publisher", "trust"] as const;
+export const DOCS = ["cla", "publisher", "trust", "certificates"] as const;
 export type Doc = (typeof DOCS)[number];
-export const DOC_NAMES: Record<Doc, string> = { cla: "contributor agreement", publisher: "Publisher Agreement", trust: "Trust Terms" };
+export const DOC_NAMES: Record<Doc, string> = {
+  cla: "Contributor Licence Agreement", publisher: "Publisher Agreement", trust: "Trust Terms", certificates: "Certificate Terms",
+};
 
 const byVersion = (text: string): Record<string, string> => ({ [textVersion(text) ?? "unversioned"]: text });
 /** Known texts per document and version (tests add versions). */
-export const TEXTS: Record<Doc, Record<string, string>> = { cla: byVersion(CLA_TEXT), publisher: byVersion(PUBLISHER_TEXT), trust: byVersion(TRUST_TEXT) };
+export const TEXTS: Record<Doc, Record<string, string>> = {
+  cla: byVersion(CLA_TEXT), publisher: byVersion(PUBLISHER_TEXT), trust: byVersion(TRUST_TEXT), certificates: byVersion(CERTIFICATE_TEXT),
+};
 export const CLAS = TEXTS.cla;
-const CURRENT: Record<Doc, string> = { cla: textVersion(CLA_TEXT)!, publisher: textVersion(PUBLISHER_TEXT)!, trust: textVersion(TRUST_TEXT)! };
+const CURRENT: Record<Doc, string> = {
+  cla: textVersion(CLA_TEXT)!, publisher: textVersion(PUBLISHER_TEXT)!, trust: textVersion(TRUST_TEXT)!, certificates: textVersion(CERTIFICATE_TEXT)!,
+};
 
 export interface Text { doc: Doc; version: string; text: string; sha256: string }
 export interface Cla { version: string; text: string; sha256: string }
@@ -122,11 +131,11 @@ export async function postCla(ctx: Ctx): Promise<Response> {
 }
 
 const docOf = (name: string): Doc => {
-  if (!DOCS.includes(name as Doc)) fail(404, "no-terms", "There is no such text. Ask for cla, publisher or trust.");
+  if (!DOCS.includes(name as Doc)) fail(404, "no-terms", "There is no such text. Ask for cla, publisher, trust or certificates.");
   return name as Doc;
 };
 
-/** GET /api/terms/<cla|publisher|trust>: {doc, version, text, sha256}. */
+/** GET /api/terms/<cla|publisher|trust|certificates>: {doc, version, text, sha256}. */
 export async function getTerms(ctx: Ctx, name: string): Promise<Response> {
   return json(await currentText(ctx.env, docOf(name)), 200, { "cache-control": "public, max-age=300" });
 }
@@ -135,6 +144,7 @@ export async function getTerms(ctx: Ctx, name: string): Promise<Response> {
 export async function postTerms(ctx: Ctx, name: string): Promise<Response> {
   const doc = docOf(name);
   if (doc === "cla") return postCla(ctx);
+  if (doc === "certificates") return fail(400, "with-the-request", "The Certificate Terms are accepted with each certificate request (certificate_terms), not on their own.");
   sameOrigin(ctx.req, ctx.env);
   const s = await requireSession(ctx);
   const t = await acceptedText(ctx.env, doc, await readJson(ctx.req));

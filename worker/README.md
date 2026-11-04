@@ -102,7 +102,7 @@ see its members.
   must list everyone who may approve a trusted request (these, and the admins and reviewers granted in the panel): the
   ca job refuses an approval by anyone else.
 - `CA_DISPATCH_DRY_RUN`: `true` starts ca.yml as a dry run (TEST CA, nothing issued); `false` (default) issues.
-- `RATE_STORE`: `d1` (default) or `kv`. `CLA_VERSION`: the version line of `cla/CLA.md` (a test checks they agree).
+- `RATE_STORE`: `d1` (default) or `kv`. `CLA_VERSION`: the version line of `../legal/CLA.md` (a test checks they agree).
 - `GITHUB_WEB`, `GITHUB_API`, `OIDC_ISSUER`: unset in production; tests point them at mocks.
 
 ## HTTP API (I4)
@@ -118,9 +118,11 @@ Request bodies: 16 KiB for the API, 512 KiB for webhooks, 256 KiB for verdicts.
 | `POST /auth/logout` | person | Clears the cookie and voids all older sessions of that person |
 | `GET /api/me` | person | `{github_id, login, name, avatar, role, admin, admin_role?, cla, terms: {publisher, trust}, certs: {origin, trusted}, two_factor, orgs[]}`; `certs` per tier `none\|pending\|issued\|revoked`; `admin_role` only for a role holder with two-factor |
 | `GET /api/cla` | anyone | `{version, text, sha256}` |
-| `GET /api/terms/cla\|publisher\|trust` | anyone | `{doc, version, text, sha256}` |
-| `POST /api/terms/cla\|publisher\|trust` | person | `{version, sha256}`: accept the current text |
+| `GET /api/terms/cla\|publisher\|trust\|certificates` | anyone | `{doc, version, text, sha256}` |
+| `POST /api/terms/cla\|publisher\|trust` | person | `{version, sha256}`: accept the current text (the Certificate Terms only come with a certificate request) |
 | `POST /api/cla` | person | `{version, sha256}`: accept the current CLA |
+| `GET /api/my/listings` | person | `{listings: [...]}`: the person's and their organisations' listings, every version with `status` (`checking`, `listed`, `flagged`, `block`, `not-checked`, `yanked`, `withdrawn`) and `findings: [{rule, sentence}]` of its last check |
+| `GET /api/orgs/:login/members` | member of that organisation | `{org, members: [{login, role, synced_at}]}` as the Worker knows them (synced at sign-in); 404 for anyone else |
 | `GET /api/orgs` | person | `{orgs: [{github_org_id, login, role, linked, cla}]}` from GitHub, cached 10 min |
 | `POST /api/orgs` | GitHub owner | `{org, version, sha256}`: link the organisation and accept the CLA for it |
 | `POST /api/listings` | person with CLA and Publisher Agreement | `{id, kind, host?, repo, asset, name, summary, license, owner?}` |
@@ -133,22 +135,24 @@ Request bodies: 16 KiB for the API, 512 KiB for webhooks, 256 KiB for verdicts.
 | `GET /api/pipeline/pending` | check job | Releases waiting for a verdict |
 | `POST /api/pipeline/verdicts` | check job | `{verdicts: [{listing_id, version, verdict, sha256, size?, commit?, findings[]}]}` |
 | `GET /api/pipeline/export` | sign job | The same entries as the preview, for signing |
-| `POST /api/cert/request` | person with CLA | The woltrust request (`wol cert request`) plus `trust_terms: {version, sha256}` and `tier: origin\|trusted` (absent: origin); 3 a day; 201 `{request, auto, dispatched?, sentence}` |
+| `POST /api/cert/request` | person with CLA | The woltrust request (`wol cert request`) plus `trust_terms` and `certificate_terms` (each `{version, sha256}`, stored with the request) and `tier: origin\|trusted` (absent: origin); 3 a day; 201 `{request, auto, dispatched?, sentence}` |
 | `GET /api/cert/requests` | person | `{requests: [...]}`: their own requests (`tier`, `status`, `auto`, `origin_cert`), with the certificate once issued |
 | `GET /api/certs/:login` | anyone | `{login, certs: [{serial, kind, tier, login, not_before, not_after, issued_at, revoked_at, revoke_reason, origin_cert, cert}]}` for the person's or organisation's page |
 | `GET /api/pipeline/requests/:id` | ca job | The request file (hub-index `schema/request.schema.json`): `r-…` an approved issue request without a certificate, `v-…` an approved revocation not done yet (action `revoke`) |
 | `POST /api/pipeline/certs` | ca job | `{request_id, serial, tier?, cert}`: the issued `.wolcert`; stored, shown, request marked issued |
 | `POST /api/pipeline/revocations` | ca job | `{request_id, serial}`: the revocation is on `revocations.json`; the certificate is marked revoked (an origin one for cause: the trusted ones on it too) |
 | `POST /api/pipeline/file-certificates` | sign job | `{file_certificates: [{listing_id, version, serial, url, checked_at, verdict}]}`: each release's signed statement, shown as `file_certificate` |
-| `GET /api/admin/queue` | any role | `{role, requests?, reports?, revocations?}`, what the role may handle |
+| `GET /api/admin/queue` | any role | `{role, can, requests?, reports?, revocations?, withdrawals?}`: `can` lists the actions the role may take, the rest what it may handle |
 | `POST /api/admin/requests/:id/approve` | owner, admin, reviewer; not the subject | `{note?}`. Approve and start ca.yml; 200 started, 202 approved but not started (approve again to retry) |
 | `POST /api/admin/requests/:id/refuse` | owner, admin, reviewer | `{reason}`; not once ca.yml was started |
 | `POST /api/admin/certs/:serial/revoke` | owner, admin; not the subject | `{reason: key-compromise\|abuse, note?}`: revokes every live certificate of that subject; key-compromise starts at once, abuse waits for a second admin |
 | `POST /api/admin/certs/:serial/downgrade` | owner, admin; not the subject | `{note}`: a trusted certificate revoked as `superseded`; origin stays |
 | `POST /api/admin/revocations/:group/approve` | owner, admin, a second person | `{note?}`: the second approval for abuse, or a retry of a failed dispatch |
-| `POST /api/admin/reports/:id/resolve` | owner, support | `{note?}`: close without action |
+| `POST /api/admin/reports/:id/resolve` | owner, admin, support | `{note?}`: close without action |
 | `POST /api/admin/reports/:id/takedown` | owner, admin | `{note?}`: withdraw the listing; the export names it in `withdrawn` |
 | `POST /api/admin/releases/:id/:version/flag` | owner, admin, reviewer | `{reason}`: the release shows verdict `flag`, the reason first among its findings |
+| `POST /api/admin/releases/:id/:version/withdraw` | owner, admin | `{reason}`: the version's file certificate goes on the revocation list with reason `withdrawn-version` (ca.yml fetches `v-…` as a revoke file, then `POST /api/pipeline/revocations`); export and listing mark the version `withdrawn: true`; 409 without a file certificate |
+| `GET /api/admin/audit?before=&limit=` | owner, admin | `{entries: [{id, at, actor_kind, actor_id, actor_login, action, target, detail}], next}`, newest first, at most 100 a page |
 | `GET /api/admin/roles` | owner | `{roles: [{github_id, login, role, granted_by, granted_at, seeded, two_factor}]}` |
 | `POST /api/admin/roles` | owner | `{login, role: owner\|admin\|reviewer\|support\|none, reason}`; never yourself or an `ADMINS` owner; the person signed in with two-factor |
 
@@ -215,7 +219,8 @@ Every step is in `audit_log` (`cert.request`, `cert.approve`, `cert.review`, `ce
 
 ## The admin panel (closed, `src/roles.ts`)
 
-Roles in `admin_roles`: `owner` (everything, including roles), `admin` (approve, refuse, revoke, downgrade, take down),
+Roles in `admin_roles`: `owner` (everything, including roles), `admin` (approve, refuse, revoke, downgrade, take down,
+resolve reports, withdraw versions, read the audit log),
 `reviewer` (approve and refuse requests, flag releases), `support` (resolve reports). The logins in `ADMINS` are owners.
 Every route under `/api/admin` needs a role and two-factor authentication on GitHub (checked at sign-in and asked of
 GitHub again when the last answer is older than an hour); anyone else gets the router's own 404 (never 401, 403, 405 or
@@ -234,14 +239,15 @@ The check posts hubcheck's `facts` with a verdict: `name` (80), `summary` (200),
 summary: the author's override (`PATCH`), else the package's, else the registered ones; a name over 40 characters (the
 index's limit) is passed over, never cut. A verdict without facts keeps the last ones.
 
-## The three texts (`cla/`)
+## The accepted texts (`../legal/`)
 
-`cla/CLA.md` (the contributor agreement, accepted after the first sign-in), `cla/PUBLISHER-AGREEMENT.md` (before the
-first publish) and `cla/TRUST-TERMS.md` (with every certificate request). Each is a draft for a lawyer, starts with
-`Version N, date.`, is bundled as text (`wrangler.toml` rules) and served byte for byte with the SHA-256 of those bytes;
-an acceptance stores version and hash. A new version: edit the file and its version line (and `CLA_VERSION` for the
-CLA); everyone accepts it again before the next publish or request. Wording on the hub and in the Store: "checked" and
-"verified identity", never "safe", "secure" or "approved software" (a test checks the three texts).
+The Worker serves four of the hub's texts from the repository's `legal/` folder, byte for byte with the SHA-256 of those
+bytes (the same hashes as `legal/README.md`; a test compares): `CLA.md` (accepted after the first sign-in),
+`PUBLISHER-AGREEMENT.md` (before the first publish), `TRUST-TERMS.md` and `CERTIFICATE-TERMS.md` (both with every
+certificate request). A text's version is its `Version N, effective DATE.` line; an acceptance stores version and hash.
+A new version: edit the file, its version lines and the hash in `legal/README.md` (and `CLA_VERSION` for the CLA);
+everyone accepts it again before the next publish or request. The other texts are the site's. Wording on the hub and in
+the Store: "checked" and "verified identity", never "safe", "secure" or "approved software" (a test checks).
 
 ## Pipeline identity (I9)
 
@@ -264,7 +270,8 @@ adds (a test applies them and compares). Tables: `persons`, `orgs`, `memberships
 of GitHub roles), `cla_acceptances`, `listings`, `releases`, `verdicts`, `reports`,
 `audit_log`, `deliveries` (webhook ids, 30 days), `rate_counters` (2 days); from migration 0002
 `release_facts` (what the check found in a file), `takedowns`, `cert_requests`, `certs`,
-`terms_acceptances` (Publisher Agreement and Trust Terms); from migration 0003 `admin_roles`, `revocations`,
+`terms_acceptances` (Publisher Agreement and Trust Terms); from migration 0004 `version_withdrawals` and
+`cert_requests.terms`; from migration 0003 `admin_roles`, `revocations`,
 `release_flags`, `release_meta`, `listing_overrides`, `file_certificates`, and the columns `cert_requests.tier`,
 `gates`, `origin_cert`, `certs.tier`, `revoked_at`, `revoke_reason`, `origin_cert`, `persons.two_factor_checked_at`. No IP address
 is stored anywhere; sessions are cookies, not rows.
@@ -298,7 +305,8 @@ so every figure includes the dev proxy (a route that touches nothing: p50 6.6 ms
 First request after the server was ready: 568 ms by the dev server's log (isolate start,
 bundle, D1 open). The handlers themselves, in process on the in-memory D1, take 0.01 to
 0.06 ms. The bundle was 55 KiB (16 KiB gzipped) then; with certificates, the admin panel and the three
-texts it is 97 KiB (28 KiB gzipped); with tiers, roles, revocations and listing metadata 136 KiB (37 KiB gzipped),
+texts it is 97 KiB (28 KiB gzipped); with tiers, roles, revocations and listing metadata 136 KiB (37 KiB gzipped); with the legal texts, the dashboard
+and the audit log 174 KiB (47 KiB gzipped),
 `wrangler deploy --dry-run`, 2026-11-04 (timings not measured again). `bun bench/bench.ts` and
 `bun bench/e2e-local.ts` repeat these against a running `wrangler dev` (put the test values of
 `test/harness.ts` `SECRETS` in a local, ignored `.dev.vars`; start it with `--var GITHUB_WEB:http://127.0.0.1:8798/web --var GITHUB_API:http://127.0.0.1:8798/api --var OIDC_ISSUER:http://127.0.0.1:8798/oidc`).

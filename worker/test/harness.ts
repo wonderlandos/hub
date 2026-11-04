@@ -248,7 +248,7 @@ export async function acceptTerms(env: Env, cookie: string, doc: "publisher" | "
   return req(env, "POST", `/api/terms/${doc}`, { cookie, body: await termsAnswer(env, doc) });
 }
 /** {version, sha256} of the current text, as the site sends it after showing the text. */
-export async function termsAnswer(env: Env, doc: "cla" | "publisher" | "trust") {
+export async function termsAnswer(env: Env, doc: "cla" | "publisher" | "trust" | "certificates") {
   const t = await (await req(env, "GET", `/api/terms/${doc}`)).json() as { version: string; sha256: string };
   return { version: t.version, sha256: t.sha256 };
 }

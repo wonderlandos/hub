@@ -25,6 +25,7 @@ interface Row {
   kinds: string | null; permissions: string | null; min_wolos: string | null; cert: string | null; signature: string | null;
   flag_reason: string | null; o_name: string | null; o_summary: string | null; has_override: number | null;
   m_name: string | null; m_summary: string | null; m_description: string | null; m_icon: string | null; m_screenshots: string | null;
+  version_withdrawn: number | null;
 }
 interface WithdrawnRow { id: string; kind: string; at: number; reason: string | null }
 
@@ -52,7 +53,8 @@ export async function buildIndex(env: Env) {
        (SELECT v.findings FROM verdicts v WHERE v.listing_id = r.listing_id AND v.version = r.version ORDER BY v.id DESC LIMIT 1) AS findings,
        f.kinds, f.permissions, f.min_wolos, f.cert, f.signature, g.reason AS flag_reason,
        ov.name AS o_name, ov.summary AS o_summary, (ov.listing_id IS NOT NULL) AS has_override,
-       m.name AS m_name, m.summary AS m_summary, m.description AS m_description, m.icon AS m_icon, m.screenshots AS m_screenshots
+       m.name AS m_name, m.summary AS m_summary, m.description AS m_description, m.icon AS m_icon, m.screenshots AS m_screenshots,
+       (SELECT 1 FROM version_withdrawals w WHERE w.listing_id = r.listing_id AND w.version = r.version) AS version_withdrawn
      FROM listings l
      JOIN releases r ON r.listing_id = l.id
      LEFT JOIN release_facts f ON f.listing_id = r.listing_id AND f.version = r.version
@@ -91,6 +93,8 @@ export async function buildIndex(env: Env) {
       source: { repo: r.repo, repo_id: r.repo_id, tag: r.tag, commit: r.commit_sha },
       first_seen: r.first_seen, yanked: false,
       ...(r.kind === "extension" ? { host: r.host } : {}),
+      // A version the hub withdrew (index.schema.json "withdrawn": true): shown, never installed.
+      ...(r.version_withdrawn ? { withdrawn: true } : {}),
       ...(r.m_description ? { description: r.m_description } : {}), ...(icon ? { icon } : {}), ...(screenshots?.length ? { screenshots } : {}),
     };
     (r.kind === "app" ? out.apps : r.kind === "plugin" ? out.plugins : out.extensions).push(entry);
