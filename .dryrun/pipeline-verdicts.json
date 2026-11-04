@@ -1,0 +1,79 @@
+{
+  "verdicts": [
+    {
+      "listing_id": "wonderlandos.rsh",
+      "version": "0.9.1-1",
+      "verdict": "pass",
+      "sha256": "05df7f4e98c0b2165c124c814d357c2fad713b02925dbe9716cd0188a70f778b",
+      "size": 573440,
+      "trust": "community",
+      "findings": [
+        {
+          "rule": "trust/unsigned",
+          "sentence": "Nobody vouches for this file. WolOS can't tell who made it or whether someone changed it on the way.",
+          "evidence": ""
+        }
+      ]
+    },
+    {
+      "listing_id": "wonderlandos.doctor",
+      "version": "0.1.0-1",
+      "verdict": "pass",
+      "sha256": "14de41e0ebb04396428f8d151958b38e523af05b9edbdcbb79769b5d40aa7ba8",
+      "size": 40960,
+      "trust": "community",
+      "findings": [
+        {
+          "rule": "trust/unsigned",
+          "sentence": "Nobody vouches for this file. WolOS can't tell who made it or whether someone changed it on the way.",
+          "evidence": ""
+        }
+      ]
+    },
+    {
+      "listing_id": "wonderlandos.hello",
+      "version": "0.1.0-1",
+      "verdict": "pass",
+      "sha256": "bed8acb9283e89d356b406ebc31c0812aa8f279ae242e11b13f0e11b916a1c93",
+      "size": 30720,
+      "trust": "community",
+      "findings": [
+        {
+          "rule": "trust/unsigned",
+          "sentence": "Nobody vouches for this file. WolOS can't tell who made it or whether someone changed it on the way.",
+          "evidence": ""
+        }
+      ]
+    },
+    {
+      "listing_id": "wonderlandos.stats",
+      "version": "1.0",
+      "verdict": "pass",
+      "sha256": "ebc4b35ec679287858b906751de639d0dc161d93bd3512fc89eb3f3a704e823c",
+      "size": 8178,
+      "trust": "community",
+      "findings": [
+        {
+          "rule": "trust/unsigned",
+          "sentence": "Nobody vouches for this file. WolOS can't tell who made it or whether someone changed it on the way.",
+          "evidence": ""
+        }
+      ]
+    },
+    {
+      "listing_id": "wonderlandos.creative",
+      "version": "0.12.0-1",
+      "verdict": "pass",
+      "sha256": "a064be2b7def8abc8bce52a79d15cb777d3f4ee5b1d3234b7e16f9c5e70bb83f",
+      "size": 102400,
+      "trust": "community",
+      "findings": [
+        {
+          "rule": "trust/unsigned",
+          "sentence": "Nobody vouches for this file. WolOS can't tell who made it or whether someone changed it on the way.",
+          "evidence": ""
+        }
+      ]
+    }
+  ]
+}
