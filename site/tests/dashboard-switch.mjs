@@ -102,7 +102,7 @@ try {
     const agr = async () => (await page.innerText("#d-agreements")).replace(/\s+/g, " ");
     await page.waitForFunction(() => document.querySelectorAll("#d-agreements .agr").length === 3);
     ok("agreements (organisation): the organisation has no Publisher Agreement, three texts are listed", /Contributor Licence Agreement/.test(await agr()));
-    ok("agreements: the exact hash, the day and who accepted are shown", /Version 1 2 November 2026 accepted by alicedoe/.test(await agr()) && (await agr()).includes("ab".repeat(32)));
+    ok("agreements: the exact hash, the day and who accepted are shown", /Version 1 accepted by alicedoe as an owner, 2 November 2026/.test(await agr()) && (await agr()).includes("ab".repeat(32)));
     ok("agreements: per-request texts say so, and every title links to its text", /Accepted with each certificate request\./.test(await agr()) && (await page.getAttribute("#d-agreements .agr a", "href")) === "/terms/cla");
     await page.goBack();
     await page.waitForFunction(() => document.querySelectorAll("#d-agreements .agr").length === 4);

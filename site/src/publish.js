@@ -18,7 +18,6 @@
   var nextVersion = function (v) { var p = String(v).split("."); var i = p.length - 1; while (i > 0 && !/^\d+$/.test(p[i])) i--; p[i] = String(+p[i] + 1); return p.slice(0, i + 1).join("."); };
 
   /* ---- Step 2: the two agreements, one screen ---- */
-  var DOC = { cla: "Contributor Agreement", publisher: "Publisher Agreement" };
   var need = function (m) { return ["cla", "publisher"].filter(function (d) { var s = d === "cla" ? m.cla : m.terms.publisher; return !(s && s.ok); }); };
   var text = H.terms;
   function showDoc(d) {
@@ -27,23 +26,41 @@
     $("#agree-link").href = "/terms/" + d;
     H.agreement($("#agree-text"), d).then(null, function () {});
   }
+  /* ?as= org: its own CLA, which an owner accepts as it */
+  var same = function (a, b) { return a.toLowerCase() === b.toLowerCase(); };
+  var orgNow = function (m) { var a = asNow(); return a ? (m.orgs || []).filter(function (o) { return same(o.login, a); })[0] : null; };
+  var orgNeeds = function (o) { return !!o && !(o.cla && o.cla.ok); };
+  var stateText = function (x) { return x && x.ok ? msg("st-ok") + " " + x.accepted : msg("st-none") + " " + (x || st.me.cla).current; };
   function terms(m) {
-    var todo = need(m);
-    $$("#agree-tabs button, #agree-form .check").forEach(function (n) { n.hidden = todo.indexOf(n.dataset.doc) < 0; });
-    $("#agree-tabs").hidden = todo.length < 2;
+    var o = orgNow(m), todo = need(m), docs = todo.slice(), f = $("#agree-form"), rows = $("#agree-rows"), ask = slot(rows, "ask"), pub = $("[data-doc=publisher]", f), nd = orgNeeds(o), own = o && o.role === "owner";
+    $("#org-cla").hidden = !nd; rows.hidden = !o;
+    (o ? slot(rows, "act") : f).insertBefore(pub, o ? null : $("[data-doc=cla]", f).nextSibling);
+    if (o) {
+      $$("[data-slot=org]", root).forEach(function (n) { n.textContent = o.login; });
+      slot(root, "v", m.cla.current); slot($("[data-row=org]", rows), "state", stateText(o.cla)); slot($("[data-row=publisher]", rows), "state", stateText(m.terms.publisher));
+      slot(ask, "owners", o.owners && o.owners.length ? msg("owners") + " " + o.owners.join(", ") : msg("owners-gh"));
+      ask.hidden = !nd || own;
+      if (nd && own) todo = todo.concat("org");
+    }
+    if (nd && docs.indexOf("cla") < 0) docs.push("cla");
+    $$("#agree-tabs button").forEach(function (n) { n.hidden = docs.indexOf(n.dataset.doc) < 0; });
+    $$(".check", f).forEach(function (n) { n.hidden = todo.indexOf(n.dataset.doc) < 0; });
+    $("button[type=submit]", f).hidden = !todo.length;
+    $("#agree-tabs").hidden = docs.length < 2;
+    st.todo = todo; todo = docs;
     var changed = ["cla", "publisher"].filter(function (d) { var s = d === "cla" ? m.cla : m.terms.publisher; return s && s.accepted && !s.ok; });
     $$("[data-msg^=changed-]").forEach(function (p) { p.hidden = changed.indexOf(p.dataset.msg.slice(8)) < 0; });
     if (todo.length) { showDoc(todo.indexOf(st.doc) < 0 ? todo[0] : st.doc); todo.forEach(text); }
     slot(steps[1], "versions", m.cla.current === m.terms.publisher.current ? m.cla.current : m.cla.current + " and " + m.terms.publisher.current);
-    return todo.length === 0;
+    return todo.length === 0 && !orgNeeds(o);
   }
   $("#agree-tabs").addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) showDoc(b.dataset.doc); });
   $("#agree-form").addEventListener("submit", function (e) {
     e.preventDefault();
-    var f = $("#agree-form"), todo = need(st.me);
+    var f = $("#agree-form"), todo = st.todo || need(st.me), org = orgNow(st.me);
     if (todo.some(function (d) { return !f.elements[d].checked; })) return fail(f, new Error(msg("tick")));
     var btn = $("button[type=submit]", f); btn.disabled = true; $("[data-err]", f).textContent = "";
-    todo.reduce(function (p, d) { return p.then(function () { return text(d); }).then(function (t) { return call("POST", "/api/terms/" + d, { version: t.version, sha256: t.sha256 }); }); }, Promise.resolve())
+    todo.reduce(function (p, d) { return p.then(function () { return text(d === "org" ? "cla" : d); }).then(function (t) { return d === "org" ? call("POST", "/api/orgs", { org: org.login, version: t.version, sha256: t.sha256 }) : call("POST", "/api/terms/" + d, { version: t.version, sha256: t.sha256 }); }); }, Promise.resolve())
       .then(function () { return H.overview("", true); }).then(function (o) { btn.disabled = false; paint(o); }, function (x) { fail(f, x); btn.disabled = false; });
   });
 
@@ -58,7 +75,8 @@
     st.loadingRepos = as; wait(3, true);
     if (!st.reposBy[as]) pickerState("loading");
     return call("GET", reposUrl(as), undefined, fresh ? "reload" : null).then(function (r) {
-      r.repos = r.repos.slice().sort(function (a, b) { return rank(a) - rank(b) || (b.pushed_at || 0) - (a.pushed_at || 0); });
+      var who = (r.account || {}).login;
+      r.repos = r.repos.filter(function (x) { return !who || same(x.owner.login, who); }).sort(function (a, b) { return rank(a) - rank(b) || (b.pushed_at || 0) - (a.pushed_at || 0); });
       st.reposBy[as] = r; if (as === asNow()) st.repos = r; if (!as) H.save("repos", r); st.reposErr = null;
     }, function (e) { if (e.status === 401) return; st.reposErr = e; if (!st.reposBy[as]) st.repos = null; fail(steps[2], e, "inst"); })
       .then(function () { if (st.loadingRepos === as) st.loadingRepos = false; wait(3, false); if (st.ov) paint(st.ov); });

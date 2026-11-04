@@ -199,3 +199,35 @@ The numbers (before and after) are in `wt/hub-worker/bench/budget-before.txt` / 
 - **Cloudflare Web Analytics.** The zone's Web Analytics adds its beacon at Cloudflare's edge, not the hub's pages; it sets no
   cookie. The CSP allows exactly it: `script-src-elem 'self' https://static.cloudflareinsights.com` and
   `connect-src 'self' https://cloudflareinsights.com` (`scripts/check-headers.mjs`); `script-src` stays `'self'`.
+
+### 10.1 Organisations: whose agreement is whose (2026-11-04)
+
+The lead asked who accepts the agreements for an organisation and whether the owner's own acceptance counts. It does not:
+
+- **Contributor Licence Agreement:** an organisation accepts it as itself. An owner of it on GitHub accepts it for the
+  organisation (`POST /api/orgs {org, version, sha256}`, which links it, checks the owner live on GitHub and records the
+  acceptance with `accepted_by`). The owner's personal acceptance never counts for it, and a member's never does.
+- **Publisher Agreement:** personal, always; an organisation has none.
+- **Trust Terms and Certificate Terms:** accepted with each certificate request, for the subject of that request.
+
+What the pages show:
+
+- The dashboard's account switcher names each account with its state: "agreements accepted" or "CLA pending" (the person's
+  own: "CLA pending" or "Publisher Agreement pending" until both are accepted). From `me.orgs[].cla` of the one overview.
+- An organisation whose CLA is not accepted gets a card at the top of `/dashboard` and at step 2 of `/publish?as=<org>`:
+  "<org> still needs to accept the Contributor Licence Agreement (version X)". An owner gets **Accept as an owner of
+  <org>**; a member gets "Ask an owner of <org> to accept it", with the owners the hub knows (`me.orgs[].owners`: members
+  with the owner role who signed in to the hub; none known: "on GitHub").
+- The organisation's agreements list says who accepted it ("Version 1 accepted by kleeedolinux as an owner, 4 November
+  2026"); the person's list says "accepted by you" and that it counts only for the person.
+- `/publish?as=<org>` step 2 lists the organisation's CLA and the person's Publisher Agreement as two rows, each with its
+  state and its accept action (an owner ticks "Accept as an owner of <org>"; the person's own CLA shows too while it is not
+  accepted), and keeps one **Accept and continue**. Until the organisation's CLA is accepted steps 3 to 5 wait; a member
+  cannot get past step 2 and has "Publish as yourself instead".
+- The repository picker shows on each account's tab only that account's repositories (the lead saw an organisation's
+  repository under the personal tab): `GET /api/repos` filters by the owner, and the page filters again by `account.login`.
+
+The Worker enforces the same: connecting a repository as the organisation (`POST /api/listings` with `owner` or `?as=`),
+Check again on its listing and its certificate request answer 403 `cla-needed` with "<org> still needs to accept the
+Contributor Licence Agreement (version X). An owner of <org> accepts it as the organisation on the hub first."
+Tests: `tests/org-agreements.mjs` (browser), `hub-worker/test/org-cla.test.ts` and `test/repos.test.ts`.

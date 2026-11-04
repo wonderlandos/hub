@@ -46,8 +46,9 @@
   }
 
   /* ---- Agreements ---- */
-  function agreements(o) {
+  function agreements(o, org) {
     var box = $("#d-agreements");
+    $("#d-aintro").textContent = msg(org ? "a-intro-org" : "a-intro-me");
     var nodes = (o.agreements || []).map(function (a) {
       var c = H.tpl("t-agreement");
       slot(c, "name", a.name);
@@ -57,7 +58,7 @@
       a.accepted.forEach(function (x) {
         var li = H.tpl("t-agreed");
         slot(li, "version", msg("a-version") + " " + x.version); slot(li, "date", H.day(x.accepted_at));
-        slot(li, "by", x.by ? msg("a-by") + " " + x.by : ""); slot(li, "hash", x.sha256);
+        slot(li, "by", !org ? msg("a-you") : x.by ? msg("a-by") + " " + x.by + (a.doc === "cla" ? " " + msg("a-owner") : ",") : ""); slot(li, "hash", x.sha256);
         rows.appendChild(li);
       });
       rows.hidden = !a.accepted.length;
@@ -125,7 +126,7 @@
     var ml = $("#d-members"); ml.textContent = "";
     (o.members || []).forEach(function (x) { var li = H.tpl("t-member"); slot(li, "login", x.login); slot(li, "role", msg(x.role === "owner" ? "role-owner" : "role-member")); ml.appendChild(li); });
     $("#d-solo").hidden = !!acct.org; $("#d-orgintro").hidden = !acct.org; ml.hidden = !ml.children.length;
-    agreements(o);
+    agreements(o, acct.org);
     certs($("#certs"), acct, o, function () { return false; });
     sessions(o.sessions || []);
     adminDoor(o.me);
@@ -162,8 +163,25 @@
       H.call("POST", "/api/me/sessions/revoke-all").then(function () { H.forget(); location.href = "/"; }, function (e) { all.disabled = false; err.textContent = e.message; });
     };
   }
+  /* ---- An organisation's own CLA: an owner accepts it as the organisation (POST /api/orgs) ---- */
+  var orgOk = function (o) { return !!(o && o.cla && o.cla.ok); };
+  var agrState = function (a) { return a.org ? (orgOk(a.o) ? "agr-ok" : "agr-cla") : !(me.cla && me.cla.ok) ? "agr-cla" : me.terms && me.terms.publisher && me.terms.publisher.ok ? "agr-ok" : "agr-pub"; };
+  function orgCard(acct) {
+    var c = $("#d-orgcla"), o = acct.o; c.hidden = !acct.org || orgOk(o); if (c.hidden) return;
+    $$("[data-slot=org]", c).forEach(function (n) { n.textContent = o.login; });
+    slot(c, "v", o.cla ? o.cla.current : me.cla.current);
+    var own = o.role === "owner", b = $("[data-act=org-accept]", c), err = $("[data-err=orgcla]", c);
+    $("[data-org=owner]", c).hidden = !own; $("[data-org=member]", c).hidden = own; err.textContent = ""; b.disabled = false;
+    slot(c, "owners", o.owners && o.owners.length ? msg("owners") + " " + o.owners.join(", ") : msg("owners-gh"));
+    b.onclick = function () {
+      b.disabled = true;
+      H.terms("cla").then(function (t) { return call("POST", "/api/orgs", { org: o.login, version: t.version, sha256: t.sha256 }); })
+        .then(function () { H.forget(); return H.me(true); }).then(dashboard, function (e) { err.textContent = e.message; b.disabled = false; });
+    };
+  }
   function load(acct, fresh) {
     var mark = ++seq, stale = function () { return mark !== seq; };
+    orgCard(acct);
     links.forEach(function (l, i) { if (accts[i] === acct) l.setAttribute("aria-current", "page"); else l.removeAttribute("aria-current"); });
     var k = acct.org ? acct.login : "";
     var s = !fresh && H.snap(k);
@@ -171,18 +189,18 @@
     return H.overview(k, fresh).then(function (o) {
       cache[k] = o; me = o.me;
       if (!stale()) render(acct, o);
-    }, function (e) { if (!stale()) { root.removeAttribute("data-pending"); fail($("[data-when~=in]"), e, "page"); } });
+    }, function (e) { if (!stale()) { root.removeAttribute("data-pending"); if (!(acct.org && !acct.o.linked && e.code === "no-org")) fail($("[data-when~=in]"), e, "page"); } });
   }
   function dashboard(m) {
     show(document, "out", !m); show(document, "in", !!m);
     if (!m) { root.removeAttribute("data-pending"); return; }
     me = m;
-    accts = [{ id: m.github_id, login: m.login, role: "owner" }].concat((m.orgs || []).map(function (o) { return { id: o.github_org_id, login: o.login, org: true, role: o.role }; }));
+    accts = [{ id: m.github_id, login: m.login, role: "owner" }].concat((m.orgs || []).map(function (o) { return { id: o.github_org_id, login: o.login, org: true, role: o.role, o: o }; }));
     var pick = function () { var want = H.asOf(); return accts.filter(function (a) { return a.login === want; })[0] || accts[0]; };
     var href = function (a) { return "/dashboard" + (a.org ? "?as=" + encodeURIComponent(a.login) : ""); };
     var nav = $("#d-accounts"); nav.textContent = "";
     links = accts.map(function (a) {
-      var l = H.tpl("t-account"); l.textContent = a.login; l.href = href(a);
+      var l = H.tpl("t-account"); slot(l, "login", a.login); slot(l, "agr", msg(agrState(a))); l.href = href(a);
       l.addEventListener("click", function (e) {
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         e.preventDefault();

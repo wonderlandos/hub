@@ -15,13 +15,21 @@ export function mockHub({ latency = 0 } = {}) {
       { ref: "0123456789ab", browser: "Firefox on Linux", place: "another network", colo: null, signed_in_at: T, last_seen: T + 60, admin: false, moved: false, current: false },
       { ref: "ba9876543210", browser: "Safari on iPhone", place: "another network", colo: null, signed_in_at: T, last_seen: T + 120, admin: false, moved: true, current: false },
     ], orgs: [], orgListings: {}, panel: "owner", sid: 0,
+    /* Per organisation (by login), what differs from "an owner, linked, its own CLA accepted": { role, cla: false, linked: false,
+       owners: [...] }. POST /api/orgs (an owner accepting the CLA as the organisation) sets cla and records who in `orgAccepted`. */
+    orgInfo: {}, orgAccepted: [],
     accepted: { cla: false, publisher: false },
     installed: false, repos: [], listings: [], versions: {}, intake: {},
     admin: { revocations: [], requests: [{ id: "r-1", kind: "person", tier: "origin", status: "pending", subject: { login: "dave", name: "Dave Roe" }, namespaces: ["dave."], created_at: T }], attention: [], done: [] },
   };
   const ME = () => ({ github_id: S.login === "alicedoe" ? 5310001 : 5310002, login: S.login, name: S.login === "alicedoe" ? "Alice Doe" : S.login, avatar: null, role: "member", admin: !!S.panel, admin_role: S.panel || null, two_factor: true,
     cla: { current: "1", accepted: S.accepted.cla ? "1" : null, ok: S.accepted.cla }, terms: { publisher: { current: "1", accepted: S.accepted.publisher ? "1" : null, ok: S.accepted.publisher }, trust: { current: "1", accepted: null, ok: false } },
-    certs: { origin: "none", trusted: "none" }, orgs: S.orgs.map((o, i) => ({ github_org_id: 348106055 + i, login: o, role: "owner", linked: true, cla: { ok: true, accepted: "1" } })) });
+    certs: { origin: "none", trusted: "none" }, orgs: S.orgs.map((o, i) => orgEntry(o, i)) });
+  const orgEntry = (o, i) => {
+    const x = { role: "owner", cla: true, linked: true, owners: [S.login], by: S.login, ...(S.orgInfo[o] || {}) };
+    return { github_org_id: 348106055 + i, login: o, role: x.role, linked: x.linked, owners: x.owners,
+      cla: x.linked ? (x.cla ? { current: "1", accepted: "1", accepted_at: T, ok: true, by: x.by } : { current: "1", accepted: null, accepted_at: null, ok: false }) : null };
+  };
   const STAGES = (st) => ["received", "checked", "signed", "published"].map((key, i) => ({ key, state: st[i], at: st[i] === "done" ? T + i * 60 : null }));
   const HEAD = {
     "waiting-release": { title: "Waiting for your release", sentence: "The hub saw the tag v1.0.0 on alicedoe/notes. A version is received when you publish a release for that tag with a file named alicedoe.notes-*.wol attached.", fix: "On GitHub, publish a release for v1.0.0 and attach alicedoe.notes-1.0.0.wol." },
@@ -54,7 +62,8 @@ export function mockHub({ latency = 0 } = {}) {
     for (const [v, code] of Object.entries(S.versions)) if (code === "blocked") att.push({ level: "bad", text: `Notes ${v} was not listed.`, href: `/status?l=alicedoe.notes&v=${v}` });
     if (as && S.orgs.includes(as)) {
       return { me: ME(), account: { kind: "org", login: as, role: "owner" }, accounts: [], listings: (S.orgListings[as] || []).map((l) => ({ ...l, versions: [] })), attention: [], reports: [],
-        certs: { states: { origin: "none", trusted: "none" }, refused: {}, list: [] }, agreements: [], members: [{ login: S.login, role: "owner" }], sessions: [], generated: T };
+        certs: { states: { origin: "none", trusted: "none" }, refused: {}, list: [] }, members: [{ login: S.login, role: "owner" }], sessions: [], generated: T,
+        agreements: [(() => { const c = orgEntry(as, S.orgs.indexOf(as)).cla; return { doc: "cla", name: "Contributor Licence Agreement", url: "/terms/cla", current: "1", ok: !!(c && c.ok), per_request: false, accepted: c && c.ok ? [{ version: "1", sha256: "ab".repeat(32), accepted_at: T, by: c.by }] : [] }; })()] };
     }
     return { me: ME(), account: { kind: "person", login: S.login, id: ME().github_id, role: "owner" }, accounts: [{ kind: "person", login: S.login, role: "owner" }],
       listings: ls, attention: att, reports: [], certs: { states: { origin: "none", trusted: "none" }, refused: {}, list: [] },
@@ -89,6 +98,13 @@ export function mockHub({ latency = 0 } = {}) {
       if ((m = p.match(/^\/api\/terms\/(\w+)$/))) {
         if (req.method === "POST") { if (need()) return; S.accepted[m[1]] = true; return send(200, { terms: {} }); }
         return send(200, { doc: m[1], version: "1", text: text[m[1]], sha256: "ab".repeat(32) });
+      }
+      if (p === "/api/orgs" && req.method === "POST") {
+        if (need()) return;
+        const info = S.orgInfo[body.org] || (S.orgInfo[body.org] = {});
+        if ((info.role || "owner") !== "owner") return send(403, { error: "not-owner", sentence: `Only an owner of ${body.org} on GitHub can link it to the hub.` });
+        Object.assign(info, { cla: true, linked: true, by: S.login }); S.orgAccepted.push({ org: body.org, by: S.login, version: body.version });
+        return send(201, { org: orgEntry(body.org, S.orgs.indexOf(body.org)) });
       }
       if (p === "/api/repos") {
         if (need()) return;

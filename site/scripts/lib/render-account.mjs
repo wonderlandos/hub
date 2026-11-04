@@ -62,11 +62,19 @@ export const publish = (assets) => page({
 <div class="pub-main">
 ${step(1, "s-signin", "Sign in", `<p class="dim">Sign in with your GitHub account. The hub asks only for your public profile and the organisations you belong to.</p>
 <a class="btn btn-solid" href="/auth/login?next=%2Fpublish">Sign in with GitHub</a>`, `<p role="status">You are signed in as <strong data-me="login"></strong>.</p>`)}
-${step(2, "s-terms", "Accept the agreements", `<p class="dim">Read both and accept them once. When one changes, you accept the new version before your next release.</p>
+${step(2, "s-terms", "Accept the agreements", `<div class="card att" id="org-cla" hidden><p><strong><span data-slot="org"></span> still needs to accept the Contributor Licence Agreement (version <span data-slot="v"></span>)</strong></p>
+<p class="dim">You publish here as <span data-slot="org"></span>. The organisation accepts the agreement as itself, by an owner; your own acceptance counts only for you. <a href="/publish">Publish as yourself instead</a></p></div>
+<p class="dim">Read both and accept them once. When one changes, you accept the new version before your next release.</p>
 <div class="seg" role="group" aria-label="Which agreement" id="agree-tabs"><button type="button" data-doc="cla" aria-pressed="true">Contributor Agreement</button><button type="button" data-doc="publisher" aria-pressed="false">Publisher Agreement</button></div>
 ${agreementText("The agreement", "agree-text")}
 <p class="dim small"><a href="/terms/cla" id="agree-link">Read it on its own page</a></p>
 <form id="agree-form" novalidate>
+<ul class="plain agr-rows" id="agree-rows" hidden>
+<li data-row="org"><strong>Contributor Licence Agreement</strong> <span class="dim">for <span data-slot="org"></span>:</span> <span data-slot="state"></span>
+<label class="check" data-doc="org"><input type="checkbox" name="org"> <span>Accept as an owner of <span data-slot="org"></span></span></label><span data-slot="ask" hidden>Ask an owner of <span data-slot="org"></span> to accept it<span data-slot="owners"></span>.</span></li>
+<li data-row="publisher"><strong>Publisher Agreement</strong> <span class="dim">for you, <span data-me="login"></span>:</span> <span data-slot="state"></span> <span data-slot="act"></span></li></ul>
+<p hidden data-msg="st-ok">accepted, version</p><p hidden data-msg="st-none">not accepted yet, version</p>
+<p hidden data-msg="owners">: owners on the hub are</p><p hidden data-msg="owners-gh"> on GitHub</p>
 <label class="check" data-doc="cla"><input type="checkbox" name="cla"> I have read the Contributor Agreement and accept it.</label>
 <label class="check" data-doc="publisher"><input type="checkbox" name="publisher"> I have read the Publisher Agreement and accept it.</label>
 <p class="err" role="alert" data-err></p><button class="btn btn-solid" type="submit">Accept and continue</button></form>
@@ -134,13 +142,19 @@ export const dashboard = (assets) => page({
 <div data-when="out"><p class="lead">Sign in to see your listings, their versions and your certificates.</p><p><a class="btn btn-solid" href="/auth/login?next=%2Fdashboard">Sign in with GitHub</a></p></div>
 <div data-when="in" hidden>
 <nav class="seg seg-lg" aria-label="Whose dashboard" id="d-accounts"></nav>
-<template id="t-account"><a href="/dashboard"></a></template>
+<template id="t-account"><a href="/dashboard"><span data-slot="login"></span> <span class="dim small" data-slot="agr"></span></a></template>
+<p hidden data-msg="agr-ok">agreements accepted</p><p hidden data-msg="agr-cla">CLA pending</p><p hidden data-msg="agr-pub">Publisher Agreement pending</p>
 <div class="dgrid">
 <nav class="dnav" aria-label="On this page"><a href="#d-l">Listings</a><a href="#certs">Certificates</a><a href="#agreements">Agreements</a><a href="#d-r">Reports</a><a href="#d-m">Members</a><a href="#d-s">Where you are signed in</a></nav>
 <div class="dmain">
+<section class="card att" id="d-orgcla" aria-labelledby="d-oc-h" hidden><h2 class="h-md" id="d-oc-h"><span data-slot="org"></span> still needs to accept the Contributor Licence Agreement (version <span data-slot="v"></span>)</h2>
+<p class="dim">An organisation accepts it as itself: an owner of it accepts it for the organisation, and the hub records who did. Your own acceptance counts only for you. Until then nothing is connected, checked again or certified as <span data-slot="org"></span>.</p>
+<p class="btn-row" data-org="owner"><button type="button" class="btn btn-solid" data-act="org-accept"><span>Accept as an owner of <span data-slot="org"></span></span></button><a class="btn btn-quiet" href="/terms/cla">Read it</a></p>
+<p data-org="member">Ask an owner of <span data-slot="org"></span> to accept it<span data-slot="owners"></span>.</p>
+<p class="err" role="alert" data-err="orgcla"></p></section>
 <section class="card admin-door" id="d-admin" aria-labelledby="d-adm-h" hidden><h2 class="h-md" id="d-adm-h">Admin panel</h2>
 <p class="dim">You have the <strong data-slot="role"></strong> role on WolOS Hub. The panel opens with what that role may do.</p>
-<ul class="plain admin-links"><li><a class="btn btn-solid" data-admin-tab="queue">Open the queue</a></li><li><a class="btn btn-quiet" data-admin-tab="users">People</a></li><li><a class="btn btn-quiet" data-admin-tab="listings">Listings</a></li><li><a class="btn btn-quiet" data-admin-tab="audit">Audit trail</a></li></ul></section>
+<ul class="btn-row admin-links"><li><a class="btn btn-solid" data-admin-tab="queue">Open the queue</a></li><li><a class="btn btn-quiet" data-admin-tab="users">People</a></li><li><a class="btn btn-quiet" data-admin-tab="listings">Listings</a></li><li><a class="btn btn-quiet" data-admin-tab="audit">Audit trail</a></li></ul></section>
 <section class="att card" id="d-att-s" aria-labelledby="d-att-h" hidden><h2 id="d-att-h">Needs your attention</h2><ul class="plain" id="d-att"></ul></section>
 <template id="t-att"><li><span data-slot="text"></span> <a data-slot="link">See why</a></li></template>
 <section aria-labelledby="d-l" class="gap"><h2 id="d-l">Listings</h2><span class="skel skel-line" aria-hidden="true"></span><div id="d-listings" class="dash-list keep-pending"></div>
@@ -152,7 +166,9 @@ export const dashboard = (assets) => page({
 <ul class="plain dv-find"></ul></li></template>
 <section aria-labelledby="d-c" class="gap" id="certs-s"><h2 id="d-c">Certificates</h2><div id="certs"></div></section>
 <section aria-labelledby="d-a" class="gap" id="agreements"><h2 id="d-a">Agreements</h2>
-<p class="dim" id="d-aintro">The texts this account accepted, as the hub recorded them: the version, the day, who accepted it, and the SHA-256 of the exact text.</p>
+<p class="dim" id="d-aintro">The texts this account accepted, as the hub recorded them: the version, who accepted it, the day, and the SHA-256 of the exact text.</p>
+<p hidden data-msg="a-intro-me">The texts you accepted yourself, as the hub recorded them: the version, the day and the SHA-256 of the exact text. They count only for you: each organisation accepts the Contributor Licence Agreement as itself, by one of its owners.</p>
+<p hidden data-msg="a-intro-org">The texts this organisation accepted as itself, as the hub recorded them: the version, who accepted it for the organisation, the day, and the SHA-256 of the exact text. Its members' own acceptances do not count for it.</p>
 <div id="d-agreements" class="dash-list"></div></section>
 <template id="t-agreement"><article class="card agr"><h3 class="h-sm" data-slot="name"></h3>
 <p class="cert-state" hidden data-state="ok"><strong>Current.</strong> Version <span data-slot="current"></span> is accepted.</p>
@@ -163,8 +179,8 @@ export const dashboard = (assets) => page({
 <ul class="plain agr-rows" data-slot="rows"></ul>
 <details class="agr-read"><summary>Read the text here</summary>${agreementText("The agreement")}</details>
 <p class="dim small"><a data-slot="link">Read it on its own page</a></p></article></template>
-<template id="t-agreed"><li><span data-slot="version"></span> <span class="dim" data-slot="date"></span> <span class="dim" data-slot="by"></span> <code class="hash" data-slot="hash"></code></li></template>
-<p hidden data-msg="a-version">Version</p><p hidden data-msg="a-by">accepted by</p>
+<template id="t-agreed"><li><span data-slot="version"></span> <span class="dim" data-slot="by"></span> <span class="dim" data-slot="date"></span> <code class="hash" data-slot="hash"></code></li></template>
+<p hidden data-msg="a-version">Version</p><p hidden data-msg="a-by">accepted by</p><p hidden data-msg="a-owner">as an owner,</p><p hidden data-msg="a-you">accepted by you,</p>
 <section aria-labelledby="d-r" class="gap"><h2 id="d-r">Reports</h2><ul id="d-reports" class="card dash-rows"></ul><p class="dim" id="d-noreports">Nobody has reported anything about these listings.</p></section>
 <template id="t-report"><li><span data-slot="listing"></span><span class="dim" data-slot="reason"></span><span class="dim" data-slot="date"></span><span class="badge" data-slot="state"></span></li></template>
 <section aria-labelledby="d-m" class="gap"><h2 id="d-m">Members and roles</h2><p class="dim" id="d-orgintro">From GitHub: who belongs to this organisation and what they may do there. Change it on GitHub.</p>
@@ -179,7 +195,7 @@ export const dashboard = (assets) => page({
 <p hidden data-msg="s-this">This browser</p><p hidden data-msg="s-seen">last used</p><p hidden data-msg="s-moved">Moved to another network and browser: end it if that was not you.</p>
 <p hidden data-msg="s-admin">Used the admin panel</p><p hidden data-msg="s-ended">Ended.</p>
 <p hidden data-msg="role-owner">Owner: publishes, links repositories and asks for certificates</p><p hidden data-msg="role-member">Member</p>
-<p hidden data-msg="r-open">Open</p><p hidden data-msg="r-closed">Closed</p>
+<p hidden data-msg="owners">: owners on the hub are</p><p hidden data-msg="owners-gh"> on GitHub</p><p hidden data-msg="r-open">Open</p><p hidden data-msg="r-closed">Closed</p>
 <p hidden data-msg="listed">Listed</p><p hidden data-msg="connected">Connected</p><p hidden data-msg="show-all">Show all versions</p>
 </div></div><p class="err" role="alert" data-err="page"></p></div>${CERT_TEMPLATE}</section>`,
 });
