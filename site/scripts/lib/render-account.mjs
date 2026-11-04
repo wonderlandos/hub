@@ -119,7 +119,7 @@ export const dashboard = (assets) => page({
 <nav class="seg seg-lg" aria-label="Whose dashboard" id="d-accounts"></nav>
 <template id="t-account"><a href="/dashboard"></a></template>
 <div class="dgrid">
-<nav class="dnav" aria-label="On this page"><a href="#d-l">Listings</a><a href="#certs">Certificates</a><a href="#agreements">Agreements</a><a href="#d-r">Reports</a><a href="#d-m">Members</a></nav>
+<nav class="dnav" aria-label="On this page"><a href="#d-l">Listings</a><a href="#certs">Certificates</a><a href="#agreements">Agreements</a><a href="#d-r">Reports</a><a href="#d-m">Members</a><a href="#d-s">Where you are signed in</a></nav>
 <div class="dmain">
 <section class="att card" id="d-att-s" aria-labelledby="d-att-h" hidden><h2 id="d-att-h">Needs your attention</h2><ul class="plain" id="d-att"></ul></section>
 <template id="t-att"><li><span data-slot="text"></span> <a data-slot="link">See why</a></li></template>
@@ -149,6 +149,14 @@ export const dashboard = (assets) => page({
 <section aria-labelledby="d-m" class="gap"><h2 id="d-m">Members and roles</h2><p class="dim" id="d-orgintro">From GitHub: who belongs to this organisation and what they may do there. Change it on GitHub.</p>
 <p class="dim" id="d-solo" hidden>This is your own account. These are your organisations on GitHub and your role in each.</p><ul id="d-members" class="card dash-rows"></ul></section>
 <template id="t-member"><li><span data-slot="login"></span><span class="dim" data-slot="role"></span></li></template>
+<section aria-labelledby="d-s" class="gap" id="sessions"><h2 id="d-s">Where you are signed in</h2>
+<p class="dim">Each browser you signed in from, with the network it came from. End one you do not know. Ending a session signs that browser out at once.</p>
+<ul id="d-sessions" class="card dash-rows"></ul>
+<p class="get-btns"><button type="button" class="btn btn-quiet" id="d-signout-all">Sign out everywhere</button></p>
+<p class="err" id="d-sess-err" role="alert"></p></section>
+<template id="t-session"><li><span data-slot="browser"></span> <span class="dim" data-slot="place"></span> <span class="dim" data-slot="when"></span> <span class="dim" data-slot="flag"></span><button type="button" class="btn btn-quiet btn-sm" data-slot="end">End</button></li></template>
+<p hidden data-msg="s-this">This browser</p><p hidden data-msg="s-seen">last used</p><p hidden data-msg="s-moved">Moved to another network and browser: end it if that was not you.</p>
+<p hidden data-msg="s-admin">Used the admin panel</p><p hidden data-msg="s-ended">Ended.</p>
 <p hidden data-msg="role-owner">Owner: publishes, links repositories and asks for certificates</p><p hidden data-msg="role-member">Member</p>
 <p hidden data-msg="r-open">Open</p><p hidden data-msg="r-closed">Closed</p>
 <p hidden data-msg="listed">Listed</p><p hidden data-msg="connected">Connected</p><p hidden data-msg="show-all">Show all versions</p>
@@ -183,9 +191,9 @@ export const status = (assets) => page({
 /* ---------- Admin: a closed shell ----------
    No words, no links to it anywhere, not in the sitemap, noindex. The script asks the Worker for the queue;
    only when the Worker answers (the signed-in person has a role) does it load the panel's own script. */
-export const admin = (assets, panelJs) => `${head("WolOS Hub", "", "/admin", assets, true, true)}
+export const admin = (assets, panelJs, moreJs) => `${head("WolOS Hub", "", "/admin", assets, true, true)}
 <body class="admin-shell">
-<main id="main" tabindex="-1" data-admin="${esc(panelJs)}"></main>
+<main id="main" tabindex="-1" data-admin="${esc(panelJs)}" data-more="${esc(moreJs)}"></main>
 <script src="${assets.js}" defer></script>
 </body>
 </html>

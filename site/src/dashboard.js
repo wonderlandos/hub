@@ -127,6 +127,32 @@
     $("#d-solo").hidden = !!acct.org; $("#d-orgintro").hidden = !acct.org; ml.hidden = !ml.children.length;
     agreements(o);
     certs($("#certs"), acct, o, function () { return false; });
+    sessions(o.sessions || []);
+  }
+  /* ---- Where you are signed in: each session of the person, from the overview; End signs that browser out at once ---- */
+  function sessions(list) {
+    var ul = $("#d-sessions"), err = $("#d-sess-err"); if (!ul) return;
+    ul.textContent = ""; err.textContent = "";
+    list.forEach(function (s) {
+      var li = H.tpl("t-session");
+      slot(li, "browser", s.browser + (s.current ? " (" + msg("s-this") + ")" : ""));
+      slot(li, "place", s.place + (s.colo ? ", " + s.colo : ""));
+      slot(li, "when", msg("s-seen") + " " + H.time(s.last_seen) + (s.admin ? ". " + msg("s-admin") : ""));
+      slot(li, "flag", s.moved ? msg("s-moved") : "");
+      if (s.moved) li.dataset.level = "warn";
+      var b = slot(li, "end");
+      if (s.current) b.remove();
+      else b.onclick = function () {
+        b.disabled = true;
+        H.call("POST", "/api/me/sessions/" + encodeURIComponent(s.ref) + "/revoke").then(function () { li.textContent = s.browser + ": " + msg("s-ended"); }, function (e) { b.disabled = false; err.textContent = e.message; });
+      };
+      ul.appendChild(li);
+    });
+    var all = $("#d-signout-all");
+    all.onclick = function () {
+      all.disabled = true;
+      H.call("POST", "/api/me/sessions/revoke-all").then(function () { H.forget(); location.href = "/"; }, function (e) { all.disabled = false; err.textContent = e.message; });
+    };
   }
   function load(acct, fresh) {
     var mark = ++seq, stale = function () { return mark !== seq; };
@@ -161,7 +187,7 @@
     load(pick());
     window.addEventListener("popstate", function () { load(pick()); });
     /* While the person looks at one account, the others are fetched quietly, so switching shows its data at once. */
-    setTimeout(function () { accts.forEach(function (a) { if (a.org && a !== pick()) H.overview(a.login).then(null, function () {}); }); }, 1500);
+    setTimeout(function () { accts.forEach(function (a) { if (a.org && a !== pick()) H.overview(a.login, false, true).then(null, function () {}); }); }, 1500);
   }
   H.me().then(dashboard, function (e) { show(document, "out", true); root.removeAttribute("data-pending"); });
 })();

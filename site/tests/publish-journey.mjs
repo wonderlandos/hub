@@ -211,6 +211,38 @@ try {
   await page.click('.adm-row:has-text("Notes 1.2.0") form button[type=submit]');
   await page.waitForFunction(() => document.querySelectorAll(".adm-done").length === 3);
   ok("admin: the reason travels with the action", S.admin.done[2][0] === "withdraw" && S.admin.done[2][3].reason === "It reads every file.", JSON.stringify(S.admin.done[2]));
+  /* 12. Session hardening in the panel: the header says how fresh the sign-in is; the People, Audit and Health tabs are a second
+     script loaded when one opens, each with its outline first; Ban asks for a reason on the row and sends it. */
+  ok("admin: the header says how long the sign-in stays fresh and offers Sign in again", /Sign-in fresh for 12 mins/.test(await page.innerText("#adm-fresh")) && (await page.getAttribute("#adm-fresh a", "href")).startsWith("/auth/login?reauth=1&next="));
+  const scriptsBefore = (await page.$$("script")).length;
+  await page.click('nav[aria-label="Admin"] a[data-v="users"]');
+  ok("admin: the People tab loads its script when it opens", (await page.$$("script")).length === scriptsBefore + 1);
+  await page.waitForSelector("#us-q");
+  await page.fill("#us-q", "mal");
+  await page.click('form.adm-find button[type=submit]:has-text("Search")');
+  await page.waitForSelector('.adm-row:has-text("Mal Lory")');
+  await page.click('.adm-row:has-text("Mal Lory") button:has-text("Open")');
+  await page.waitForSelector('.adm-row:has-text("Mal Lory") button:has-text("Ban")');
+  const personText = await page.innerText("main");
+  ok("admin: the person's page shows their signed-in browsers, a moved one marked, and their listings", /Chrome on Android/.test(personText) && /Moved to 203\.0\.113\.0\/24/.test(personText) && /mallory\.tool/.test(personText));
+  await page.click('.adm-row:has-text("Mal Lory") button:has-text("Ban")');
+  ok("admin: Ban opens a reason field on the row", await page.isVisible('.adm-row:has-text("Mal Lory") textarea'));
+  await page.fill('.adm-row:has-text("Mal Lory") textarea', "Uploads malware.");
+  await page.click('.adm-row:has-text("Mal Lory") form button[type=submit]');
+  await page.waitForFunction(() => /mallory is banned/.test(document.body.innerText));
+  ok("admin: the ban travels with its reason", S.admin.done[3][0] === "ban" && S.admin.done[3][1] === "5310009" && S.admin.done[3][2].reason === "Uploads malware.", JSON.stringify(S.admin.done[3]));
+  await shot(page, "12-admin-people");
+  await page.click('nav[aria-label="Admin"] a[data-v="audit"]');
+  await page.waitForSelector("[data-view=audit] .adm-audit li");
+  ok("admin: the audit trail shows the place and the session of each entry, and flagged results", /198\.51\.100\.0\/24, GRU, session abcdef012345/.test(await page.innerText("[data-view=audit] .adm-audit")) && /flagged/.test(await page.innerText("[data-view=audit] .adm-audit")));
+  await page.fill("#au-action", "session.");
+  await page.click('form.adm-filters button[type=submit]');
+  await page.waitForFunction(() => document.querySelectorAll("[data-view=audit] .adm-audit li").length === 1);
+  ok("admin: the filter narrows the trail and the export link carries it", /session\.moved/.test(await page.innerText("[data-view=audit] .adm-audit")) && (await page.getAttribute('a:has-text("Export as a file")', "href")) === "/api/admin/audit/export?action=session.");
+  await page.click('nav[aria-label="Admin"] a[data-v="health"]');
+  await page.waitForFunction(() => /3 in all, 1 used the panel/.test(document.body.innerText));
+  ok("admin: Health shows the sessions and the limits", /sign-in: 12 requests over 4 keys/.test(await page.innerText("main")));
+  ok("admin: only one second script was loaded for the three tabs", (await page.$$("script")).length === scriptsBefore + 1);
   ok("no script errors on the admin page", problems.length === 0, problems.join("; "));
   await ctx.close();
 } finally {

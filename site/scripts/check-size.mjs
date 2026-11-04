@@ -22,6 +22,9 @@ for (const r of builtPages(at("dist"))) {
   if (gz(html) > 20480) bad.push(`${r}: HTML ${gz(html)} bytes gzipped, over 20 KB`);
   if (css > 12288) bad.push(`${r}: CSS ${css} bytes gzipped, over 12 KB`);
   if (js > 12288) bad.push(`${r}: script ${js} bytes gzipped, over 12 KB`);
+  // The panel's second script (Audit, People, Listings, Health) loads only when one of those tabs opens: its own budget.
+  const more = text.match(/data-more="(\/assets\/[^"]+)"/);
+  if (more) { const m = gz(read(more[1])); rows.push([`${r} (more tabs)`, 0, 0, m]); if (m > 12288) bad.push(`${r} (more tabs): script ${m} bytes gzipped, over 12 KB`); }
 }
 const w = Math.max(...rows.map((r) => r[0].length));
 console.log(rows.map(([r, h, c, j]) => `  ${r.padEnd(w)}  html ${String(h).padStart(5)}  css ${String(c).padStart(5)}  js ${String(j).padStart(5)}  total ${String(h + c + j).padStart(6)} bytes gzipped`).join("\n"));

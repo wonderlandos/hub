@@ -46,6 +46,7 @@ const hashed = (name, ext, text) => { const n = `/assets/${name}.${createHash("s
 const js = (name) => hashed(name, "js", readFileSync(at(`src/${name}.js`), "utf8"));
 const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account"), publish: js("publish"), dashboard: js("dashboard"), status: js("status"), certcmd: js("certcmd"), debug: js("debug") };
 const ADMIN = js("admin");
+const ADMIN_MORE = js("admin-more"); // the panel's Audit, People, Listings and Health tabs, loaded when one opens
 
 const idx = await loadIndex(fixture ? at("data/index.json") : at("data/empty-index.json"));
 const NAMES = new Map(idx.entries.map((e) => [e.id, e.name]));
@@ -78,7 +79,7 @@ const legal = legalDocs();
 add("/terms", R.termsIndex(legal, assets));
 for (const t of legal) { add(`/terms/${t.doc}`, R.terms(t, legal, assets)); if (t.found) put(`/terms/${t.doc}.txt`, t.bytes); } // the exact bytes the sha256 names
 add("/signin", R.signin(assets));
-put("/admin/index.html", A.admin(assets, ADMIN)); // not in `pages`: never in the sitemap
+put("/admin/index.html", A.admin(assets, ADMIN, ADMIN_MORE)); // not in `pages`: never in the sitemap
 put("/404.html", R.notFound(assets));
 
 // What the client search reads: small, one row per listing.

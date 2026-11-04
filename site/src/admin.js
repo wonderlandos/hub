@@ -1,18 +1,21 @@
 /* WolOS Hub admin panel. hub.js loads this only after the Worker gave the queue (it answers 404 to anyone without
    a role), and the Worker checks the role again on every action. Every action has a reason box and a confirmation
-   sheet, and lands in the audit trail. The buttons follow the role's rights as the Worker grants them. */
+   sheet, and lands in the audit trail. The buttons follow the role's rights as the Worker grants them. An action
+   needs a GitHub sign-in younger than 15 minutes: the header says how long it stays fresh and offers "Sign in again".
+   The Audit, People, Listings, Health and Errors tabs are admin-more.js, loaded when one of them opens. */
 (function () {
   "use strict";
   var H = window.Hub, $ = H.$, $$ = H.$$, el = H.el, call = H.call, q = H.queue || {};
   var main = $("main[data-admin]"), role = q.role || "";
   var GRANTS = {
-    owner: "approve refuse revoke downgrade resolve takedown flag withdraw second roles errors",
-    admin: "approve refuse revoke downgrade takedown withdraw second errors",
+    owner: "approve refuse revoke downgrade resolve takedown flag withdraw second roles errors users ban sessions listings health",
+    admin: "approve refuse revoke downgrade takedown withdraw second errors users ban sessions listings health",
     reviewer: "approve refuse flag", support: "resolve",
   };
   /* The Worker's queue lists the permissions of the role ("request.approve"); the panel's actions are named shorter. */
   var PERM = { approve: "request.approve", refuse: "request.refuse", revoke: "cert.revoke", downgrade: "cert.downgrade", second: "cert.revoke", resolve: "report.resolve",
-    takedown: "report.takedown", flag: "release.flag", withdraw: "release.withdraw", roles: "roles.manage", errors: "errors.read" };
+    takedown: "report.takedown", flag: "release.flag", withdraw: "release.withdraw", roles: "roles.manage", errors: "errors.read",
+    users: "users.read", ban: "users.ban", unban: "users.ban", sessions: "sessions.revoke", listings: "listings.manage", ltakedown: "listings.manage", lrestore: "listings.manage", health: "health.read" };
   var allowed = function (a) { return q.can ? q.can.indexOf(PERM[a] || a) >= 0 : (GRANTS[role] || "").split(" ").indexOf(a) >= 0; };
   var E = encodeURIComponent;
   /* label, sheet title, what happens, route, body (text from the box, choice) */
@@ -44,8 +47,23 @@
       $(".adm-said", li).textContent = j.sentence || "Done: " + A[0] + ".";
     }, function (e) {
       $$("button", li).forEach(function (b) { b.disabled = false; });
-      var err = $(".adm-err", li) || li.appendChild(el("p", { class: "err adm-err", role: "alert" })); err.textContent = e.message;
+      var err = $(".adm-err", li) || li.appendChild(el("p", { class: "err adm-err", role: "alert" })); err.textContent = e.message + " ";
+      if (e.code === "step-up" || e.code === "session-moved") err.appendChild(el("a", { href: REAUTH, text: "Sign in again" }));
     });
+  }
+  /* ---- Step-up: the Worker says how long the GitHub sign-in stays fresh enough for an action; the header shows it ---- */
+  var REAUTH = "/auth/login?reauth=1&next=" + E(location.pathname + location.hash);
+  function freshness(box) {
+    var ses = q.session || {}, left = ses.fresh_for || 0, at = Date.now();
+    var tick = function () {
+      var s = Math.max(0, left - Math.round((Date.now() - at) / 1000)), m = Math.ceil(s / 60);
+      box.textContent = "";
+      if (s > 0) box.appendChild(document.createTextNode("Sign-in fresh for " + m + " min" + (m === 1 ? "" : "s") + " "));
+      else box.appendChild(document.createTextNode("Actions need a fresh sign-in. "));
+      box.appendChild(el("a", { href: REAUTH, text: "Sign in again" }));
+      if (s > 0) setTimeout(tick, 30000);
+    };
+    tick();
   }
   function ask(a, x, li) {
     var A = ACTIONS[a], bar = $(".get-btns", li), old = $("form", li);
@@ -160,54 +178,37 @@
     }, function (x) { box.appendChild(el("p", { class: "err", text: x.message })); });
   }
 
-  /* ---- Audit trail ---- */
-  var detail = function (d) { return d == null ? '' : typeof d === 'string' ? d : Object.keys(d).map(function (k) { return k + ': ' + d[k]; }).join(', '); };
-  function audit(box, before) {
-    call("GET", "/api/admin/audit" + (before ? "?before=" + before : "")).then(function (j) {
-      var es = j.entries || [], list = $("ol", box) || box.appendChild(el("ol", { class: "card adm-audit" }));
-      es.forEach(function (e) {
-        list.appendChild(el("li", {}, [el("span", { class: "dim", text: day(e.at) }), el("strong", { text: e.actor_login || String(e.actor || "") }),
-          el("span", { text: e.action + " " + (e.target || "") }), el("span", { class: "dim", text: detail(e.detail) })]));
-      });
-      var more = $(".adm-more", box); if (more) more.remove();
-      if (es.length) { more = el("button", { type: "button", class: "btn btn-quiet adm-more", text: "Older entries" }); more.onclick = function () { audit(box, es[es.length - 1].id); }; box.appendChild(more); }
-      else if (!list.children.length) box.appendChild(el("p", { class: "dim", text: "The audit trail is empty." }));
-    }, function (x) { box.appendChild(el("p", { class: "err", text: x.message })); });
-  }
-
-  /* TEMPORARY (debug only): script errors the pages reported, last 7 days. Remove with src/debug.js before the public launch. */
-  function errors(box, before) {
-    call("GET", "/api/admin/errors" + (before ? "?before=" + before : "")).then(function (j) {
-      if (!before) box.appendChild(el("p", { class: "dim", text: j.enabled ? "Debug only. Script errors the pages reported in the last " + j.keep_days + " days." : "The error reports are off (HUB_DEBUG_ERRORS is not 1)." }));
-      var list = $("ol", box) || box.appendChild(el("ol", { class: "card adm-audit" }));
-      (j.errors || []).forEach(function (e) {
-        list.appendChild(el("li", {}, [el("span", { class: "dim", text: new Date(e.at * 1000).toISOString().slice(0, 19).replace("T", " ") }), el("strong", { text: e.message }),
-          el("span", { text: e.url + " (build " + e.build + (e.person ? ", " + e.person : "") + ")" }), el("span", { class: "dim", text: e.ua }), el("pre", { class: "dim", text: e.stack })]));
-      });
-      var more = $(".adm-more", box); if (more) more.remove();
-      if (j.next) { more = el("button", { type: "button", class: "btn btn-quiet adm-more", text: "Older reports" }); more.onclick = function () { errors(box, j.next); }; box.appendChild(more); }
-      else if (j.enabled && !list.children.length) box.appendChild(el("p", { class: "dim", text: "Nothing reported." }));
-    }, function (x) { box.appendChild(el("p", { class: "err", text: x.message })); });
-  }
-
-  /* ---- The page ---- */
+  /* ---- The page. The Audit, People, Listings, Health and Errors tabs live in a second script (data-more), loaded when one opens ---- */
   var tabs = el("nav", { class: "seg seg-lg", "aria-label": "Admin" });
-  var views = { queue: queue(), lookup: lookup(), roles: el("div", { class: "block" }), audit: el("div", { class: "block" }), errors: el("div", { class: "block" }) };
-  var TABS = [["queue", "Queue"], ["lookup", "Look up"], ["roles", "Roles"], ["audit", "Audit trail"], ["errors", "Errors"]].filter(function (t) { return (t[0] !== "roles" || allowed("roles")) && (t[0] !== "errors" || allowed("errors")); });
+  var LAZY = ["audit", "users", "listings", "health", "errors"], more = null, pending = {};
+  var views = { queue: queue(), lookup: lookup(), roles: el("div", { class: "block" }) };
+  LAZY.forEach(function (k) { views[k] = el("div", { class: "block", "data-pending": "", "data-view": k }, [el("span", { class: "skel skel-line", "aria-hidden": "true" })]); });
+  var TABS = [["queue", "Queue"], ["lookup", "Look up"], ["roles", "Roles"], ["users", "People"], ["listings", "Listings"], ["audit", "Audit trail"], ["health", "Health"], ["errors", "Errors"]]
+    .filter(function (t) { return t[0] === "queue" || t[0] === "lookup" || allowed(t[0] === "audit" ? "audit.read" : t[0]); });
+  function lazy(k) {
+    if (views[k].dataset.got) return; views[k].dataset.got = "1";
+    if (more) { more[k](views[k]); return; }
+    pending[k] = true;
+    if (!main.dataset.loading) { main.dataset.loading = "1"; document.head.appendChild(el("script", { src: main.dataset.more })); }
+  }
+  /* The second script hands over its tab functions; whatever was opened meanwhile is drawn now. */
+  window.Hub.adm = { row: row, section: section, ask: ask, send: send, allowed: allowed, day: day, ACTIONS: ACTIONS, ONE: ONE, E: E, REAUTH: REAUTH, who: who, role: role,
+    ready: function (fns) { more = fns; Object.keys(pending).forEach(function (k) { fns[k](views[k]); }); pending = {}; } };
   var open = function (k) {
     $$("a", tabs).forEach(function (a) { a.setAttribute("aria-current", String(a.dataset.v === k)); });
     Object.keys(views).forEach(function (v) { views[v].hidden = v !== k; });
-    if (k === "audit" && !views.audit.dataset.got) { views.audit.dataset.got = "1"; audit(views.audit); }
-    if (k === "errors" && !views.errors.dataset.got) { views.errors.dataset.got = "1"; errors(views.errors); }
     if (k === "roles" && !views.roles.dataset.got) { views.roles.dataset.got = "1"; roles(views.roles); }
+    if (LAZY.indexOf(k) >= 0) lazy(k);
   };
   TABS.forEach(function (t) {
     var a = el("a", { href: "#" + t[0], "data-v": t[0], text: t[1] });
     a.onclick = function (e) { e.preventDefault(); history.replaceState(null, "", "#" + t[0]); open(t[0]); };
     tabs.appendChild(a);
   });
-  main.appendChild(el("header", { class: "wrap bar" }, [el("span", { class: "brand", text: "WolOS Hub admin" }), tabs, el("span", { class: "dim who", id: "adm-me" })]));
+  var fresh = el("span", { class: "dim small", id: "adm-fresh" });
+  main.appendChild(el("header", { class: "wrap bar" }, [el("span", { class: "brand", text: "WolOS Hub admin" }), tabs, el("span", { class: "dim who", id: "adm-me" }), fresh]));
   main.appendChild(el("div", { class: "wrap" }, Object.keys(views).map(function (k) { return views[k]; })));
+  freshness(fresh);
   var start = location.hash.slice(1);
   open(TABS.some(function (t) { return t[0] === start; }) ? start : "queue");
   H.me().then(function (m) { if (m) $("#adm-me").textContent = (m.name || m.login) + ", " + role; }, function () {});

@@ -17,10 +17,11 @@
 
   /* ---- The Worker (none behind a static build: then nothing is asked and everyone is signed out) ---- */
   var NOAPI = !!document.querySelector('meta[name="hub-api"][content="off"]');
-  function call(method, path, body, cache) {
+  function call(method, path, body, cache, quiet) {
     if (NOAPI) return Promise.reject(Object.assign(new Error(OFFLINE), { status: /^\/api\/(me|my\/overview)/.test(path) ? 401 : 0 }));
     var opt = { method: method, credentials: "include", headers: { accept: "application/json" } };
     if (cache) opt.cache = cache;
+    if (quiet) opt.headers["x-hub-prefetch"] = "1"; /* the dashboard's quiet fetch of the other accounts: not a switch for the Worker */
     if (body !== undefined) { opt.headers["content-type"] = "application/json"; opt.body = JSON.stringify(body); }
     return fetch(path, opt).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
@@ -56,10 +57,10 @@
     try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf(SNAP) === 0 && !(except && k.indexOf(SNAP + except.toLowerCase() + "|") === 0)) sessionStorage.removeItem(k); }); } catch (x) {}
   };
   /* fresh: after a change, skip the browser's copy. */
-  function overview(as, fresh) {
+  function overview(as, fresh, quiet) {
     var k = as || "";
     if (!ovs[k] || fresh) {
-      ovs[k] = call("GET", "/api/my/overview" + (k ? "?as=" + encodeURIComponent(k) : ""), undefined, fresh ? "reload" : null).then(function (o) {
+      ovs[k] = call("GET", "/api/my/overview" + (k ? "?as=" + encodeURIComponent(k) : ""), undefined, fresh ? "reload" : null, quiet).then(function (o) {
         save(k, o);
         return o;
       }, function (e) { delete ovs[k]; throw e; });

@@ -94,6 +94,19 @@ urgency with the buttons on the row, not in a dialog:
 Rules that stay: nobody decides about their own certificate; a stolen key acts at once, abuse needs a second admin;
 every action lands in the audit trail with the reason.
 
+Since the session hardening (lead 2026-11-04 10:28Z; Worker `docs/SECURITY-SESSIONS.md`):
+
+- The header says how long the GitHub sign-in stays fresh ("Sign-in fresh for 12 mins") and offers **Sign in again**:
+  every action needs a sign-in younger than 15 minutes; a stale one answers "Confirm it is you" with the same link.
+  A session that moved network and browser at once is kept out of the panel (sign in again).
+- **People** tab: search by login or name, a person's page with their signed-in browsers (place, last use, moved or not),
+  listings and last actions; **Ban** / **Unban** (reason on the row; a ban ends every sign-in of theirs) and **End their sessions**.
+- **Listings** tab: search by id, name or repository, or by state; **Take down** without a report and **Restore** (reason on the row).
+- **Audit trail** tab: filters (who, what, on what, from, to), pages, and **Export as a file** (NDJSON of the same filter).
+- **Health** tab: signed-in sessions, rate limits hit in 24 hours, error reports, the last release notices and tags taken in, the trail's last day.
+- These tabs are a second script, loaded when one of them opens (the panel's first script is at the 12 KB budget); each shows its outline until the answer arrives.
+- Dashboard, **Where you are signed in**: each browser the person signed in from, **End** per row and **Sign out everywhere**.
+
 ## 4. Error states, with the exact sentences
 
 The Worker writes these (`src/status.ts`); the status page, the dashboard and `wol publish` show them as they are. `{x}` is filled in.
