@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Headless Chromium proof of the built hub (run `npm run build` first): serves dist/ with a stand-in for the
+// Headless Chromium proof of the built hub (run `npm run build:review` first: the proof needs the review catalogue): serves dist/ with a stand-in for the
 // Worker (the routes and shapes HUB-worker-3 posted, chat 7352), then, at 1280 and 480 pixels wide, light and dark:
 //   - screenshots of the store (home, kinds, a category, listings of all three kinds, version pages with the
 //     statement), makers, search, the publishing steps, the dashboard of a person and an organisation, a
@@ -374,7 +374,7 @@ for (const scheme of ["light", "dark"]) for (const w of [1280, 480]) {
 /* 3. The static review deploy (HUB_API=off, fixtures only): no Worker, no call to it, not one console error. */
 {
   const dir = "/tmp/hub-site4-static";
-  execFileSync(process.execPath, [at("scripts/build.mjs")], { env: { ...process.env, HUB_API: "off", DIST: dir }, stdio: "ignore" });
+  execFileSync(process.execPath, [at("scripts/build.mjs")], { env: { ...process.env, HUB_API: "off", HUB_FIXTURE: "1", DIST: dir }, stdio: "ignore" });
   const st = await serve(dir); // no Worker: /api and /auth get the 404 page, as on Pages alone
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage(), noise = [], calls = [];
@@ -424,7 +424,7 @@ for (const scheme of ["light", "dark"]) for (const w of [1280, 480]) {
   // A text that is not in the folder yet: its page says so, the build does not fail.
   const empty = "/tmp/hub-site4-nolegal", nd = "/tmp/hub-site4-nolegal-dist";
   rmSync(empty, { recursive: true, force: true }); mkdirSync(empty, { recursive: true });
-  execFileSync(process.execPath, [at("scripts/build.mjs")], { env: { ...process.env, HUB_API: "off", DIST: nd, LEGAL_DIR: empty }, stdio: "ignore" });
+  execFileSync(process.execPath, [at("scripts/build.mjs")], { env: { ...process.env, HUB_API: "off", HUB_FIXTURE: "1", DIST: nd, LEGAL_DIR: empty }, stdio: "ignore" });
   ok("a text not written yet says so", /being written/.test(readFileSync(`${nd}/terms/privacy/index.html`, "utf8")));
   rmSync(nd, { recursive: true, force: true }); rmSync(empty, { recursive: true, force: true });
 }

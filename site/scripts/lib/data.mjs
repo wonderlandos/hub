@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The hub index (extended plugin index, format 1; ADR 0047) read at build time and shaped for the pages.
-// Source: HUB_INDEX (a file path or an https address, e.g. the published index), else data/index.json.
+// Source: HUB_INDEX (a file path or an https address, e.g. the published index), else `fallback`: the build
+// passes data/index.json (the invented review catalogue) only with HUB_FIXTURE=1, else data/empty-index.json.
 // The published index has one entry per listing (its newest version); the fixture may add `owners`,
 // `featured` and `releases` (every version, newest first), which the pages show as the release history.
 import { readFileSync } from "node:fs";
@@ -24,14 +25,14 @@ const trustOf = (t) => (t === "verified" ? "trusted" : TRUST.includes(t) ? t : "
 
 export const slug = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "other";
 
-export async function loadIndex() {
+export async function loadIndex(fallback = at("data/empty-index.json")) {
   const src = process.env.HUB_INDEX;
   let text;
   if (src && /^https:\/\//.test(src)) {
     const r = await fetch(src);
     if (!r.ok) throw new Error(`hub index ${src}: HTTP ${r.status}`);
     text = await r.text();
-  } else text = readFileSync(src || at("data/index.json"), "utf8");
+  } else text = readFileSync(src || fallback, "utf8");
   return shape(JSON.parse(text));
 }
 

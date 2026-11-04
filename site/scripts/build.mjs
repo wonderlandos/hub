@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Builds the hub into dist/: plain files for Cloudflare Pages. No bundler and no dependencies.
-//   node scripts/build.mjs           reads data/index.json (or HUB_INDEX: a file or an https address)
+//   node scripts/build.mjs           reads HUB_INDEX (a file or an https address: the published index), else the
+//                                    empty catalogue data/empty-index.json: a production build never carries an invented maker
+//   HUB_FIXTURE=1 or --fixture       the review deploy: reads data/index.json (invented makers, TEST-signed statements); every
+//                                    page says so and asks not to be indexed; never for hub.wolos.org (lib/fixture.mjs)
 //   FACTS_DIR / FACTS_BASE           where the package pictures named in the index are (lib/facts.mjs)
 //   STATEMENTS_DIR                   signed release statements as <id>/<version>.wsig (default data/statements)
 //   LEGAL_DIR                        the agreements and policies, routed by its README table (default ../legal)
@@ -18,22 +21,33 @@ import { facts } from "./lib/facts.mjs";
 import * as R from "./lib/render.mjs";
 import * as A from "./lib/render-account.mjs";
 import { legalDocs } from "./lib/legal.mjs";
+import { FIXTURE_BANNER, FIXTURE_META, fixtureLeaks } from "./lib/fixture.mjs";
 
 const dist = process.env.DIST ? resolve(process.env.DIST) : at("dist");
 // HUB_API=off: a fully static hub (the fixture review deploy): no page asks the Worker for anything.
 const apiOff = process.env.HUB_API === "off";
+// HUB_FIXTURE=1: the invented review catalogue (QA-WEB-PRIVACY-1). Without it the catalogue is empty until a published index is given.
+const fixture = process.env.HUB_FIXTURE === "1" || process.argv.includes("--fixture");
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(resolve(dist, "assets"), { recursive: true });
 if (existsSync(at("public"))) cpSync(at("public"), dist, { recursive: true });
+if (!fixture) rmSync(resolve(dist, "img/listings"), { recursive: true, force: true }); // the pictures of the invented listings
 
-const put = (path, text) => { const f = resolve(dist, "." + path); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); };
+/** A review build marks every page: a meta the checks read, noindex, and a visible line. */
+const marked = (html) => html
+  .replace("</head>", `${FIXTURE_META}\n<meta name="robots" content="noindex, nofollow">\n</head>`)
+  .replace(/<body([^>]*)>/, `<body$1><p class="wrap dim" role="note">${FIXTURE_BANNER}</p>`);
+const put = (path, text) => {
+  const f = resolve(dist, "." + path); mkdirSync(dirname(f), { recursive: true });
+  writeFileSync(f, fixture && typeof text === "string" && path.endsWith(".html") && !path.startsWith("/admin") ? marked(text) : text); // the admin shell has no words and is noindex already
+};
 const css = readFileSync(at("src/tokens.css"), "utf8") + "\n" + readFileSync(at("src/hub.css"), "utf8");
 const hashed = (name, ext, text) => { const n = `/assets/${name}.${createHash("sha256").update(text).digest("hex").slice(0, 10)}.${ext}`; put(n, text); return n; };
 const js = (name) => hashed(name, "js", readFileSync(at(`src/${name}.js`), "utf8"));
 const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account") };
 const ADMIN = js("admin");
 
-const idx = await loadIndex();
+const idx = await loadIndex(fixture ? at("data/index.json") : at("data/empty-index.json"));
 const NAMES = new Map(idx.entries.map((e) => [e.id, e.name]));
 const warnings = await facts(dist).prepare(idx.entries);
 const images = manifest();
@@ -74,8 +88,8 @@ put("/search.json", JSON.stringify(idx.entries.map((e) => ({
 
 const noindex = new Set(["/search", "/report", "/signin", "/dashboard"]);
 put("/sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.filter((p) => !noindex.has(p)).map((p) => `<url><loc>${ORIGIN}${p === "/" ? "/" : p}</loc></url>`).join("\n")}\n</urlset>\n`);
-put("/robots.txt", `User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /api/\nSitemap: ${ORIGIN}/sitemap.xml\n`);
-put("/_headers", `/assets/*
+put("/robots.txt", fixture ? "User-agent: *\nDisallow: /\n" : `User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /api/\nSitemap: ${ORIGIN}/sitemap.xml\n`);
+put("/_headers", `${fixture ? "/*\n  X-Robots-Tag: noindex, nofollow\n" : ""}/assets/*
   Cache-Control: public, max-age=31536000, immutable
 /img/*
   Cache-Control: public, max-age=604800
@@ -87,9 +101,11 @@ put("/_headers", `/assets/*
 /terms/*.txt
   Content-Type: text/plain; charset=utf-8
 /*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://avatars.githubusercontent.com; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'
 /admin
   X-Robots-Tag: noindex, nofollow
@@ -100,5 +116,10 @@ put("/_headers", `/assets/*
   Cache-Control: no-store
   Referrer-Policy: no-referrer
 `);
+// A production build must not carry one byte of the review catalogue (the invented makers' logins exist on GitHub).
+if (!fixture) {
+  const leaks = fixtureLeaks(dist);
+  if (leaks.length) { console.error(`build: the invented review makers are in a production build (set HUB_FIXTURE=1 for a review deploy, or give HUB_INDEX the published index):\n  ${leaks.slice(0, 8).join("\n  ")}`); process.exit(1); }
+}
 for (const w of warnings) console.warn(`build: picture left out: ${w}`);
-console.log(`build: ${pages.length} pages + 404 + admin shell (${legal.filter((t) => t.found).length} of ${legal.length} terms written), ${idx.entries.length} listings, ${idx.categories.length} categories, ${idx.owners.length} makers, index serial ${idx.serial}`);
+console.log(`build${fixture ? " (review deploy: example data)" : ""}: ${pages.length} pages + 404 + admin shell (${legal.filter((t) => t.found).length} of ${legal.length} terms written), ${idx.entries.length} listings, ${idx.categories.length} categories, ${idx.owners.length} makers, index serial ${idx.serial}`);

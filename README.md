@@ -6,6 +6,8 @@ The place where apps, plugins and extensions for WolOS are published: hub.wolos.
 
 ```
 site/     the static site of hub.wolos.org (npm run site; npm run build:site)
+          `npm run build:site` is the production build: an empty catalogue until HUB_INDEX names the published index.
+          The invented review catalogue (site/data/index.json) is built only with `HUB_FIXTURE=1` / `--fixture` (`npm run build:review` in site/): every page says it is example data and is noindex; never deploy it to hub.wolos.org.
 wasm/     hubcheck: the checker the pipeline runs on every release, and its wasm build for the site
 legal/    the hub's legal texts (rendered at /terms/<doc>)
 ```

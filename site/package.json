@@ -10,8 +10,9 @@
     "sync": "node scripts/sync-tokens.mjs",
     "fixtures": "node scripts/fixture-shots.mjs && node scripts/fixture-icons.mjs",
     "build": "node scripts/build.mjs",
+    "build:review": "node scripts/build.mjs --fixture",
     "dev": "node scripts/dev.mjs",
-    "check": "node scripts/sync-tokens.mjs --check && node scripts/build.mjs && node scripts/check-links.mjs && node scripts/check-theme.mjs && node scripts/check-doctrine.mjs && node scripts/check-legal.mjs && node scripts/check-images.mjs && node scripts/check-size.mjs",
+    "check": "node scripts/sync-tokens.mjs --check && node scripts/build.mjs --fixture && node scripts/check-links.mjs && node scripts/check-theme.mjs && node scripts/check-doctrine.mjs && node scripts/check-legal.mjs && node scripts/check-images.mjs && node scripts/check-size.mjs && node scripts/check-fixture.mjs && node scripts/check-headers.mjs",
     "proof": "node scripts/proof.mjs"
   }
 }

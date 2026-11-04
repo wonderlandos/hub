@@ -16,7 +16,7 @@ Version 1, effective 2026-11-04.
 > You can see, fix, take away or delete your data. Write to julia@wolos.org; we answer within 15 days.
 > A few things stay even after you leave: the public log, the revocation list, and what we need to answer a court or defend ourselves. The law lets us keep those, and we keep nothing more.
 > If someone's life is at risk, or a crime is on the table, we talk to the police.
-> 16 or older only.
+> 16 or older only: you confirm it when you accept the Terms of Use; we do not check ages.
 
 ## 1. Who is responsible
 
@@ -45,7 +45,7 @@ Version 1, effective 2026-11-04.
 
 We keep exactly these categories. Nothing else.
 
-3.1. **Your GitHub account**, as GitHub gives it to us when you sign in: your numeric GitHub id, login, display name and avatar address. With them, two facts GitHub reports about the account: when it was created, and whether two-factor sign-in is on.
+3.1. **Your GitHub account**, as GitHub gives it to us when you sign in: your numeric GitHub id, login, display name and avatar address. With them, two facts GitHub reports about the account: when it was created, and whether two-factor sign-in is on (and when we last checked). We add what the hub itself needs to run your account: your role on the hub (member, moderator or certificate operator), when you first signed in and when you last signed in, when you last signed out (every older session stops working), and whether the account is banned.
 
 3.2. **Your organisation memberships**: the GitHub organisations GitHub says you belong to, and your role in them.
 
@@ -57,11 +57,11 @@ We keep exactly these categories. Nothing else.
 
 3.6. **Certificate requests and Certificates**: your request (subject, level, public key, the rules checked at the time and their values, such as account age and two-factor status), the decision, and the public Certificate.
 
-3.7. **Audit log**: a record of each action that changes something on the hub: who did it (GitHub id or system), what, on what, when, and, for actions in the admin panel, an address class: whether the connection was IPv4 or IPv6 and the country it came from. **We do not store your IP address in the audit log.**
+3.7. **Audit log**: a record of each action that changes something on the hub: who did it (GitHub id or system), what, on what, when, the GitHub login at that time, and, for actions in the admin panel, an address class: whether the connection was IPv4 or IPv6 and the country it came from. **We do not store your IP address in the audit log.**
 
 3.8. **Webhook delivery ids**: the ids GitHub gives to the messages it sends us about repositories, so we do not handle the same message twice.
 
-3.9. **Rate counters**: counts of requests per minute or per day, per account or per network address, used to stop floods and abuse. A counter's key contains the network address only for the per-address limits. **This is the only place where the hub stores an IP address, and only for at most 2 days.**
+3.9. **Rate counters**: counts of requests per minute or per day, per account or per network address, used to stop floods and abuse. A counter's key contains the network address only for the per-address limits. **This is the only place where the hub's database stores an IP address, and only for at most 2 days.** The machines that run the hub (section 6.3) keep their own request logs, which we do not control.
 
 3.10. **Session cookie**: one cookie in your browser, described in section 12 and in the [Cookie Notice](/terms/cookies). It holds your GitHub id and login and your GitHub sign-in token, sealed with encryption so only the hub can read it. The hub keeps no copy of the token.
 
@@ -92,9 +92,9 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 - **GitHub account (3.1), memberships (3.2)**: while you have a hub account. Memberships are refreshed at each sign-in. Deleted within 30 days of your deletion request.
 - **Acceptances (3.3)**: while you have a hub account, then 5 years, to prove the agreement in a dispute.
 - **Listings and releases (3.4)**: while the listing exists. What entered the signed index and the public log stays there, because people use it to check what they installed.
-- **Reports (3.5)**. How long: 2 years after the decision, then deleted.
-- **Certificate requests (3.6)**. How long: 5 years after the decision. Public Certificates and revocations stay in the public record for as long as it exists.
-- **Audit log (3.7)**: as long as the hub runs. After your account is deleted, entries keep only your numeric GitHub id.
+- **Reports (3.5)**. How long: 2 years after the decision, then deleted automatically. A report nobody has decided yet stays until it is.
+- **Certificate requests (3.6)**. How long: 5 years after the decision, then deleted automatically; where the request became a public Certificate, what you wrote in it is emptied and the Certificate itself stays. Public Certificates and revocations stay in the public record for as long as it exists.
+- **Audit log (3.7)**: as long as the hub runs. When your account is deleted, we remove the login from your entries, so they keep only your numeric GitHub id.
 - **Webhook delivery ids (3.8)**. How long: 30 days, deleted automatically.
 - **Rate counters (3.9)**. How long: 2 days, deleted automatically.
 - **Session cookie (3.10)**. How long: 7 days at most, or until you sign out.
@@ -111,6 +111,8 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 6.3. **Our processors**, who run the hub's machines for us under data processing contracts:
 - **Cloudflare, Inc.** (United States, and its data centres worldwide): hosting of the pages, the hub's code, its database and key-value store, and delivery of the cookie.
 - **GitHub, Inc.** (United States): automated jobs (GitHub Actions) and repositories that hold the signed index, the public log and the revocation list.
+
+6.3.1. **Two more things happen in your browser, and the other party sees them.** (a) The small picture of a signed-in person is loaded from GitHub's image servers (avatars.githubusercontent.com): GitHub sees your network address and that the request came from hub.wolos.org (not which page). (b) Cloudflare asks browsers to send it network-error reports about hub.wolos.org (a browser feature called Network Error Logging) for up to 7 days at a time; the report names the hub address and the kind of failure. Neither is a script, and neither tells us anything.
 
 6.4. **GitHub as its own controller.** When you sign in, GitHub handles your GitHub account under its own privacy statement. We receive only what section 3.1 and 3.2 list.
 
@@ -182,7 +184,7 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 
 11.4. **Opt-out signals.** We honour Global Privacy Control and similar opt-out preference signals. Because we never sell or share, the signal changes nothing; we still treat it as a valid opt-out.
 
-11.5. **Do Not Track.** We do not track you across sites or over time on other services, so a Do Not Track signal changes nothing. No other party collects data about your activity on the hub (California Business and Professions Code section 22575).
+11.5. **Do Not Track.** We do not track you across sites or over time on other services, so a Do Not Track signal changes nothing. No other party collects data about your activity on the hub beyond the two things section 6.3.1 names (California Business and Professions Code section 22575).
 
 11.6. **Shine the Light.** We do not share personal information with anyone for their direct marketing (California Civil Code section 1798.83).
 
@@ -208,7 +210,7 @@ Júlia Klee is the data protection officer and the encarregado. Write to julia@w
 
 ## 14. Children
 
-14.1. The hub is for people **16 or older**. We do not knowingly collect data from anyone under 16, and the hub is not directed to children.
+14.1. The hub is for people **16 or older**. Signing in and accepting the Terms of Use is your confirmation of it (Terms of Use, section 3.4); we do not check ages and we do not ask for documents. We do not knowingly collect data from anyone under 16, and the hub is not directed to children.
 
 14.2. If we learn that a hub account belongs to someone under 16, we close it and delete its data within 30 days, except what the public log must keep, which we reduce to the numeric GitHub id. Parents or guardians can write to julia@wolos.org.
 
@@ -216,8 +218,8 @@ Júlia Klee is the data protection officer and the encarregado. Write to julia@w
 
 - Connections to the hub are always encrypted.
 - Your GitHub sign-in token travels only inside your cookie, encrypted so only the hub can read it, and the cookie is signed so nobody can change it.
-- We store no passwords, no signing keys and, apart from rate counters, no IP addresses.
-- The admin panel is closed: it answers like a missing page to anyone without a role. Roles have only the rights they need. Every action is in the audit log. Revoking a Certificate for abuse needs two people.
+- We store no passwords, no signing keys and, apart from rate counters, no IP addresses in the hub's database.
+- The admin panel's data is closed: it answers like a missing page to anyone without a role. (The empty shell of its page and its program file are public, and show nothing.) Roles have only the rights they need. Every action is in the audit log. Revoking a Certificate for abuse needs two people.
 - The signing keys of the hub's index and of the Certificate authority are not on the hub's web servers.
 - We keep the data in section 3 and nothing more, and delete it on time (section 5).
 - Our processors are bound by data processing contracts and their own protection programmes.

@@ -37,6 +37,7 @@ Both cookies are strictly necessary for a service you asked for: signing in. EU 
 - No analytics or statistics cookies.
 - No advertising cookies.
 - No third-party cookies or scripts, no tracking pixels, no fingerprinting.
+- Two requests go to other parties without a cookie: the avatar picture of a signed-in person comes from GitHub's image servers, and Cloudflare asks browsers for network-error reports (Privacy Policy, section 6.3.1).
 - No tracking across sites. A "Do Not Track" or Global Privacy Control signal therefore changes nothing; we honour it anyway.
 
 ## 5. How to control them

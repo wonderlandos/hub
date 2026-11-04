@@ -20,29 +20,35 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .skip { position: absolute; left: 1rem; top: -4rem; z-index: 50; padding: .6rem 1rem; border-radius: 999px; background: var(--wol-text); color: var(--wol-bg); text-decoration: none; font-size: var(--text-sm); }
 .skip:focus { top: 1rem; }
 
-.wrap { width: 100%; max-width: 72rem; margin-inline: auto; padding-inline: clamp(1.25rem, 4vw, 2.5rem); }
-.narrow-col { max-width: 48rem; }
-.block { padding-block: clamp(1.5rem, 4vw, 3rem); }
+/* wrap: 72rem, padding 24..40 px (named lengths), as on wolos.org. */
+.wrap { width: 100%; max-width: 72rem; margin-inline: auto; padding-inline: clamp(1.5rem, 4vw, 2.5rem); }
+.narrow-col { max-width: 40rem; }
+.block { padding-block: clamp(1.5rem, 4vw, 3.75rem); }
+.kinds + .block { padding-top: 1.5rem; }
 .block + .block { padding-top: 0; }
 
 /* Headings: the site's scale. */
 h1 { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); font-weight: 650; letter-spacing: -.02em; text-wrap: balance; }
 .h-xl { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); }
-h2 { font-size: var(--text-xl); line-height: var(--text-xl--line-height); font-weight: 650; letter-spacing: -.015em; margin-bottom: 1rem; }
-h3 { font-size: var(--text-base); line-height: 1.35; font-weight: 600; }
+h2 { font-size: var(--text-xl); line-height: var(--text-xl--line-height); font-weight: 650; letter-spacing: -.015em; margin-bottom: 1.5rem; }
+h3 { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 600; }
 .h-md { font-size: var(--text-lg); line-height: var(--text-lg--line-height); margin: 0 0 .25rem; }
 .h-sm { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 650; margin: 0 0 .35rem; letter-spacing: 0; }
 .lead { font-size: var(--text-lg); line-height: var(--text-lg--line-height); color: var(--wol-text-2); margin-top: .75rem; max-width: 40rem; text-wrap: pretty; }
 
-/* Buttons: one solid, one quiet. */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.75rem; max-width: 100%; padding: .375rem 1.125rem; border-radius: 999px; font-size: var(--text-sm); font-weight: 600; line-height: 1.3; text-align: center; text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: background-color .15s, color .15s, border-color .15s; }
-.btn-solid { background: var(--wol-text); color: var(--wol-bg); }
-.btn-solid:hover { background: var(--wol-accent); color: var(--wol-accent-fg); }
-.btn-quiet { background: transparent; border-color: var(--wol-border); }
+/* Buttons: one solid (the accent fill, the landing of a page), one quiet. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.5rem; max-width: 100%; padding: .375rem 1.125rem; border-radius: 1.25rem; font-size: var(--text-sm); font-weight: 600; line-height: 1.3; text-align: center; text-decoration: none; border: 1px solid transparent; cursor: pointer; transition: background-color .15s, color .15s, border-color .15s; }
+.btn-solid { background: var(--wol-accent-fill); color: var(--wol-accent-fg); box-shadow: var(--wol-elev-2), inset 0 1px 0 color-mix(in srgb, var(--wol-accent-fg) 18%, transparent); }
+.btn-solid:hover { background: color-mix(in oklab, var(--wol-accent-fill) 88%, var(--wol-text)); }
+.btn-quiet { background: var(--wol-surface); border-color: var(--wol-border); }
 .btn-quiet:hover { border-color: var(--wol-text-2); }
 .btn[disabled] { opacity: .55; cursor: default; }
 
-.card { background: var(--wol-surface); border: 1px solid var(--wol-border); border-radius: var(--wol-radius-lg); }
+/* Cards: radius 12 (3 fen; the lead's open call is 10 or 12), one light from the upper left (shadow at 1:2, --wol-elev-*),
+   a lighter hairline so border and shadow do not double. */
+.card { background: var(--wol-surface); border: 1px solid color-mix(in srgb, var(--wol-text) 8%, transparent); border-radius: var(--wol-radius-md); box-shadow: var(--wol-elev-1); }
+.door:hover, .item:hover { box-shadow: var(--wol-elev-2); }
+
 
 /* Header: one row that wraps, no sticky bar. */
 .bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.25rem; min-height: 4rem; padding-block: .5rem; }
@@ -57,8 +63,11 @@ h3 { font-size: var(--text-base); line-height: 1.35; font-weight: 600; }
 .find input::placeholder { color: var(--wol-text-2); opacity: 1; }
 .find input:hover { border-color: var(--wol-text-2); }
 .find kbd { position: absolute; right: .75rem; font-size: var(--text-xs); line-height: 1.2; padding: 0 .4rem; border: 1px solid var(--wol-border); border-radius: 4px; color: var(--wol-text-2); pointer-events: none; }
-.find-lg { margin: 1.75rem auto 0; max-width: 36rem; width: 100%; }
-.find-lg input { flex: 1; height: 3.25rem; width: auto; min-width: 0; padding-right: 1.25rem; font-size: var(--text-base); }
+/* The store front's search: one pill 576 x 56, white, raised one step, with the accent button at its right end. */
+.find-lg { margin: 1.5rem 0 0; max-width: 36rem; width: 100%; height: 3.5rem; padding: .25rem; gap: .25rem; border: 1px solid var(--wol-border); border-radius: 1.75rem; background: var(--wol-surface); box-shadow: var(--wol-elev-2); }
+.find-lg:focus-within { outline: 2px solid var(--wol-accent); outline-offset: 2px; }
+.find-lg input, .find-lg input:hover { flex: 1; height: 100%; width: auto; min-width: 0; padding: 0 1rem; border: 0; background: transparent; font-size: var(--text-base); outline: none; }
+.find-lg .btn { height: 100%; box-shadow: none; }
 .who { display: flex; align-items: center; gap: .6rem; font-size: var(--text-sm); min-height: 2.75rem; }
 .who img { width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--wol-surface-2); }
 .who .login { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -67,31 +76,36 @@ h3 { font-size: var(--text-base); line-height: 1.35; font-weight: 600; }
 .crumbs a { text-decoration: none; }
 .crumbs a:hover { text-decoration: underline; }
 
-/* Home */
-.hero { text-align: center; padding-block: clamp(2.5rem, 8vw, 5.5rem) clamp(1.5rem, 4vw, 2.5rem); }
-.hero h1 { font-size: var(--text-3xl); line-height: var(--text-3xl--line-height); letter-spacing: -.03em; margin: .75rem auto 0; max-width: 18ch; }
-.hero .lead { margin-inline: auto; }
+/* Home: the entry is the upper left (eyebrow, a two-line title, one lead), the search is the landing. */
+.hero { padding-block: clamp(2rem, 6vw, 3.75rem) clamp(1rem, 3vw, 1.5rem); }
+.hero h1 { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); letter-spacing: -.03em; margin: .75rem 0 0; max-width: 20em; }
+
+/* Kinds as tabs: navigation, not three big cards. */
+.kinds { padding-block: 2.5rem 0; }
+.tabs ul { display: flex; flex-wrap: wrap; gap: 0 2.5rem; }
+.tabs a { display: inline-flex; align-items: baseline; gap: .6rem; padding: .75rem 0 .65rem; font-weight: 600; text-decoration: none; border-bottom: 2px solid var(--wol-border); }
+.tabs a:hover { border-bottom-color: var(--wol-text-2); }
+.tabs a[aria-current="page"] { border-bottom-color: var(--wol-accent); }
+.tabs .eyebrow { font-weight: 400; }
 
 .grid { display: grid; gap: 1rem; }
 .grid > * { min-width: 0; }
-.doors { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); }
-.door { position: relative; padding: 1.25rem 1.4rem; display: flex; flex-direction: column; gap: .4rem; }
-.door .eyebrow { margin-top: auto; padding-top: .5rem; }
-.door:hover, .item:hover { border-color: var(--wol-text-2); }
+/* Cards in three columns, 344 wide with 60 between them in the 1152 wrap (guan band); fewer columns on narrower screens. */
+.cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.5rem; }
+@media (min-width: 62rem) { .cards { gap: 3.75rem; } }
 .stretch { position: absolute; inset: 0; border-radius: inherit; }
 .stretch:focus-visible { outline-offset: 0; }
-.item { position: relative; display: flex; gap: 1rem; padding: 1.1rem 1.2rem; align-items: flex-start; }
-.item-body { min-width: 0; display: flex; flex-direction: column; gap: .3rem; }
+.item { position: relative; display: flex; flex-direction: column; gap: .75rem; min-height: 13.5rem; padding: 1.5rem; align-items: flex-start; }
+.item-body { min-width: 0; display: flex; flex-direction: column; gap: .25rem; }
 .item-body p { font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .9rem; font-size: var(--text-sm); }
 .meta a { font-weight: 600; text-decoration-color: var(--wol-accent); text-underline-offset: 3px; }
-.publish-door { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem 2rem; padding: clamp(1.25rem, 3vw, 2rem); }
+.publish-door { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem 3.75rem; min-height: 13.5rem; padding: clamp(1.5rem, 3vw, 3rem); }
 .publish-door h2 { margin-bottom: .35rem; }
 .publish-door p { max-width: 38rem; }
 
 /* Tiles stand in for an icon: a letter on one of the system's icon colours. */
-.tile { flex: none; display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: var(--wol-radius-icon); font-weight: 700; font-size: var(--text-lg); color: var(--wol-icon-paper); background: var(--wol-icon-system-body); }
+.tile { flex: none; display: grid; place-items: center; width: 3.75rem; height: 3.75rem; border-radius: var(--wol-radius-icon); font-weight: 700; font-size: var(--text-lg); color: var(--wol-icon-paper); background: var(--wol-icon-system-body); }
 .tile-lg { width: 5.5rem; height: 5.5rem; font-size: var(--text-2xl); }
 .t-wolos { background: var(--wol-icon-wolos-body); }
 .t-system { background: var(--wol-icon-system-body); }
@@ -183,15 +197,18 @@ form { display: flex; flex-direction: column; gap: 1rem; align-items: flex-start
 .org-row::before { display: none !important; }
 
 /* Footer */
-.foot { margin-top: 4rem; border-top: 1px solid var(--wol-border); }
-.foot-grid { display: grid; gap: 2rem; grid-template-columns: 1.4fr 1fr 1fr 1fr; padding-block: 2.5rem; font-size: var(--text-sm); }
+.foot { margin-top: 3.75rem; }
+.foot-grid { display: grid; gap: 2rem; grid-template-columns: 1.4fr 1fr 1fr 1fr; padding-block: 0 2.5rem; font-size: var(--text-sm); }
+/* A rule ends where its content ends: the footer's rules run the width of the wrap's content, not the page. */
+.foot-grid::before { content: ""; grid-column: 1 / -1; height: 1px; background: var(--wol-border); }
 .foot-grid > * { min-width: 0; }
 .foot-grid p { margin-top: .75rem; max-width: 22rem; }
 .foot-grid h2 { margin-bottom: .75rem; }
 .foot-grid li + li { margin-top: .4rem; }
 .foot-grid li a { color: var(--wol-text-2); text-decoration: none; display: inline-block; padding-block: .1rem; }
 .foot-grid li a:hover { color: var(--wol-text); text-decoration: underline; }
-.legal { border-top: 1px solid var(--wol-border); padding-block: 1.25rem; font-size: var(--text-xs); color: var(--wol-text-2); }
+.legal { padding-block: 0 1.25rem; font-size: var(--text-xs); color: var(--wol-text-2); }
+.legal::before { content: ""; display: block; height: 1px; margin-bottom: 1.25rem; background: var(--wol-border); }
 .seg { display: inline-flex; max-width: 100%; border: 1px solid var(--wol-border); border-radius: 999px; padding: 2px; }
 .seg button { border: 0; background: none; border-radius: 999px; padding: .3rem .85rem; font-size: var(--text-xs); color: var(--wol-text-2); cursor: pointer; min-height: 2rem; }
 .seg button:hover { color: var(--wol-text); }
@@ -213,7 +230,7 @@ dialog.lightbox figure { display: flex; flex-direction: column; align-items: cen
 .lb-next { right: .75rem; top: 50%; translate: 0 -50%; }
 
 @media (max-width: 62rem) {
-  .doors { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .l-cols { grid-template-columns: minmax(0, 1fr); }
   .foot-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -227,9 +244,8 @@ dialog.lightbox figure { display: flex; flex-direction: column; align-items: cen
   .l-head { flex-direction: column; align-items: flex-start; gap: 1rem; }
   .tile-lg { width: 4.5rem; height: 4.5rem; }
   .foot-grid { grid-template-columns: 1fr; }
-  .find-lg { flex-direction: column; align-items: stretch; }
-  .find-lg .btn { width: 100%; }
-  .find-lg input { flex: none; width: 100%; }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .item { min-height: 0; }
   .item { padding: 1rem; }
 }
 @media (pointer: coarse) {
@@ -240,11 +256,12 @@ dialog.lightbox figure { display: flex; flex-direction: column; align-items: cen
 .step .code code { background: none; padding: 0; font-size: inherit; }
 
 /* Store: icons from the package, categories, history, a version's statement */
-.icon { flex: none; width: 3.25rem; height: 3.25rem; border-radius: var(--wol-radius-icon); object-fit: cover; }
+.icon { flex: none; width: 3.75rem; height: 3.75rem; border-radius: var(--wol-radius-icon); object-fit: cover; }
 .icon-lg { width: 5.5rem; height: 5.5rem; }
 .chips ul { display: flex; flex-wrap: wrap; gap: .5rem; }
-.hero .chips ul { justify-content: center; margin-top: 1.5rem; }
+.hero .chips ul { margin-top: 1.5rem; }
 .kindchips, .chips { margin: 1rem 0 1.5rem; }
+.hero .chips { margin-bottom: 0; }
 .chip { display: inline-flex; align-items: center; min-height: 2.25rem; padding: .25rem .9rem; border-radius: 999px; border: 1px solid var(--wol-border); background: var(--wol-surface); font-size: var(--text-sm); text-decoration: none; }
 .chip:hover { border-color: var(--wol-text-2); }
 .gap { margin-top: 2.5rem; }

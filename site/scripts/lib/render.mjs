@@ -111,7 +111,7 @@ const crumbs = (...links) => `<nav class="crumbs" aria-label="You are here">${[[
 /* ---------- Home: search, categories, the three kinds, featured, new ---------- */
 export function home(idx, assets) {
   const n = (k) => idx.entries.filter((e) => e.kind === k).length;
-  const doors = KINDS.map((k) => `<li class="card door"><a class="stretch" href="/${k.dir}"><span class="sr">${k.many}</span></a><h3>${k.many}</h3><p class="dim">${esc(k.blurb)}</p><p class="eyebrow">${plural(n(k.kind), k.one)}</p></li>`).join("");
+  const tabs = KINDS.map((k) => `<li><a href="/${k.dir}">${k.many}<span class="eyebrow">${n(k.kind)}</span><span class="sr"> - ${esc(k.blurb)}</span></a></li>`).join("");
   const featured = idx.featured.length ? idx.featured : idx.entries.slice(0, 6);
   const fresh = idx.newest.filter((e) => !featured.includes(e)).slice(0, 6);
   return page({
@@ -121,7 +121,7 @@ export function home(idx, assets) {
 <p class="lead">From WolOS and from people like you. See who made each one, and what its check found, before you install it.</p>
 <form class="find find-lg" role="search" action="/search" method="get"><label class="sr" for="q">Search the hub</label><input id="q" name="q" type="search" placeholder="Search apps, plugins and extensions" autocomplete="off" enterkeyhint="search"><button class="btn btn-solid" type="submit">Search</button></form>
 ${chips(idx.categories)}</section>
-<section class="wrap block" aria-labelledby="browse"><h2 id="browse" class="sr">Browse</h2><ul class="grid doors">${doors}</ul></section>
+<section class="wrap kinds" aria-labelledby="browse"><h2 id="browse" class="sr">Browse</h2><nav class="tabs" aria-label="Kinds"><ul>${tabs}</ul></nav></section>
 <section class="wrap block" aria-labelledby="feat"><h2 id="feat">Featured</h2>${grid(featured)}</section>
 ${fresh.length ? `<section class="wrap block" aria-labelledby="new"><h2 id="new">New and updated</h2>${grid(fresh)}</section>` : ""}
 <section class="wrap block" aria-labelledby="pub"><div class="card publish-door"><div><h2 id="pub">Publish your app</h2><p class="dim">Sign in with GitHub, accept the agreements, link your repository and push a tag. Your files stay on GitHub; the hub checks each version and shows it to everyone on WolOS.</p></div><a class="btn btn-solid" href="/publish">Publish your app</a></div></section>`,
