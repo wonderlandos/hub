@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Reusable release workflow for WolOS Hub authors: a pushed version tag becomes a GitHub release with the one file the
+# listing names (<id>-<version>.wol or .wolplug), built from the repository and checked with the same hubcheck the hub
+# runs before anything is published. The hub then takes it from there (release webhook, check, sign, publish:
+# site/docs/PUBLISH-FLOW.md); this workflow never talks to the hub.
+#
+# A caller (.github/workflows/hub-release.yml in the author's repository):
+#   on: { push: { tags: ["v[0-9]*"] } }
+#   permissions: { contents: write }
+#   jobs:
+#     hub:
+#       uses: wonderlandos/hub/.github/workflows/wol-release.yml@<commit>
+#       with: { kind: app, id: alice.notes }
+#
+# Tags: v<version>. For an app the version is the payload's pacman version, pkgver-pkgrel (v1.2.0-1): wol-admind installs a
+# .wol only when Info.json's version is exactly that, and the hub blocks a file whose version is not the tag's. For a
+# plugin it is plugin.toml's version (v1.0). A tag with -rc, -alpha, -beta or -pre in it is published as a pre-release
+# (checked by the hub, kept off the list).
+name: wol-release
+on:
+  workflow_call:
+    inputs:
+      kind:
+        description: "app (.wol) or plugin (.wolplug)"
+        type: string
+        required: true
+      id:
+        description: "The listing id, e.g. alice.notes (the file's id must be the same)"
+        type: string
+        required: true
+      info:
+        description: "app: Info.json template (its version is replaced by the tag's)"
+        type: string
+        default: hub/Info.json
+      icon:
+        description: "app: the listing icon, a square PNG of 128 to 1024 pixels (empty: none)"
+        type: string
+        default: hub/icon.png
+      screenshots:
+        description: "app: screenshot files, separated by spaces. Leave empty until the hub's pinned hubcheck and the system's .wol reader accept screenshots/ members"
+        type: string
+        default: ""
+      pkgbuild:
+        description: "app: folder of the PKGBUILD that makes the payload (it reads HUB_VERSION and dist/Info.json)"
+        type: string
+        default: hub
+      makedepends:
+        description: "app: Arch packages to install before makepkg, separated by spaces"
+        type: string
+        default: ""
+      plugin_dir:
+        description: "plugin: the plugin folder (holds plugin.toml)"
+        type: string
+        default: "."
+      set_id:
+        description: "plugin: write this id into the packed plugin.toml (when the folder carries another id)"
+        type: string
+        default: ""
+      hubcheck_rev:
+        description: "Commit of wonderlandos/hub whose hubcheck checks the file: the one the hub's check job pins"
+        type: string
+        default: a0fcf58b1494d08cd523ad4b1cdbc568236dd8be
+      tools_ref:
+        description: "Commit of wonderlandos/hub that holds tools/wolpack"
+        type: string
+        default: main
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      # Actions pinned to a commit; the tag is in the comment.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: wonderlandos/hub
+          ref: ${{ inputs.tools_ref }}
+          path: .hubtools
+          persist-credentials: false
+      - name: Version from the tag
+        id: v
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          case "$GITHUB_REF" in refs/tags/*) ;; *) echo "::error::run this on a pushed tag"; exit 1 ;; esac
+          v=$(python3 -I .hubtools/tools/wolpack/wolpack.py version-of "$TAG")
+          case "$v" in [0-9]*) ;; *) echo "::error::the tag $TAG is not a version such as v1.2.0-1"; exit 1 ;; esac
+          pre=false; case "$v" in *-rc*|*-alpha*|*-beta*|*-pre*|*.rc*) pre=true ;; esac
+          echo "version=$v" >> "$GITHUB_OUTPUT"; echo "prerelease=$pre" >> "$GITHUB_OUTPUT"
+      - name: Build the payload (makepkg in Arch)
+        if: inputs.kind == 'app'
+        env:
+          V: ${{ steps.v.outputs.version }}
+          ID: ${{ inputs.id }}
+          INFO: ${{ inputs.info }}
+          SHOTS: ${{ inputs.screenshots }}
+          PKGDIR: ${{ inputs.pkgbuild }}
+          DEPS: ${{ inputs.makedepends }}
+        run: |
+          case "$V" in *-[0-9]*) ;; *) echo "::error::an app tag carries the pkgrel: v$V-1"; exit 1 ;; esac
+          mkdir -p dist
+          set -f; shots=(); for s in $SHOTS; do shots+=(--screenshot "$s"); done; set +f
+          python3 -I .hubtools/tools/wolpack/wolpack.py info --info "$INFO" --version "$V" --id "$ID" "${shots[@]}" --out dist/Info.json
+          docker run --rm -v "$PWD":/src -e HUB_VERSION="$V" -e PKGDIR="$PKGDIR" -e DEPS="$DEPS" docker.io/library/archlinux:latest bash -c '
+            set -e
+            pacman -Syu --noconfirm --needed base-devel $DEPS >/dev/null
+            useradd -m b; chown -R b /src
+            su b -c "cd /src/$PKGDIR && HUB_VERSION=$HUB_VERSION makepkg -f -d --noconfirm"'
+          sudo chown -R "$(id -u)" .
+          ls "$PKGDIR"/*.pkg.tar.zst
+      - name: Pack the .wol
+        if: inputs.kind == 'app'
+        env:
+          V: ${{ steps.v.outputs.version }}
+          ID: ${{ inputs.id }}
+          ICON: ${{ inputs.icon }}
+          SHOTS: ${{ inputs.screenshots }}
+          PKGDIR: ${{ inputs.pkgbuild }}
+        run: |
+          set -f; extra=(); for s in $SHOTS; do extra+=(--screenshot "$s"); done; set +f
+          [ -n "$ICON" ] && extra+=(--icon "$ICON")
+          pkg=; for p in "$PKGDIR"/*-"$V"-*.pkg.tar.zst; do case "$p" in *-debug-*) ;; *) pkg=$p; break ;; esac; done
+          [ -f "$pkg" ] || { echo "::error::makepkg made no package for $V"; exit 1; }
+          python3 -I .hubtools/tools/wolpack/wolpack.py wol --info dist/Info.json --payload "$pkg" --version "$V" --id "$ID" "${extra[@]}" --out dist > .file
+      - name: Pack the .wolplug
+        if: inputs.kind == 'plugin'
+        env:
+          V: ${{ steps.v.outputs.version }}
+          ID: ${{ inputs.id }}
+          DIR: ${{ inputs.plugin_dir }}
+          SET_ID: ${{ inputs.set_id }}
+        run: |
+          src="$DIR"
+          if [ -n "$SET_ID" ]; then
+            src=$(mktemp -d)/plugin; cp -r "$DIR" "$src"
+            sed -i -E "0,/^id = \"[^\"]*\"/s//id = \"$SET_ID\"/" "$src/plugin.toml"
+          fi
+          python3 -I .hubtools/tools/wolpack/wolpack.py wolplug --dir "$src" --version "$V" --id "$ID" --out dist > .file
+      - name: Check it as the hub will (hubcheck)
+        env:
+          REV: ${{ inputs.hubcheck_rev }}
+          KIND: ${{ inputs.kind }}
+          ID: ${{ inputs.id }}
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          git clone -q https://github.com/wonderlandos/hub .hubcheck && git -C .hubcheck checkout -q "$REV"
+          (cd .hubcheck/wasm && cargo build -q --release --locked --bin hubcheck)
+          f=$(cat .file)
+          .hubcheck/wasm/target/release/hubcheck check "$KIND" "$f" | tee .report
+          python3 -I .hubtools/tools/wolpack/wolpack.py verdict --report .report --id "$ID" --version "$V"
+          sha256sum "$f"
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          PRE: ${{ steps.v.outputs.prerelease }}
+        run: |
+          f=$(cat .file)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # Never replace a file the hub may have checked: a changed file behind a tag is blocked there.
+            if gh release view "$TAG" --json assets -q '.assets[].name' | grep -qxF "$(basename "$f")"; then
+              echo "::error::$TAG already has $(basename "$f"); publish a new version with a new tag"; exit 1
+            fi
+            gh release upload "$TAG" "$f"
+          else
+            flags=(--verify-tag --title "$TAG" --notes "Built from ${GITHUB_SHA::12} by wol-release.")
+            [ "$PRE" = true ] && flags+=(--prerelease)
+            gh release create "$TAG" "$f" "${flags[@]}"
+          fi
