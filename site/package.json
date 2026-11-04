@@ -14,9 +14,10 @@
     "build": "node scripts/build.mjs",
     "build:review": "node scripts/build.mjs --fixture",
     "dev": "node scripts/dev.mjs",
-    "check": "node scripts/sync-tokens.mjs --check && node scripts/build.mjs --fixture && node scripts/check-links.mjs && node scripts/check-theme.mjs && node scripts/check-doctrine.mjs && node scripts/check-publish.mjs && node scripts/check-legal.mjs && node scripts/check-images.mjs && node scripts/check-size.mjs && node scripts/check-fixture.mjs && node scripts/check-headers.mjs && node --test tests/*.test.mjs",
+    "check": "node scripts/sync-tokens.mjs --check && node scripts/build.mjs --fixture && node scripts/check-links.mjs && node scripts/check-theme.mjs && node scripts/check-doctrine.mjs && node scripts/check-publish.mjs && node scripts/check-legal.mjs && node scripts/check-images.mjs && node scripts/check-size.mjs && node scripts/check-fixture.mjs && node scripts/check-headers.mjs && node scripts/layout-doctor.mjs --if-browser --no-shots && node --test tests/*.test.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "node tests/dashboard-switch.mjs && node tests/publish-journey.mjs && node tests/dashboard-sync.mjs && node tests/repo-picker.mjs && node tests/layout-sweep.mjs",
-    "proof": "node scripts/proof.mjs"
+    "test:browser": "node tests/dashboard-switch.mjs && node tests/publish-journey.mjs && node tests/dashboard-sync.mjs && node tests/repo-picker.mjs && node tests/org-agreements.mjs && node tests/layout-sweep.mjs && node scripts/layout-doctor.mjs",
+    "proof": "node scripts/proof.mjs",
+    "doctor": "node scripts/layout-doctor.mjs"
   }
 }

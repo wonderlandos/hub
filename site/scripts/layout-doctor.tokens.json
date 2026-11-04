@@ -1,0 +1,54 @@
+{
+  "about": "The numbers and the selectors scripts/layout-doctor.mjs checks a build against: the Kit's fen (8 px grid), the card, row and cell padding, the button group, radii, elevations and the type table. Point the doctor at another build with --dist and at another file like this with --tokens. Lengths are CSS px. A 'token' entry is a custom property the doctor reads from the page itself, so a fluid step is measured at each width.",
+  "widths": [390, 768, 1440],
+  "themes": ["light", "dark"],
+  "scenario": "hub",
+  "grid": 8,
+  "inlineGrid": 4,
+  "tolerance": 0.5,
+  "textInset": 8,
+  "padding": {
+    "card": [16, 16, 16, 16],
+    "listCard": [0, 0, 0, 0],
+    "row": [12, 16, 12, 16],
+    "cell": [8, 12, 8, 12]
+  },
+  "buttonGap": 8,
+  "groupMinWidth": 480,
+  "rowHeightSpread": 4,
+  "radii": [0, 8, 12, 16, 24, 9999],
+  "radiusTokens": ["--wol-radius-icon"],
+  "elevations": ["--wol-elev-1", "--wol-elev-2", "--wol-elev-3"],
+  "type": {
+    "steps": [
+      { "size": "--text-xs", "line": "--text-xs--line-height" },
+      { "size": "--text-sm", "line": "--text-sm--line-height" },
+      { "size": "--text-base", "line": "--text-base--line-height" },
+      { "size": "--text-lg", "line": "--text-lg--line-height" },
+      { "size": "--text-xl", "line": "fen", "ratio": [1.1, 1.5] },
+      { "size": "--text-2xl", "line": "fen", "ratio": [1.05, 1.5] },
+      { "size": "--text-3xl", "line": "fen", "ratio": [1.0, 1.5] }
+    ],
+    "lineGrid": 4,
+    "bodyMax": "--text-base"
+  },
+  "measure": { "atWidth": 1440, "maxChars": 80, "sample": "the quick brown fox jumps over the lazy dog and keeps on running, The Hub 0123" },
+  "select": {
+    "scope": "body",
+    "card": ".card",
+    "listCard": ".dash-rows, .hist, .adm-audit, .picker, .vlist",
+    "row": ".vrow, .dash-rows > li, .hist > li, .adm-audit > li",
+    "cell": ".hub-table td, .hub-table th",
+    "list": ".dash-rows, .hist, .adm-audit, .vlist-pad, .hub-table tbody",
+    "section": "section, .block, .step, .pstep",
+    "button": ".btn",
+    "primary": ".btn-solid",
+    "quiet": ".btn-quiet",
+    "pill": ".pill, .btn-quiet",
+    "control": "button, input, select, textarea, .btn, .badge, .chip, .tag, .copy, .seg, .seg button, .pick label, kbd, .find-lg",
+    "textBlock": "p, li, dd, .lead, td, th",
+    "heading": "h1, h2, h3, h4, h5, h6",
+    "paragraph": "p, .lead",
+    "ignore": ".sr, .skel, .vskel, dialog:not([open]), script, style, template, svg *"
+  }
+}
