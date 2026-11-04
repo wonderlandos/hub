@@ -1,16 +1,16 @@
 ---
 title: Privacy Policy
-version: 1
+version: 2
 effective: 2026-11-04
 ---
 
 # Privacy Policy
 
-Version 1, effective 2026-11-04.
+Version 2, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > We keep what GitHub tells us when you sign in, what you accept, what you publish and report, and a log of who did what. That is it.
-> We keep no IP address, except for two days inside a counter that stops floods.
+> We keep no IP address. To notice a stolen sign-in we keep a one-way code of your network for 90 days, never the address.
 > One cookie keeps you signed in (and a short one lives for minutes during sign-in). No analytics, no ads, no tracking pixels, no selling, no sharing for ads. Ever.
 > Two companies run the machines for us: Cloudflare and GitHub.
 > You can see, fix, take away or delete your data. Write to julia@wolos.org; we answer within 15 days.
@@ -57,11 +57,11 @@ We keep exactly these categories. Nothing else.
 
 3.6. **Certificate requests and Certificates**: your request (subject, level, public key, the rules checked at the time and their values, such as account age and two-factor status), the decision, and the public Certificate.
 
-3.7. **Audit log**: a record of each action that changes something on the hub: who did it (GitHub id or system), what, on what, when, the GitHub login at that time, and, for actions in the admin panel, an address class: whether the connection was IPv4 or IPv6 and the country it came from. **We do not store your IP address in the audit log.**
+3.7. **Audit log and sign-in record**: a record of each action that changes something on the hub: who did it (GitHub id or system), what, on what, when, and the GitHub login at that time; for actions in the admin panel, also whether the connection was IPv4 or IPv6 and the country it came from. For each sign-in, and for each session while it lasts, we also keep a one-way code of your network (the first part of your IP address, which everyone on your home or mobile network shares), a one-way code of the Cloudflare location that answered you, your browser family in words (for example "Firefox on Linux"), and the times you signed in, signed out and last used the hub. We keep them for one reason: to notice a stolen sign-in. If your sign-in is suddenly used from another network with another browser, we mark it, your list of sessions shows it, and the admin panel asks for a new sign-in. Sign-in entries are deleted automatically after 90 days; entries about decisions in the admin panel stay (section 5). Only the hub's owners and admins see the audit log and the sign-in record; you see your own sessions, named only as "same network as now" or "another network". **It is a one-way code made with a secret key that only the hub's server holds: it cannot be turned back into your address, except by someone holding the hub's own secret key, and it only shows whether two sign-ins came from the same network. We do not store your IP address in the audit log or the sign-in record.**
 
 3.8. **Webhook delivery ids**: the ids GitHub gives to the messages it sends us about repositories, so we do not handle the same message twice.
 
-3.9. **Rate counters**: counts of requests per minute or per day, per account or per network address, used to stop floods and abuse. A counter's key contains the network address only for the per-address limits. **This is the only place where the hub's database stores an IP address, and only for at most 2 days.** The machines that run the hub (section 6.3) keep their own request logs, which we do not control.
+3.9. **Rate counters**: counts of requests per minute or per day, per account or per network address, used to stop floods and abuse. For the per-address limits, a counter's key contains a one-way code of your network address, made the same way as in 3.7, never the address itself. **The hub's database stores no IP address.** The machines that run the hub (section 6.3) keep their own request logs, which we do not control.
 
 3.10. **Session cookie**: one cookie in your browser, described in section 12 and in the [Cookie Notice](/terms/cookies). It holds your GitHub id and login and your GitHub sign-in token, sealed with encryption so only the hub can read it. The hub keeps no copy of the token.
 
@@ -94,7 +94,7 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 - **Listings and releases (3.4)**: while the listing exists. What entered the signed index and the public log stays there, because people use it to check what they installed.
 - **Reports (3.5)**. How long: 2 years after the decision, then deleted automatically. A report nobody has decided yet stays until it is.
 - **Certificate requests (3.6)**. How long: 5 years after the decision, then deleted automatically; where the request became a public Certificate, what you wrote in it is emptied and the Certificate itself stays. Public Certificates and revocations stay in the public record for as long as it exists.
-- **Audit log (3.7)**: as long as the hub runs. When your account is deleted, we remove the login from your entries, so they keep only your numeric GitHub id.
+- **Audit log and sign-in record (3.7)**: sign-in entries (signing in and out, and what happened to a session) 90 days, then deleted automatically; a session itself ends after 7 days without use, or 30 days after you signed in. Entries about actions that change something stay as long as the hub runs. When your account is deleted, we remove the login from your entries, so they keep only your numeric GitHub id.
 - **Webhook delivery ids (3.8)**. How long: 30 days, deleted automatically.
 - **Rate counters (3.9)**. How long: 2 days, deleted automatically.
 - **Session cookie (3.10)**. How long: 7 days at most, or until you sign out.
@@ -176,7 +176,7 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 
 ## 11. California and other US states
 
-11.1. **Notice at collection.** The categories of personal information we collect are: identifiers (GitHub id, login, display name, avatar address; the network address, for 2 days, in rate counters), account records (acceptances, listings, releases, reports, Certificate requests), internet activity on the hub (the audit log), and approximate location at country level for admin panel actions. We collect them from you and from GitHub, for the purposes in section 4, and keep them as in section 5.
+11.1. **Notice at collection.** The categories of personal information we collect are: identifiers (GitHub id, login, display name, avatar address; one-way codes of the network address, for 2 days in rate counters and 90 days in the sign-in record), account records (acceptances, listings, releases, reports, Certificate requests), internet activity on the hub (the audit log), and approximate location at country level for admin panel actions. We collect them from you and from GitHub, for the purposes in section 4, and keep them as in section 5.
 
 11.2. **Sensitive personal information.** We collect none, and we never use any personal information to infer characteristics about you.
 
@@ -218,7 +218,7 @@ Júlia Klee is the data protection officer and the encarregado. Write to julia@w
 
 - Connections to the hub are always encrypted.
 - Your GitHub sign-in token travels only inside your cookie, encrypted so only the hub can read it, and the cookie is signed so nobody can change it.
-- We store no passwords, no signing keys and, apart from rate counters, no IP addresses in the hub's database.
+- We store no passwords, no signing keys and no IP addresses in the hub's database (only one-way codes, sections 3.7 and 3.9).
 - The admin panel's data is closed: it answers like a missing page to anyone without a role. (The empty shell of its page and its program file are public, and show nothing.) Roles have only the rights they need. Every action is in the audit log. Revoking a Certificate for abuse needs two people.
 - The signing keys of the hub's index and of the Certificate authority are not on the hub's web servers.
 - We keep the data in section 3 and nothing more, and delete it on time (section 5).
