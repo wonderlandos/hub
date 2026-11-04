@@ -1,0 +1,12 @@
+{
+  "name": "wolos-hub",
+  "private": true,
+  "type": "module",
+  "license": "GPL-2.0-or-later",
+  "workspaces": ["worker"],
+  "scripts": {
+    "test": "bun test --cwd worker",
+    "site": "npm --prefix site run check",
+    "build:site": "cd site && node scripts/build.mjs"
+  }
+}

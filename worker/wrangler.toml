@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# The hub Worker: sign-in, CLA, listings, release webhooks, reports, pipeline API.
+# Free plan only: no paid bindings. Secrets are set by the lead (see README.md).
+name = "wolos-hub"
+main = "src/index.ts"
+compatibility_date = "2026-11-03"
+workers_dev = false
+routes = [
+  { pattern = "hub.wolos.org/auth/*", zone_name = "wolos.org" },
+  { pattern = "hub.wolos.org/api/*", zone_name = "wolos.org" },
+]
+
+[vars]
+HUB_ORIGIN = "https://hub.wolos.org"
+OIDC_AUDIENCE = "hub.wolos.org"
+PIPELINE_REPOSITORY = "wonderlandos/hub-index"
+PIPELINE_CHECK_WORKFLOW = "wonderlandos/hub-index/.github/workflows/check.yml@refs/heads/main"
+PIPELINE_CHECK_ENVIRONMENT = "check"
+PIPELINE_SIGN_WORKFLOW = "wonderlandos/hub-index/.github/workflows/sign.yml@refs/heads/main"
+PIPELINE_SIGN_ENVIRONMENT = "sign"
+RATE_STORE = "d1"
+CLA_VERSION = "0-placeholder"
+
+# Created by the lead with `wrangler d1 create wolos-hub`; the id below is a placeholder.
+[[d1_databases]]
+binding = "DB"
+database_name = "wolos-hub"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Read-mostly cache only (GitHub's token signing keys). Created with `wrangler kv namespace create hub-cache`.
+[[kv_namespaces]]
+binding = "KV"
+id = "00000000000000000000000000000000"
+
+# Daily purge of old rate counters and webhook delivery ids.
+[triggers]
+crons = ["17 3 * * *"]

@@ -1,0 +1,23 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`the frozen route table (I4) 1`] = `
+[
+  "GET ^\\/auth\\/login$",
+  "GET ^\\/auth\\/callback$",
+  "POST ^\\/auth\\/logout$",
+  "GET ^\\/api\\/me$",
+  "GET ^\\/api\\/cla$",
+  "POST ^\\/api\\/cla$",
+  "GET ^\\/api\\/orgs$",
+  "POST ^\\/api\\/orgs$",
+  "POST ^\\/api\\/listings$",
+  "GET ^\\/api\\/listings\\/([^/]{1,128})$",
+  "POST ^\\/api\\/webhook\\/github$",
+  "POST ^\\/api\\/reports$",
+  "GET ^\\/api\\/reports\\/([^/]{1,20})$",
+  "GET ^\\/api\\/index\\/preview$",
+  "GET ^\\/api\\/pipeline\\/pending$",
+  "POST ^\\/api\\/pipeline\\/verdicts$",
+  "GET ^\\/api\\/pipeline\\/export$",
+]
+`;
