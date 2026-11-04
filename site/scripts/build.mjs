@@ -44,7 +44,7 @@ const put = (path, text) => {
 const css = readFileSync(at("src/tokens.css"), "utf8") + "\n" + readFileSync(at("src/hub.css"), "utf8");
 const hashed = (name, ext, text) => { const n = `/assets/${name}.${createHash("sha256").update(text).digest("hex").slice(0, 10)}.${ext}`; put(n, text); return n; };
 const js = (name) => hashed(name, "js", readFileSync(at(`src/${name}.js`), "utf8"));
-const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account"), publish: js("publish"), dashboard: js("dashboard"), status: js("status"), certcmd: js("certcmd"), debug: js("debug") };
+const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account"), publish: js("publish"), dashboard: js("dashboard"), kit: js("kit"), status: js("status"), certcmd: js("certcmd"), debug: js("debug") };
 const ADMIN = js("admin");
 const ADMIN_MORE = js("admin-more"); // the panel's Audit, People, Listings and Health tabs, loaded when one opens
 
@@ -108,7 +108,7 @@ put("/_headers", `${fixture ? "/*\n  X-Robots-Tag: noindex, nofollow\n" : ""}/as
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://avatars.githubusercontent.com; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; script-src-elem 'self' https://static.cloudflareinsights.com; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://avatars.githubusercontent.com; connect-src 'self' https://cloudflareinsights.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'
 /admin
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store

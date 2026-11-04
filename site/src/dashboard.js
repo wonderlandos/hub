@@ -8,8 +8,6 @@
   if (!root) return;
   var state = function (r, name) { $$("[data-state]", r).forEach(function (n) { if (n.parentNode === r || n.closest("[data-tier],[data-ask],.terms") === r) n.hidden = n.dataset.state !== name; }); };
   var same = function (a, b) { return String(a).toLowerCase() === String(b).toLowerCase(); };
-  var texts = {};
-  var text = function (d) { return texts[d] || (texts[d] = call("GET", "/api/terms/" + d)); };
   var seq = 0, accts = [], links = [], me = null, cache = {};
 
   /* ---- Certificates: origin and trusted, for a person or an organisation (from the overview) ---- */
@@ -17,7 +15,7 @@
     var c = H.tpl("t-certs"); if (!box || !c) return;
     var cmd = window.HubCert.command(acct, me);
     slot(c, "cmd", cmd); $("[data-copy-slot=cmd]", c).dataset.copy = cmd;
-    var t = $(".terms", c); text("trust").then(function (x) { t.terms = x; slot(t, "text", x.text); }, function (e) { fail(t.closest("form"), e, "cert"); });
+    var t = $(".terms", c); H.agreement($(".agreement-text", t), "trust").then(function (x) { t.terms = x; }, function (e) { fail(t.closest("form"), e, "cert"); });
     var got = {};
     ["origin", "trusted"].forEach(function (tier) {
       var card = $('[data-tier="' + tier + '"]', c), s = o.certs.states[tier];
@@ -64,6 +62,8 @@
       });
       rows.hidden = !a.accepted.length;
       slot(c, "link").href = a.url;
+      var read = $(".agr-read", c);
+      read.addEventListener("toggle", function () { if (read.open && !read.dataset.got) { read.dataset.got = "1"; H.agreement($(".agreement-text", read), a.doc).then(null, function () { delete read.dataset.got; }); } });
       return c;
     });
     box.textContent = ""; nodes.forEach(function (n) { box.appendChild(n); });
@@ -128,6 +128,14 @@
     agreements(o);
     certs($("#certs"), acct, o, function () { return false; });
     sessions(o.sessions || []);
+    adminDoor(o.me);
+  }
+  /* The way to the admin panel, only when the overview says this person has a panel role. */
+  function adminDoor(m) {
+    var d = $("#d-admin"); if (!d) return;
+    d.hidden = !(m && m.admin && m.admin_role);
+    if (!d.hidden) slot(d, "role", m.admin_role);
+    $$("[data-admin-tab]", d).forEach(function (a) { if (d.hidden) a.removeAttribute("href"); else a.href = H.adminHref(a.dataset.adminTab); });
   }
   /* ---- Where you are signed in: each session of the person, from the overview; End signs that browser out at once ---- */
   function sessions(list) {
@@ -185,9 +193,13 @@
       return l;
     });
     load(pick());
-    window.addEventListener("popstate", function () { load(pick()); });
+    if (!popped) { popped = true; window.addEventListener("popstate", function () { if (accts.length) load(pick()); }); }
     /* While the person looks at one account, the others are fetched quietly, so switching shows its data at once. */
     setTimeout(function () { accts.forEach(function (a) { if (a.org && a !== pick()) H.overview(a.login, false, true).then(null, function () {}); }); }, 1500);
   }
-  H.me().then(dashboard, function (e) { show(document, "out", true); root.removeAttribute("data-pending"); });
+  var popped = false;
+  var signedOut = function () { me = null; accts = []; show(document, "in", false); show(document, "out", true); root.removeAttribute("data-pending"); };
+  H.me().then(dashboard, signedOut);
+  /* Signed in or out in another tab: the page follows without a reload (the header already did, hub.js). */
+  document.addEventListener("hub:who", function () { cache = {}; seq++; H.me(true).then(dashboard, signedOut); });
 })();

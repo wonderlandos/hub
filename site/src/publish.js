@@ -7,7 +7,7 @@
   var root = $("[data-overview=publish]");
   if (!root) return;
   var rail = $$(".rail-item"), steps = $$(".pstep");
-  var st = { me: null, ov: null, repos: null, picked: null, more: false, texts: {}, doc: "cla", conn: null, loadingRepos: false };
+  var st = { me: null, ov: null, repos: null, reposBy: {}, reposErr: null, as: H.asOf(), q: "", picked: null, more: false, doc: "cla", conn: null, loadingRepos: false, pending: null };
 
   function mark(n, state, sub) {
     steps[n - 1].dataset.state = state; rail[n - 1].dataset.state = state;
@@ -20,13 +20,12 @@
   /* ---- Step 2: the two agreements, one screen ---- */
   var DOC = { cla: "Contributor Agreement", publisher: "Publisher Agreement" };
   var need = function (m) { return ["cla", "publisher"].filter(function (d) { var s = d === "cla" ? m.cla : m.terms.publisher; return !(s && s.ok); }); };
-  var text = function (d) { return st.texts[d] || (st.texts[d] = call("GET", "/api/terms/" + d)); };
+  var text = H.terms;
   function showDoc(d) {
     st.doc = d;
     $$("#agree-tabs button").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.doc === d)); });
     $("#agree-link").href = "/terms/" + d;
-    var box = $("#agree-text"); box.textContent = ""; box.appendChild(el("span", { class: "skel skel-line" }));
-    text(d).then(function (t) { if (st.doc === d) box.textContent = t.text; }, function (e) { box.textContent = e.message; });
+    H.agreement($("#agree-text"), d).then(null, function () {});
   }
   function terms(m) {
     var todo = need(m);
@@ -48,47 +47,67 @@
       .then(function () { return H.overview("", true); }).then(function (o) { btn.disabled = false; paint(o); }, function (x) { fail(f, x); btn.disabled = false; });
   });
 
-  /* ---- Steps 3 and 4: the repositories the hub is installed on ---- */
+  /* ---- Steps 3 and 4: the person's (or ?as= organisation's) repositories with their state, in the long list (kit.js repoRow) ---- */
+  var PENDING = "hub-connect";
+  var asNow = function () { return st.as || ""; };
+  var reposUrl = function (as) { return "/api/repos" + (as ? "?as=" + encodeURIComponent(as) : ""); };
+  var rank = function (x) { return x.connected ? 0 : x.app !== false ? 1 : 2; };
   function loadRepos(fresh) {
-    if (st.loadingRepos && !fresh) return;
-    st.loadingRepos = true; wait(3, true);
-    return call("GET", "/api/repos", undefined, fresh ? "reload" : null).then(function (r) { st.repos = r; H.save("repos", r); }, function (e) { st.repos = null; if (e.status !== 401) fail(steps[2], e, "inst"); })
-      .then(function () { st.loadingRepos = false; wait(3, false); if (st.ov) paint(st.ov); });
+    var as = asNow();
+    if (st.loadingRepos === as && !fresh) return;
+    st.loadingRepos = as; wait(3, true);
+    if (!st.reposBy[as]) pickerState("loading");
+    return call("GET", reposUrl(as), undefined, fresh ? "reload" : null).then(function (r) {
+      r.repos = r.repos.slice().sort(function (a, b) { return rank(a) - rank(b) || (b.pushed_at || 0) - (a.pushed_at || 0); });
+      st.reposBy[as] = r; if (as === asNow()) st.repos = r; if (!as) H.save("repos", r); st.reposErr = null;
+    }, function (e) { if (e.status === 401) return; st.reposErr = e; if (!st.reposBy[as]) st.repos = null; fail(steps[2], e, "inst"); })
+      .then(function () { if (st.loadingRepos === as) st.loadingRepos = false; wait(3, false); if (st.ov) paint(st.ov); });
   }
-  function repoList() {
-    var ul = $("#repo-list"); ul.textContent = "";
-    var usable = (st.repos ? st.repos.repos : []);
-    usable.forEach(function (r) {
-      var li;
-      if (r.note) {
-        li = H.tpl("t-repo-org"); slot(li, "name", r.full_name);
-        var b = $("button", li), n = r.note;
-        slot(li, "note", n === "connected" ? msg("conn-as") + " " + r.connected : n === "private" ? msg("private") : n === "org-not-linked" ? (r.owner_role === "owner" ? msg("link-why") : msg("link-owner")) : msg("not-yours"));
-        if (n === "org-not-linked" && r.owner_role === "owner") {
-          b.textContent += " " + r.owner.login;
-          b.onclick = function () {
-            b.disabled = true;
-            text("cla").then(function (c) { return call("POST", "/api/orgs", { org: r.owner.login, version: c.version, sha256: c.sha256 }); })
-              .then(function () { return Promise.all([H.overview("", true), loadRepos(true)]); }, function (e) { fail(steps[3], e, "connect"); b.disabled = false; });
-          };
-        } else b.remove();
-      } else {
-        li = H.tpl("t-repo"); var inp = $("input", li);
-        slot(li, "name", r.full_name); slot(li, "desc", r.description || "");
-        var bd = $("[data-slot=badge]", li); bd.textContent = msg("public"); bd.className = "badge badge-trusted";
-        inp.value = r.full_name;
-        inp.addEventListener("change", function () { pick(r); });
-        if (st.picked && st.picked.id === r.id) inp.checked = true;
-        $("[data-slot=note]", li).remove();
-      }
-      ul.appendChild(li);
-    });
-    if (!st.picked || !usable.some(function (r) { return r.id === st.picked.id && !r.note; })) {
-      var first = usable.filter(function (r) { return !r.note; })[0];
-      if (first) { pick(first); var i = $("input", ul.children[usable.indexOf(first)]); if (i) i.checked = true; } else st.picked = null;
+  /* loading (skeleton), list, empty (a sentence), error (a sentence and Try again). */
+  function pickerState(s) {
+    $("#repo-skel").hidden = s !== "loading";
+    $("#repo-list").hidden = s !== "list";
+    $("#repo-empty").hidden = s !== "empty";
+    $("#repo-error").hidden = s !== "error";
+  }
+  var vl = null;
+  var api = { st: function () { return st; }, pick: pick, connect: function (b) { connect(b); }, asNow: function () { return asNow(); }, pickerState: function (x) { pickerState(x); },
+    forgetPending: function () { forgetPending(); }, loadRepos: function (f) { return loadRepos(f); }, list: function () { repoList(); }, vl: function () { return vl; }, installHref: function (r) { return installHref(r); }, remember: function (r) { remember(r); }, redraw: function () { if (vl) vl.redraw(); },
+    linkOrg: function (r, b) {
+      b.disabled = true;
+      text("cla").then(function (c) { return call("POST", "/api/orgs", { org: r.owner.login, version: c.version, sha256: c.sha256 }); })
+        .then(function () { return Promise.all([H.overview("", true), loadRepos(true)]); }, function (e) { fail(steps[3], e, "connect"); b.disabled = false; });
+    } };
+  /* GitHub's address that installs WolOS Hub on exactly this repository; `state` names the step and the repository. */
+  function installHref(r) { return r.install + "&state=" + encodeURIComponent("connect." + r.id + "." + kindNow()); }
+  function remember(r) { try { localStorage.setItem(PENDING, JSON.stringify({ id: r.id, as: asNow(), kind: kindNow(), at: Date.now() })); } catch (x) {} }
+  /* Back from GitHub: ?state=connect.<id>.<kind> (GitHub's setup step), or what this browser remembered (30 minutes). */
+  function pendingConnect() {
+    var p = new URLSearchParams(location.search), m = /^connect\.(\d+)\.(app|plugin|extension)$/.exec(p.get("state") || ""), kept = null;
+    try { kept = JSON.parse(localStorage.getItem(PENDING) || "null"); } catch (x) {}
+    if (m) return { id: +m[1], kind: m[2], as: p.get("as") || (kept && kept.id === +m[1] ? kept.as : "") };
+    return kept && Date.now() - kept.at < 18e5 ? kept : null;
+  }
+  function forgetPending() {
+    try { localStorage.removeItem(PENDING); } catch (x) {}
+    var p = new URLSearchParams(location.search);
+    if (p.has("state") || p.has("installation_id") || p.has("setup_action")) {
+      ["state", "installation_id", "setup_action", "code"].forEach(function (k) { p.delete(k); });
+      history.replaceState(null, "", location.pathname + (p.toString() ? "?" + p : "") + location.hash);
     }
-    $("#connect-go").disabled = !st.picked;
   }
+  /* The list and the account tabs are the kit's picker (kit.js picker()); until the kit is here the skeleton stays. */
+  var P = null;
+  function repoList() {
+    if (P) return P.list();
+    if (!st.repos && !st.reposErr) return pickerState("loading");
+    pickerState("loading");
+    H.kit().then(function (k) { if (!P) { vl = k.vlist($("#repo-list"), function (r, li) { k.repoRow(r, li, api); }); P = k.picker(api); P.tabs(); } repoList(); },
+      function (e) { st.reposErr = e; st.repos = null; pickerState("error"); fail($("#repo-error"), e, "repos"); });
+  }
+  function tabs() { if (P) P.tabs(); }
+  $("#repo-q").addEventListener("input", function () { st.q = this.value.trim().toLowerCase(); repoList(); });
+  $("[data-act=repos-again]").addEventListener("click", function () { loadRepos(true); });
   var kindNow = function () { return $("input[name=kind]:checked").value; };
   var SUFFIX = { app: ".wol", plugin: ".wolplug", extension: ".wolext" };
   function fillFields() {
@@ -102,14 +121,16 @@
   function about() {
     var F = $("#listing-form").elements;
     slot($("#listed-as"), "id", F.id.value || "?"); slot($("#listed-as"), "asset", F.asset.value || "?");
-    $("#connect-go").textContent = st.picked ? msg("connect") + " " + st.picked.full_name : msg("connect");
+    $("#connect-go").textContent = st.picked ? (st.picked.app === false ? msg("r-install") : msg("connect")) + " " + st.picked.full_name : msg("connect");
   }
   function pick(r) { st.picked = r; $("[data-err=connect]").textContent = ""; fillFields(); $("#connect-go").disabled = false; }
   $("#kind-pick").addEventListener("change", fillFields);
   $("#listing-form").addEventListener("input", about);
-  $("#connect-go").addEventListener("click", function () {
-    var p = st.picked, F = $("#listing-form").elements, btn = this, k = kindNow();
+  /* Connect the picked repository with what the form says (filled in from GitHub); not installed yet: to GitHub first. */
+  function connect(btn) {
+    var p = st.picked, F = $("#listing-form").elements, k = kindNow();
     if (!p) return;
+    if (p.app === false && p.install) { remember(p); location.href = installHref(p); return; }
     var body = { repo: p.full_name, kind: k, id: F.id.value.trim(), name: F.name.value.trim(), summary: F.summary.value.trim(), license: F.license.value.trim(), asset: F.asset.value.trim() };
     if (p.owner.type === "Organization") body.owner = p.owner.login;
     if (k === "extension") body.host = F.host.value.trim();
@@ -119,9 +140,10 @@
       return Promise.all([H.overview("", true), loadRepos(true)]);
     }).then(function (r) { btn.disabled = false; paint(r[0]); steps[4].scrollIntoView({ block: "start", behavior: "smooth" }); },
       function (e) { btn.disabled = false; fail(steps[3], e, "connect"); if (/^bad-(license|id|asset|host)$/.test(e.code)) $(".det", steps[3]).open = true; });
-  });
+  }
+  $("#connect-go").addEventListener("click", function () { connect(this); });
   $$("[data-act=inst-check]").forEach(function (b) { b.addEventListener("click", function () { loadRepos(true); }); });
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && st.me && st.repos && (!st.repos.installed || !st.repos.repos.some(function (r) { return !r.private; }))) loadRepos(true); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && st.me && st.repos && (st.pending || !st.repos.installed || !st.repos.repos.some(function (r) { return !r.private && r.app !== false; }))) loadRepos(true); });
   $("[data-act=more]").addEventListener("click", function (e) { e.preventDefault(); st.more = true; paint(st.ov); steps[3].scrollIntoView({ block: "start", behavior: "smooth" }); });
 
   /* ---- Step 5: the tag ---- */
@@ -156,28 +178,40 @@
     var ok = terms(m);
     mark(2, ok ? "done" : "current", ok ? msg("accepted") : msg("read-two"));
     if (!ok) { [3, 4, 5].forEach(function (n) { mark(n, "todo"); }); watch(false); return; }
-    var r = st.repos, pub = r ? r.repos.filter(function (x) { return !x.private; }) : [];
-    if (!r) { mark(3, "current"); return; }
-    $("[data-inst=none]").hidden = r.installed; $("[data-inst=private]").hidden = !r.installed || pub.length > 0;
-    var usable = r.installed && pub.length > 0;
-    mark(3, usable ? "done" : "current", usable ? inst(pub.length) : msg("so-hub-sees"));
-    slot(steps[2], "inst-sum", inst(pub.length) + ".");
-    if (!usable) { mark(4, "todo"); mark(5, "todo"); watch(false); return; }
+    tabs();
+    var r = st.repos, pub = r ? r.repos.filter(function (x) { return !x.private; }) : [], onApp = pub.filter(function (x) { return x.app !== false; });
+    /* Not here yet: step 3 waits and step 4 shows the list's skeleton (or, when GitHub did not answer, the sentence). */
+    if (!r) { mark(3, "current"); mark(4, "current"); mark(5, "todo"); repoList(); return; }
+    /* Step 3 is done as soon as there is a public repository to pick: installing is one button on its row in step 4. */
+    $("[data-inst=none]").hidden = r.installed && onApp.length > 0; $("[data-inst=private]").hidden = !r.installed || pub.length > 0; $("[data-inst=empty]").hidden = pub.length > 0;
+    var usable = pub.length > 0;
+    mark(3, usable ? "done" : "current", onApp.length ? inst(onApp.length) : usable ? msg("r-pick-sub") : msg("so-hub-sees"));
+    slot(steps[2], "inst-sum", onApp.length ? inst(onApp.length) + "." : msg("r-pick-sub") + ".");
+    if (!usable && !asNow()) { mark(4, "todo"); mark(5, "todo"); watch(false); return; }
     var has = o.listings.length > 0;
     mark(4, has && !st.more ? "done" : "current", has ? msg("connected") : msg("pick-one"));
     mark(5, has ? "current" : "todo");
+    if (st.pending) { st.more = true; mark(4, "current"); }
     if (!has || st.more) repoList();
     if (has) { tagStep(o); watch(true); } else watch(false);
   }
 
+  st.pending = pendingConnect();
+  if (st.pending && st.pending.as) st.as = st.pending.as;
   /* The last answer first (marked as old by drawing nothing new until the fresh one arrives), then the fresh one. */
   var s = H.snap(""), hint = document.documentElement.dataset.who;
   if (hint) {
     /* Signed in on the last page: the repositories are asked for now, beside the person's answer, not after it. */
-    st.repos = H.snap("repos"); loadRepos();
+    if (!asNow() && !st.pending) { st.repos = H.snap("repos"); if (st.repos) st.reposBy[""] = st.repos; }
+    loadRepos(!!st.pending);
     if (s) paint(s, true);
   }
+  /* Signed in or out in another tab: the steps follow without a reload. */
+  document.addEventListener("hub:who", function () {
+    st.repos = null; st.reposBy = {}; st.picked = null;
+    H.overview("", true).then(function (o) { paint(o); loadRepos(true); }, function (e) { if (e.status === 401) paint(null); });
+  });
   H.overview("").then(function (o) {
-    paint(o); if (o.me && need(o.me).length === 0 && !hint) loadRepos();
+    paint(o); if (o.me && need(o.me).length === 0 && !hint) loadRepos(!!st.pending);
   }, function (e) { if (e.status === 401) paint(null); else { root.removeAttribute("data-pending"); fail(steps[0], e); } });
 })();

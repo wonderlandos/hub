@@ -8,6 +8,10 @@ import { page, head } from "./render.mjs";
 const crumbs = `<nav class="crumbs" aria-label="You are here"><a href="/">Hub</a></nav>`;
 const copyCode = (text, slot = "") => `<div class="code"><pre><code${slot ? ` data-slot="${slot}"` : ""}>${esc(text)}</code></pre><button type="button" class="copy" data-copy="${esc(text)}"${slot ? ` data-copy-slot="${slot}"` : ""}>Copy</button></div>`;
 
+/* The agreement component's text region: hub.js agreement() draws the text of /api/terms/<doc> into it with its headings,
+   the "In short" box and the numbered sections (never as raw text). One markup for every page that shows an agreement. */
+const agreementText = (label, id = "") => `<div class="card cla agreement-text w100"${id ? ` id="${id}"` : ""} tabindex="0" role="region" aria-label="${esc(label)}"></div>`;
+
 /* The certificate card: origin (automatic) and trusted (applied for), and how to ask. */
 export const CERT_TEMPLATE = `<template id="t-certs"><div class="certs">
 <section class="card cert" data-tier="origin"><h3 class="h-md">Origin certificate</h3>
@@ -34,7 +38,7 @@ ${copyCode("wol cert request", "cmd")}
 <label class="check"><input type="radio" name="tier" value="trusted"> Trusted developer certificate, verified by hand</label></fieldset>
 <div class="field"><label>What the command printed<textarea name="request" rows="6" spellcheck="false" autocomplete="off" required></textarea></label></div>
 <div class="terms" data-doc="trust" data-inline=""><h3 class="h-sm">Trust Terms</h3><p class="dim">They say what a certificate promises, what the hub may do with it, and when it is revoked. You accept them with every request.</p>
-<div class="card cla" tabindex="0" role="region" aria-label="Trust Terms" data-slot="text"></div>
+${agreementText("Trust Terms")}
 <label class="check"><input type="checkbox" name="trust_ok" required> I have read the Trust Terms and accept them.</label></div>
 <p class="err" role="alert" data-err="cert"></p><button class="btn btn-solid" type="submit" data-act="send-cert">Send the request</button></form>
 <p hidden data-msg="bad-request">Paste the whole request, from the first line to the last, as the command printed it.</p></section>
@@ -51,7 +55,7 @@ const rail = (n, title, sub) => `<li class="rail-item" data-step="${n}" data-sta
 export const publish = (assets) => page({
   title: "Publish your app - WolOS Hub", path: "/publish", assets, scripts: [assets.publish],
   desc: "Publish an app, plugin or extension on WolOS Hub: sign in with GitHub, accept the agreements, install the hub on your repository, connect it and push a tag.",
-  body: `<section class="wrap block" data-overview="publish" data-pending>${crumbs}<h1 class="h-xl">Publish your app</h1>
+  body: `<section class="wrap block" data-overview="publish" data-kit="${esc(assets.kit)}" data-pending>${crumbs}<h1 class="h-xl">Publish your app</h1>
 <p class="lead">Apps, plugins and extensions publish the same way. Your files stay on GitHub; the hub checks every version and lists it.</p>
 <div class="pub">
 <ol class="rail" aria-label="The steps" id="rail">${rail(1, "Sign in", "With your GitHub account")}${rail(2, "Agreements", "Two texts, accepted once")}${rail(3, "Install on GitHub", "So the hub sees your releases")}${rail(4, "Connect a repository", "Pick one, say what it is")}${rail(5, "Push a tag", "The hub does the rest")}</ol>
@@ -60,7 +64,7 @@ ${step(1, "s-signin", "Sign in", `<p class="dim">Sign in with your GitHub accoun
 <a class="btn btn-solid" href="/auth/login?next=%2Fpublish">Sign in with GitHub</a>`, `<p role="status">You are signed in as <strong data-me="login"></strong>.</p>`)}
 ${step(2, "s-terms", "Accept the agreements", `<p class="dim">Read both and accept them once. When one changes, you accept the new version before your next release.</p>
 <div class="seg" role="group" aria-label="Which agreement" id="agree-tabs"><button type="button" data-doc="cla" aria-pressed="true">Contributor Agreement</button><button type="button" data-doc="publisher" aria-pressed="false">Publisher Agreement</button></div>
-<div class="card cla w100" tabindex="0" role="region" aria-label="The agreement" id="agree-text"></div>
+${agreementText("The agreement", "agree-text")}
 <p class="dim small"><a href="/terms/cla" id="agree-link">Read it on its own page</a></p>
 <form id="agree-form" novalidate>
 <label class="check" data-doc="cla"><input type="checkbox" name="cla"> I have read the Contributor Agreement and accept it.</label>
@@ -71,14 +75,22 @@ ${step(2, "s-terms", "Accept the agreements", `<p class="dim">Read both and acce
 <p hidden data-msg="changed-publisher">The Publisher Agreement has a new version. Read it and accept it before your next release.</p>`,
   `<p role="status">Agreements accepted: version <span data-slot="versions"></span>. <a href="/dashboard#agreements">See them</a></p>`)}
 ${step(3, "s-install", "Install WolOS Hub on GitHub", `<p class="dim" data-inst="none">Install WolOS Hub on the repositories you publish from. The hub uses it to see your releases.</p>
+<p class="dim" data-inst="empty" hidden>You have no public repository on GitHub yet. People download your files from your releases, so the repository must be public. Make one public on GitHub, then come back.</p>
 <p class="dim" data-inst="private" hidden>WolOS Hub is installed, but only on private repositories. People download your files from your releases, so the repository must be public. Make one public on GitHub, then come back.</p>
 <p class="get-btns"><a class="btn btn-solid" id="inst-link" href="${INSTALL}" rel="noopener">Install on GitHub</a><button type="button" class="btn btn-quiet" data-act="inst-check">I have installed it</button></p>
 <p class="err" role="alert" data-err="inst"></p>`,
   `<p role="status"><span data-slot="inst-sum"></span> <a href="${INSTALL}" rel="noopener">Add more repositories</a></p>`)}
-${step(4, "s-connect", "Connect a repository", `<p class="dim">Pick the repository you publish from. The hub fills in the rest from GitHub; you can change it.</p>
-<ul class="repos" id="repo-list" role="radiogroup" aria-label="Your repositories"></ul>
-<template id="t-repo"><li><label class="repo"><input type="radio" name="repo"><span class="rname" data-slot="name"></span><span class="dim" data-slot="desc"></span><span class="badge" data-slot="badge"></span><span class="dim rnote" data-slot="note"></span></label></li></template>
-<template id="t-repo-org"><li class="repo" data-note=""><span class="rname" data-slot="name"></span><span class="dim rnote" data-slot="note"></span><button type="button" class="btn btn-quiet" data-act="link-org">Link</button></li></template>
+${step(4, "s-connect", "Connect a repository", `<p class="dim">Press Connect on the repository you publish from. The hub fills in the rest from GitHub; you can change it below first.
+Where WolOS Hub is not installed yet, Install and connect takes you to GitHub to confirm and brings you back here with it connected.</p>
+<nav class="seg seg-lg" aria-label="Whose repositories" id="repo-tabs" hidden></nav>
+<div class="picker card">
+<div class="picker-bar"><label class="sr" for="repo-q">Find a repository</label><input id="repo-q" type="search" placeholder="Find a repository" autocomplete="off" spellcheck="false"><span class="dim small" id="repo-count" aria-live="polite"></span></div>
+<div class="vskel" id="repo-skel" aria-hidden="true" hidden><span></span><span></span><span></span><span></span></div>
+<div id="repo-list" data-row="64" data-max="7" data-role="list" aria-label="Your repositories" tabindex="0"></div>
+<p class="picker-note dim" id="repo-empty" hidden></p>
+<div class="picker-note" id="repo-error" hidden><p class="err" data-err="repos"></p><button type="button" class="btn btn-quiet btn-sm" data-act="repos-again">Try again</button></div>
+</div>
+<p class="dim small">Or <a id="inst-alt" href="${INSTALL}" rel="noopener">choose the repositories on GitHub</a> and come back.</p>
 <fieldset class="pick" id="kind-pick"><legend>What is it</legend><label><input type="radio" name="kind" value="app" checked> App</label><label><input type="radio" name="kind" value="plugin"> Plugin</label><label><input type="radio" name="kind" value="extension"> Extension</label></fieldset>
 <p class="listed-as" id="listed-as"><strong>It will be listed as <span data-slot="id"></span></strong><br><span class="dim">Releases need a file named <code data-slot="asset"></code>. One star stands for the version.</span></p>
 <details class="det"><summary>Change the details</summary>
@@ -105,6 +117,11 @@ ${step(5, "s-tag", "Push a tag", `<p class="dim">Push a tag and publish a releas
 <p hidden data-msg="conn-as">Connected as</p><p hidden data-msg="private">Private. Make it public on GitHub to publish it.</p>
 <p hidden data-msg="link-why">Owned by an organisation you own on GitHub. Linking accepts the Contributor Agreement for it.</p><p hidden data-msg="link-owner">Owned by an organisation. An owner of it links it to the hub first.</p>
 <p hidden data-msg="not-yours">Not yours. Only its owner can publish it.</p><p hidden data-msg="public">Public</p><p hidden data-msg="connect">Connect</p>
+<p hidden data-msg="r-installed">WolOS Hub installed</p><p hidden data-msg="r-not-installed">Not installed yet</p><p hidden data-msg="r-connected">Connected</p><p hidden data-msg="r-install">Install and connect</p>
+<p hidden data-msg="r-see">See it</p><p hidden data-msg="r-private">Private</p><p hidden data-msg="r-link">Link</p><p hidden data-msg="r-count">repositories</p><p hidden data-msg="r-with">with WolOS Hub</p><p hidden data-msg="r-shown">shown</p>
+<p hidden data-msg="r-none">This account has no public repository on GitHub yet. Make one public on GitHub, then come back.</p>
+<p hidden data-msg="r-nomatch">No repository has that in its name.</p><p hidden data-msg="r-more">Only the most recently pushed are listed. Type part of a name to find another.</p>
+<p hidden data-msg="r-back">Back from GitHub: connecting</p><p hidden data-msg="r-pick-sub">Pick one below</p>
 <p hidden data-msg="listed-as">is listed as</p><p hidden data-msg="see">See where it stands:</p>
 </section>`,
 });
@@ -113,7 +130,7 @@ ${step(5, "s-tag", "Push a tag", `<p class="dim">Push a tag and publish a releas
 export const dashboard = (assets) => page({
   title: "Your dashboard - WolOS Hub", path: "/dashboard", assets, noindex: true, scripts: [assets.certcmd, assets.dashboard],
   desc: "Your listings, versions, reports, certificates and organisation members on WolOS Hub.",
-  body: `<section class="wrap block dash" data-overview="dashboard" data-pending>${crumbs}<h1 class="h-xl">Your dashboard</h1>
+  body: `<section class="wrap block dash" data-overview="dashboard" data-kit="${esc(assets.kit)}" data-pending>${crumbs}<h1 class="h-xl">Your dashboard</h1>
 <div data-when="out"><p class="lead">Sign in to see your listings, their versions and your certificates.</p><p><a class="btn btn-solid" href="/auth/login?next=%2Fdashboard">Sign in with GitHub</a></p></div>
 <div data-when="in" hidden>
 <nav class="seg seg-lg" aria-label="Whose dashboard" id="d-accounts"></nav>
@@ -121,6 +138,9 @@ export const dashboard = (assets) => page({
 <div class="dgrid">
 <nav class="dnav" aria-label="On this page"><a href="#d-l">Listings</a><a href="#certs">Certificates</a><a href="#agreements">Agreements</a><a href="#d-r">Reports</a><a href="#d-m">Members</a><a href="#d-s">Where you are signed in</a></nav>
 <div class="dmain">
+<section class="card admin-door" id="d-admin" aria-labelledby="d-adm-h" hidden><h2 class="h-md" id="d-adm-h">Admin panel</h2>
+<p class="dim">You have the <strong data-slot="role"></strong> role on WolOS Hub. The panel opens with what that role may do.</p>
+<ul class="plain admin-links"><li><a class="btn btn-solid" data-admin-tab="queue">Open the queue</a></li><li><a class="btn btn-quiet" data-admin-tab="users">People</a></li><li><a class="btn btn-quiet" data-admin-tab="listings">Listings</a></li><li><a class="btn btn-quiet" data-admin-tab="audit">Audit trail</a></li></ul></section>
 <section class="att card" id="d-att-s" aria-labelledby="d-att-h" hidden><h2 id="d-att-h">Needs your attention</h2><ul class="plain" id="d-att"></ul></section>
 <template id="t-att"><li><span data-slot="text"></span> <a data-slot="link">See why</a></li></template>
 <section aria-labelledby="d-l" class="gap"><h2 id="d-l">Listings</h2><span class="skel skel-line" aria-hidden="true"></span><div id="d-listings" class="dash-list keep-pending"></div>
@@ -141,7 +161,8 @@ export const dashboard = (assets) => page({
 <p class="cert-state" hidden data-state="req-ok"><strong>Accepted with each certificate request.</strong> Version <span data-slot="current"></span> is the current one and was accepted.</p>
 <p class="cert-state" hidden data-state="req-none"><strong>Accepted with each certificate request.</strong> Version <span data-slot="current"></span> is the current one. No request has been made yet.</p>
 <ul class="plain agr-rows" data-slot="rows"></ul>
-<p><a data-slot="link">Read the text</a></p></article></template>
+<details class="agr-read"><summary>Read the text here</summary>${agreementText("The agreement")}</details>
+<p class="dim small"><a data-slot="link">Read it on its own page</a></p></article></template>
 <template id="t-agreed"><li><span data-slot="version"></span> <span class="dim" data-slot="date"></span> <span class="dim" data-slot="by"></span> <code class="hash" data-slot="hash"></code></li></template>
 <p hidden data-msg="a-version">Version</p><p hidden data-msg="a-by">accepted by</p>
 <section aria-labelledby="d-r" class="gap"><h2 id="d-r">Reports</h2><ul id="d-reports" class="card dash-rows"></ul><p class="dim" id="d-noreports">Nobody has reported anything about these listings.</p></section>
@@ -189,7 +210,9 @@ export const status = (assets) => page({
 });
 
 /* ---------- Admin: a closed shell ----------
-   No words, no links to it anywhere, not in the sitemap, noindex. The script asks the Worker for the queue;
+   No words, not in the sitemap, noindex, and no page names its address (check-links.mjs). Its links are made by hub.js
+   (Hub.adminHref) only for a person whose answer names a panel role, in the header and on the dashboard (lead 2026-11-04:
+   "where do I access this admin?"); for everyone else they stay hidden and have no address. The script asks the Worker for the queue;
    only when the Worker answers (the signed-in person has a role) does it load the panel's own script. */
 export const admin = (assets, panelJs, moreJs) => `${head("WolOS Hub", "", "/admin", assets, true, true)}
 <body class="admin-shell">

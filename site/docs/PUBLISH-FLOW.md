@@ -24,7 +24,7 @@ Five screens the first time, one command afterwards.
 |---|---|---|---|
 | 1 | hub | Presses **Sign in with GitHub** | session exists |
 | 2 | hub | Reads and accepts the two agreements on one screen (**Accept and continue**) | Contributor Agreement and Publisher Agreement are current |
-| 3 | GitHub | Presses **Install on GitHub**, picks repositories, presses Install (comes back to the hub by itself; the hub also notices when the tab gets focus back) | the hub App is installed on a public repository the person owns |
+| 3 | GitHub | Sees every public repository of theirs (or of an organisation, tabs) with its state: WolOS Hub installed, not installed yet, connected. Presses **Install and connect** on one: GitHub's address for exactly that repository (`/installations/new/permissions?target_id=..&repository_ids[]=..&state=connect.<id>.<kind>`); GitHub's setup step brings them back to `/publish?state=..` and the page connects it without another click (the browser also remembers the choice for 30 minutes, for when the Setup URL is not set). "Choose the repositories on GitHub" is the alternative link | the hub App is installed on a public repository the person owns |
 | 4 | hub | Picks the repository in the list, picks **App / Plugin / Extension**, presses **Connect** (id, file name, name, summary and licence are filled from the repository; **Details** opens them for editing) | a listing exists in state "Connected" |
 | 5 | terminal | `git tag v1.0.0 && git push origin v1.0.0 && gh release create v1.0.0 alice.notes-1.0.0.wol` (the hub shows these three lines with the real names filled in), or `wol publish` | the status page of v1.0.0 shows Published |
 
@@ -47,6 +47,7 @@ person's real state streams in. Returning visitors land on the first unfinished 
 | Signed out | "Publish an app, a plugin or an extension. Your files stay on GitHub; the hub checks every version and lists it." + **Sign in with GitHub**. The five steps are listed greyed so the whole path is visible. |
 | Agreements missing | One card, two tabs (Contributor Agreement, Publisher Agreement) with the text in a scrolling box, two checkboxes, **Accept and continue**. When a text changed: "The Publisher Agreement has a new version. Read it and accept it before your next release." |
 | Hub not installed | "Install WolOS Hub on the repositories you publish from. It only reads their releases." **Install on GitHub**. |
+| The list of repositories | A search field ("Find a repository", filters as one types), the count ("320 repositories, 150 with WolOS Hub"), the long list (fixed rows, its own scroll, only the rows in view in the page; `src/kit.js`), sorted connected, installed, most recently pushed. Loading: a skeleton. Empty: "This account has no public repository on GitHub yet. Make one public on GitHub, then come back." No match: "No repository has that in its name." GitHub down: the Worker's sentence and **Try again**. Past the Worker's caps: "Only the most recently pushed are listed. Type part of a name to find another." |
 | Installed, no public repository | "WolOS Hub is installed, but only on private repositories. People download your files from your releases, so the repository must be public. Make one public on GitHub, then come back." |
 | Pick a repository | A list: repository, "Public"/"Private", and "Connected as alice.notes" for the ones already connected. Private ones are greyed with "Private. Make it public on GitHub to publish it." Organisations the person owns but has not linked: **Link acme** ("Linking accepts the Contributor Agreement for acme."). |
 | Connect | Chips App / Plugin / Extension (extension asks "Which app does it extend?"), a line "It will be listed as alice.notes. Releases need a file named alice.notes-*.wol.", **Connect alice/notes**. **Details** edits id, name, one sentence, licence, file name. |
@@ -99,13 +100,15 @@ Since the session hardening (lead 2026-11-04 10:28Z; Worker `docs/SECURITY-SESSI
 - The header says how long the GitHub sign-in stays fresh ("Sign-in fresh for 12 mins") and offers **Sign in again**:
   every action needs a sign-in younger than 15 minutes; a stale one answers "Confirm it is you" with the same link.
   A session that moved network and browser at once is kept out of the panel (sign in again).
-- **People** tab: search by login or name, a person's page with their signed-in browsers (place, last use, moved or not),
+- **People** tab: search by login or name, a person's page with their signed-in browsers (network as a one-way code, never the address; last use; moved or not),
   listings and last actions; **Ban** / **Unban** (reason on the row; a ban ends every sign-in of theirs) and **End their sessions**.
 - **Listings** tab: search by id, name or repository, or by state; **Take down** without a report and **Restore** (reason on the row).
 - **Audit trail** tab: filters (who, what, on what, from, to), pages, and **Export as a file** (NDJSON of the same filter).
 - **Health** tab: signed-in sessions, rate limits hit in 24 hours, error reports, the last release notices and tags taken in, the trail's last day.
 - These tabs are a second script, loaded when one of them opens (the panel's first script is at the 12 KB budget); each shows its outline until the answer arrives.
-- Dashboard, **Where you are signed in**: each browser the person signed in from, **End** per row and **Sign out everywhere**.
+- Dashboard, **Where you are signed in**: each browser the person signed in from, its network only as "same network as now"
+  or "another network" (the hub keeps a one-way code, never the prefix), **End** per row and **Sign out everywhere**.
+- The audit trail keeps sign-in entries 90 days; admin decisions stay (legal/PRIVACY.md 3.7).
 
 ## 4. Error states, with the exact sentences
 
@@ -147,7 +150,7 @@ Network: "The hub can't be reached. Check your connection and try again." (every
 | Route | Who | What |
 |---|---|---|
 | **`GET /api/my/overview?as=`** | person | One answer per page: the person, accounts, listings with versions and stages, attention list, reports, certificates, agreements, members. 2 D1 round trips. ETag. |
-| **`GET /api/repos`** | person | Repositories of the hub App's installations the person can use, with `connected` and the autofill (id, asset, name, summary, licence). |
+| **`GET /api/repos[?as=org]`** | person | Every page of the hub App's installations the person sees, and the public repositories of the person (or the organisation) the App is not on yet; per repository `app`, `install` (GitHub's address for it), `pushed_at`, `connected` and the autofill (id, asset, name, summary, licence); `truncated` past the caps (at most 36 GitHub calls). |
 | `POST /api/listings` | person | Now also `{repo, kind?, owner?}` only: the rest is filled from GitHub (explicit fields still win). |
 | **`GET /api/listings/:id/versions/:v/status`** | anyone | The stage model above. Public, cacheable for 5 seconds; the owner also gets `withdrawn_reason` and `can.recheck`. |
 | **`POST /api/listings/:id/recheck`** | owner | `{tag}`: asks GitHub for that release now and takes it in as if the webhook had come. |
@@ -181,3 +184,18 @@ The numbers (before and after) are in `wt/hub-worker/bench/budget-before.txt` / 
 
 - GitHub App "WolOS Hub", settings: subscribe to **Create** (tag pushes) in addition to Release and Repository; set **Setup URL** to `https://hub.wolos.org/publish` and tick "Redirect on update", so the person lands back on the wizard after installing. Without them everything still works: the hub sees the release (not the bare tag), and the wizard notices the install when the tab regains focus.
 - Optional: enable **Device Flow** on the App, so `wol publish` can connect a repository from the terminal (see the spec, "later").
+
+## 10. Freshness, agreements, the admin door, analytics (2026-11-04)
+
+- **Never an old copy.** `/api/my/overview` is sent `private, max-age=15, stale-while-revalidate=120` with an ETag. The pages
+  ask it with `cache: "no-cache"` (a 304 when nothing changed), never the browser's copy unasked: before, a page drew a body up
+  to two minutes old (after a sign-in, an install, a release elsewhere) and never the new one. A sign-in or sign-out in another
+  tab redraws this tab's header and page (`hub:who`), and an account switch asks again after 5 s.
+- **One agreement component.** Every agreement on a page (publish step 2, the dashboard's Trust Terms and each agreement card's
+  "Read the text here") is the text of `/api/terms/<doc>` drawn by `src/kit.js` the way `/terms/<doc>` draws it: title,
+  version line, the In short box, numbered sections, lists; never the raw Markdown.
+- **Admin.** The header and the dashboard show Admin (queue, people, listings, audit trail) only when the overview names a panel
+  role; the address is made by `hub.js` for that person only, so no page names it (`check-links.mjs`).
+- **Cloudflare Web Analytics.** The zone's Web Analytics adds its beacon at Cloudflare's edge, not the hub's pages; it sets no
+  cookie. The CSP allows exactly it: `script-src-elem 'self' https://static.cloudflareinsights.com` and
+  `connect-src 'self' https://cloudflareinsights.com` (`scripts/check-headers.mjs`); `script-src` stays `'self'`.

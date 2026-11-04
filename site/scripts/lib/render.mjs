@@ -58,7 +58,7 @@ export function page({ title, desc, path, body, assets, search = "header", noind
 <nav aria-label="Main"><ul>${NAV.map(([p, t]) => `<li><a href="${p}"${here(p) ? ' aria-current="page"' : ""}>${t}</a></li>`).join("")}</ul></nav>
 ${search === "header" ? `<form class="find" role="search" action="/search" method="get"><label class="sr" for="q">Search the hub</label><input id="q" name="q" type="search" placeholder="Search the hub" autocomplete="off" enterkeyhint="search"><kbd aria-hidden="true">/</kbd></form>` : ""}
 <div class="who" id="who" data-next="${esc(next)}"><a class="btn btn-quiet" href="/auth/login?next=${esc(next)}">Sign in</a></div>
-<template id="t-who"><a class="who-me" href="/dashboard"><img alt="" width="28" height="28" hidden><span class="login" data-slot="name"></span></a><button type="button" class="btn btn-quiet" data-act="signout">Sign out</button></template>
+<template id="t-who"><a class="btn btn-quiet who-admin" data-slot="admin" hidden>Admin</a><a class="who-me" href="/dashboard"><img alt="" width="28" height="28" hidden><span class="login" data-slot="name"></span></a><button type="button" class="btn btn-quiet" data-act="signout">Sign out</button></template>
 </header>
 <main id="main" tabindex="-1">
 ${body}

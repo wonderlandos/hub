@@ -56,16 +56,19 @@
     if (!except) ovs = {};
     try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf(SNAP) === 0 && !(except && k.indexOf(SNAP + except.toLowerCase() + "|") === 0)) sessionStorage.removeItem(k); }); } catch (x) {}
   };
-  /* fresh: after a change, skip the browser's copy. */
+  /* Never the browser's copy unasked: "no-cache" revalidates (ETag, 304); fresh skips it. Shared for ASK_AGAIN ms. */
+  var ASK_AGAIN = 5000;
   function overview(as, fresh, quiet) {
-    var k = as || "";
-    if (!ovs[k] || fresh) {
-      ovs[k] = call("GET", "/api/my/overview" + (k ? "?as=" + encodeURIComponent(k) : ""), undefined, fresh ? "reload" : null, quiet).then(function (o) {
+    var k = as || "", o = ovs[k];
+    if (!o || fresh || (o.at && Date.now() - o.at > ASK_AGAIN)) {
+      var e = ovs[k] = { at: 0 };
+      e.p = call("GET", "/api/my/overview" + (k ? "?as=" + encodeURIComponent(k) : ""), undefined, fresh ? "reload" : "no-cache", quiet).then(function (o) {
+        e.at = Date.now();
         save(k, o);
         return o;
-      }, function (e) { delete ovs[k]; throw e; });
+      }, function (x) { if (ovs[k] === e) delete ovs[k]; throw x; });
     }
-    return ovs[k];
+    return ovs[k].p;
   }
   var meP = null;
   function me(fresh) {
@@ -98,7 +101,24 @@
     });
     return ol;
   }
-  window.Hub = { $: $, $$: $$, el: el, call: call, me: me, overview: overview, snap: snap, save: save, forget: forget, asOf: asOf, tpl: tpl, slot: slot, msg: msg, show: show, fail: fail, day: day, time: time, track: track, GENERIC: GENERIC };
+  /* ---- src/kit.js, loaded once when a page first needs it (data-kit) ---- */
+  var terms = {};
+  var termsText = function (d) { return terms[d] || (terms[d] = call("GET", "/api/terms/" + d).then(null, function (e) { delete terms[d]; throw e; })); };
+  var kitP = null;
+  function kit() {
+    if (!kitP) kitP = new Promise(function (ok, no) {
+      var at = $("[data-kit]"), s = at && el("script", { src: at.dataset.kit });
+      if (!s) return no(new Error(GENERIC));
+      s.onload = function () { ok(window.HubKit); }; s.onerror = function () { kitP = null; no(new Error(OFFLINE)); };
+      document.head.appendChild(s);
+    });
+    return kitP;
+  }
+  var agreement = function (box, doc) { box.dataset.doc = doc; return kit().then(function (k) { return k.agreement(box, doc, termsText); }); };
+  /* Only this script names the admin address (check-links.mjs). */
+  var adminHref = function (tab) { return "/admin" + (tab ? "#" + tab : ""); };
+  window.Hub = { $: $, $$: $$, el: el, call: call, kit: kit, adminHref: adminHref, me: me, overview: overview, snap: snap, save: save, forget: forget, asOf: asOf, tpl: tpl, slot: slot, msg: msg, show: show, fail: fail, day: day, time: time, track: track, GENERIC: GENERIC,
+    terms: termsText, agreement: agreement };
 
   /* ---- The closed admin page: nothing unless the Worker gives the queue ---- */
   var adm = $("main[data-admin]");
@@ -134,16 +154,6 @@
     else done(false);
   });
 
-  /* ---- Warming: pointing at Publish or Dashboard asks for their data, so the page finds it in the browser's cache ---- */
-  var warmed = false;
-  var warm = function (e) {
-    if (warmed || !htmlOf.dataset.who || NOAPI) return;
-    var a = e.target.closest && e.target.closest('a[href="/publish"], a[href="/dashboard"], a.who-me');
-    if (!a) return;
-    warmed = true;
-    fetch("/api/my/overview", { credentials: "include", headers: { accept: "application/json" } }).catch(function () {});
-  };
-  ["pointerover", "focusin", "touchstart"].forEach(function (ev) { document.addEventListener(ev, warm, { passive: true }); });
 
   /* ---- "/" goes to the search field ---- */
   document.addEventListener("keydown", function (e) {
@@ -168,7 +178,7 @@
      at once and keeps it until the session answers. "Sign in" shows only when the Worker says 401 (then the copy is removed).
      A failed or slow request changes nothing. The header is built once; later answers only change its words. */
   var who = $("#who"), KEY = "hub-who", signedOutHtml = who ? who.innerHTML : "";
-  var keep = function (m) { if (!m) forget(); else forget(m.login); try { localStorage.removeItem("hub-signing"); if (m) localStorage.setItem(KEY, JSON.stringify({ login: m.login, name: m.name || null, avatar: m.avatar || null })); else localStorage.removeItem(KEY); } catch (x) {} };
+  var keep = function (m) { if (!m) forget(); else forget(m.login); try { localStorage.removeItem("hub-signing"); if (m) localStorage.setItem(KEY, JSON.stringify({ login: m.login, name: m.name || null, avatar: m.avatar || null, admin: !!m.admin })); else localStorage.removeItem(KEY); } catch (x) {} };
   var kept = function () { try { var v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v.login === "string" ? v : null; } catch (x) { return null; } };
   var htmlOf = document.documentElement;
   function renderWho(m) {
@@ -194,14 +204,22 @@
     var pic = $("img", who);
     if (m.avatar) { if (pic.getAttribute("src") !== m.avatar) pic.src = m.avatar; pic.hidden = false; } else pic.hidden = true;
     slot(who, "name", m.name || m.login);
+    var adm = slot(who, "admin"); adm.hidden = !m.admin;
+    if (m.admin) adm.href = adminHref(""); else adm.removeAttribute("href");
     who.dataset.ready = "";
   }
   var first = kept();
   if (first) renderWho(first);
   /* Going to GitHub to sign in: the page we come back to waits for the answer instead of showing "Sign in" first. */
   document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest('a[href^="/auth/login"]'); if (a) try { localStorage.setItem("hub-signing", String(Date.now())); } catch (x) {} });
-  /* Another tab signed in or out: this one follows. */
-  window.addEventListener("storage", function (e) { if (e.key === KEY) { forget(); renderWho(kept()); } });
+  /* Back from signing in: what this tab kept belongs to before. */
+  try { if (localStorage.getItem("hub-signing")) forget(); } catch (x) {}
+  /* Another tab signed in or out: the header and the page follow (hub:who). */
+  window.addEventListener("storage", function (e) {
+    if (e.key !== KEY) return;
+    forget(); meP = null; renderWho(kept());
+    document.dispatchEvent(new CustomEvent("hub:who", { detail: kept() }));
+  });
   var needsMe = who || $("[data-when]");
   if (needsMe) me().then(function (m) { keep(m); renderWho(m); document.dispatchEvent(new CustomEvent("hub:me", { detail: m })); },
     function () { delete htmlOf.dataset.who; if (who) who.dataset.ready = ""; document.dispatchEvent(new CustomEvent("hub:me", { detail: first })); });

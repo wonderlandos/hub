@@ -1,18 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // A mocked Worker for the browser tests: just enough of the hub's routes, with state the test moves along (sign-in,
 // agreements, installation, the listing, the stages of a version, the admin queue). Every answer waits `latency` ms, so a
-// page that asks six times in a row is slower than one that asks once. Nothing here is shown to a visitor.
+// page that asks six times in a row is slower than one that asks once. The overview and /api/me carry the Worker's own cache
+// policy (private, max-age=15, stale-while-revalidate=120, an ETag of the body and Vary: Cookie; a matching If-None-Match is a
+// 304), so a page that draws the browser's copy instead of asking shows old data here as it does on the live hub.
+// Sign-in sets a cookie, like the Worker. Nothing here is shown to a visitor.
+import { createHash } from "node:crypto";
 export function mockHub({ latency = 0 } = {}) {
   const T = 1793577600;
   const S = {
-    in: false, calls: [], latency,
+    in: false, calls: [], latency, login: "alicedoe",
+    sessions: [
+      { ref: "a1b2c3d4e5f6", browser: "Chrome on Windows", place: "same network as now", colo: null, signed_in_at: T, last_seen: T + 3600, admin: true, moved: false, current: true },
+      { ref: "0123456789ab", browser: "Firefox on Linux", place: "another network", colo: null, signed_in_at: T, last_seen: T + 60, admin: false, moved: false, current: false },
+      { ref: "ba9876543210", browser: "Safari on iPhone", place: "another network", colo: null, signed_in_at: T, last_seen: T + 120, admin: false, moved: true, current: false },
+    ], orgs: [], orgListings: {}, panel: "owner", sid: 0,
     accepted: { cla: false, publisher: false },
     installed: false, repos: [], listings: [], versions: {}, intake: {},
     admin: { revocations: [], requests: [{ id: "r-1", kind: "person", tier: "origin", status: "pending", subject: { login: "dave", name: "Dave Roe" }, namespaces: ["dave."], created_at: T }], attention: [], done: [] },
   };
-  const ME = () => ({ github_id: 5310001, login: "alicedoe", name: "Alice Doe", avatar: null, role: "member", admin: true, admin_role: "owner", two_factor: true,
+  const ME = () => ({ github_id: S.login === "alicedoe" ? 5310001 : 5310002, login: S.login, name: S.login === "alicedoe" ? "Alice Doe" : S.login, avatar: null, role: "member", admin: !!S.panel, admin_role: S.panel || null, two_factor: true,
     cla: { current: "1", accepted: S.accepted.cla ? "1" : null, ok: S.accepted.cla }, terms: { publisher: { current: "1", accepted: S.accepted.publisher ? "1" : null, ok: S.accepted.publisher }, trust: { current: "1", accepted: null, ok: false } },
-    certs: { origin: "none", trusted: "none" }, orgs: [] });
+    certs: { origin: "none", trusted: "none" }, orgs: S.orgs.map((o, i) => ({ github_org_id: 348106055 + i, login: o, role: "owner", linked: true, cla: { ok: true, accepted: "1" } })) });
   const STAGES = (st) => ["received", "checked", "signed", "published"].map((key, i) => ({ key, state: st[i], at: st[i] === "done" ? T + i * 60 : null }));
   const HEAD = {
     "waiting-release": { title: "Waiting for your release", sentence: "The hub saw the tag v1.0.0 on alicedoe/notes. A version is received when you publish a release for that tag with a file named alicedoe.notes-*.wol attached.", fix: "On GitHub, publish a release for v1.0.0 and attach alicedoe.notes-1.0.0.wol." },
@@ -43,29 +52,55 @@ export function mockHub({ latency = 0 } = {}) {
     }) }));
     const att = [];
     for (const [v, code] of Object.entries(S.versions)) if (code === "blocked") att.push({ level: "bad", text: `Notes ${v} was not listed.`, href: `/status?l=alicedoe.notes&v=${v}` });
-    return { me: ME(), account: { kind: "person", login: "alicedoe", id: 5310001, role: "owner" }, accounts: [{ kind: "person", login: "alicedoe", role: "owner" }],
+    if (as && S.orgs.includes(as)) {
+      return { me: ME(), account: { kind: "org", login: as, role: "owner" }, accounts: [], listings: (S.orgListings[as] || []).map((l) => ({ ...l, versions: [] })), attention: [], reports: [],
+        certs: { states: { origin: "none", trusted: "none" }, refused: {}, list: [] }, agreements: [], members: [{ login: S.login, role: "owner" }], sessions: [], generated: T };
+    }
+    return { me: ME(), account: { kind: "person", login: S.login, id: ME().github_id, role: "owner" }, accounts: [{ kind: "person", login: S.login, role: "owner" }],
       listings: ls, attention: att, reports: [], certs: { states: { origin: "none", trusted: "none" }, refused: {}, list: [] },
       agreements: [{ doc: "cla", name: "Contributor Licence Agreement", url: "/terms/cla", current: "1", ok: S.accepted.cla, per_request: false, accepted: S.accepted.cla ? [{ version: "1", sha256: "ab".repeat(32), accepted_at: T, by: "alicedoe" }] : [] }],
-      members: [], generated: T };
+      members: [], sessions: S.sessions, generated: T };
   };
-  const text = { cla: "Contributor Licence Agreement. Version 1, effective 2026-11-04. You keep your work.", publisher: "Publisher Agreement. Version 1, effective 2026-11-04. Your code stays yours.", trust: "Trust Terms. Version 1, effective 2026-11-04." };
+  /* The texts as the Worker sends them: the Markdown files of legal/, front matter included (cla.ts). */
+  const md = (title, short, sec) => `---\ntitle: ${title}\nversion: 1\neffective: 2026-11-04\n---\n\n# ${title}\n\nVersion 1, effective 2026-11-04.\n\n` +
+    `> **In short (not the binding text; the numbered sections below are):**\n> ${short}\n\n## 1. What this page is\n\n1.1. ${sec} See the [Terms of Use](/terms/usage).\n\n## 2. What you agree to\n\n- one\n- two\n`;
+  const text = { cla: md("Contributor Licence Agreement", "You keep your work.", "This agreement covers what you contribute."), publisher: md("Publisher Agreement", "Your code stays yours.", "This agreement covers what you publish."),
+    trust: md("Trust Terms", "Checked means a machine looked at that exact file.", "This page explains each **trust label**.") };
   const handler = (req, res, url) => {
     const p = url.pathname; S.calls.push(req.method + " " + p + url.search);
     const send = (code, body, headers = {}) => setTimeout(() => { res.writeHead(code, { "content-type": "application/json", ...headers }); res.end(body === null ? "" : JSON.stringify(body)); }, S.latency);
     let data = ""; req.on("data", (c) => (data += c));
     req.on("end", () => {
       const body = data ? JSON.parse(data) : {};
-      if (p === "/auth/login") { S.in = true; res.writeHead(302, { location: url.searchParams.get("next") || "/" }); return res.end(); }
-      if (p === "/auth/logout") { S.in = false; return send(200, { signed_in: false }); }
-      const need = () => (S.in ? false : (send(401, { error: "signed-out", sentence: "Sign in with GitHub first." }), true));
-      if (p === "/api/me") return need() || send(200, ME());
-      if (p === "/api/my/overview") return need() || send(200, overview(url.searchParams.get("as")));
+      if (p === "/auth/login") { S.in = true; S.sid++; res.writeHead(302, { location: url.searchParams.get("next") || "/", "set-cookie": `hub_session=s${S.sid}; Path=/; HttpOnly; SameSite=Lax`, "cache-control": "no-store" }); return res.end(); }
+      if (p === "/auth/logout") { S.in = false; return send(200, { signed_in: false }, { "set-cookie": "hub_session=; Path=/; Max-Age=0" }); }
+      const need = () => (S.in ? false : (send(401, { error: "signed-out", sentence: "Sign in with GitHub first." }, { "cache-control": "no-store" }), true));
+      /* The Worker's cache policy for the person's answers (overview.ts, http.ts tagged()). */
+      const tagged = (body) => {
+        const { generated, ...rest } = body;
+        const tag = '"' + createHash("sha256").update(JSON.stringify(rest)).digest("hex").slice(0, 32) + '"';
+        const h = { "cache-control": "private, max-age=15, stale-while-revalidate=120", etag: tag, vary: "Cookie" };
+        if (req.headers["if-none-match"] === tag) { S.calls.push("304 " + p); return setTimeout(() => { res.writeHead(304, h); res.end(); }, S.latency); }
+        send(200, body, h);
+      };
+      if (p === "/api/me") return need() || tagged(ME());
+      if (p === "/api/my/overview") return need() || tagged(overview(url.searchParams.get("as")));
       let m;
       if ((m = p.match(/^\/api\/terms\/(\w+)$/))) {
         if (req.method === "POST") { if (need()) return; S.accepted[m[1]] = true; return send(200, { terms: {} }); }
         return send(200, { doc: m[1], version: "1", text: text[m[1]], sha256: "ab".repeat(32) });
       }
-      if (p === "/api/repos") return need() || send(200, { installed: S.installed, repos: S.repos });
+      if (p === "/api/repos") {
+        if (need()) return;
+        const as = url.searchParams.get("as") || "";
+        if (S.reposFail) return send(502, { error: "github-down", sentence: "GitHub is not answering right now. Try again in a minute." });
+        const list = (as ? S.orgRepos?.[as] || [] : S.repos).map((r) => {
+          const app = r.app ?? S.installed;
+          return { pushed_at: null, ...r, owner: { id: 1, ...r.owner }, app, install: app ? null : `https://github.com/apps/wolos-hub/installations/new/permissions?target_id=${r.owner.id || 1}&repository_ids[]=${r.id}` };
+        });
+        const body = { installed: S.installed || list.some((r) => r.app), account: { login: as || S.login }, accounts: [], repos: list, truncated: false };
+        return setTimeout(() => send(200, body), S.reposDelay || 0);
+      }
       if (p === "/api/listings" && req.method === "POST") {
         if (need()) return;
         if (!body.license) return send(400, { error: "bad-license", sentence: "Give the licence as an SPDX expression, like GPL-2.0-or-later." });

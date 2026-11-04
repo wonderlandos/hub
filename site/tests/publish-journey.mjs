@@ -69,7 +69,7 @@ try {
   ok("install: the step folds into one line saying how many", /Installed on 1 repository/.test(await page.innerText("#s-install")));
 
   /* 4. Connect: pick, say what it is, everything else filled in. */
-  ok("connect: the public repository is chosen already", await page.isChecked('#repo-list input[type=radio]'));
+  ok("connect: the public repository is chosen already", /alicedoe\/notes/.test(await page.innerText("#repo-list .vrow[data-picked]")));
   ok("connect: a private repository says why it cannot be used", /Private\. Make it public on GitHub to publish it\./.test(await page.innerText("#repo-list")));
   ok("connect: the id and file name are filled in", /alicedoe\.notes/.test(await page.innerText("#listed-as")) && /alicedoe\.notes-\*\.wol/.test(await page.innerText("#listed-as")));
   await page.check('#kind-pick input[value=plugin]');

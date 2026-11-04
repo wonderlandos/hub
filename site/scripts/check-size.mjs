@@ -25,6 +25,10 @@ for (const r of builtPages(at("dist"))) {
   // The panel's second script (Audit, People, Listings, Health) loads only when one of those tabs opens: its own budget.
   const more = text.match(/data-more="(\/assets\/[^"]+)"/);
   if (more) { const m = gz(read(more[1])); rows.push([`${r} (more tabs)`, 0, 0, m]); if (m > 12288) bad.push(`${r} (more tabs): script ${m} bytes gzipped, over 12 KB`); }
+  // The components (src/kit.js: the agreement component, the long list) load when the page first needs one: counted
+  // with the page's own scripts, the page and its kit together at most 18 KB (the kit is cached after the first page).
+  const kit = text.match(/data-kit="(\/assets\/[^"]+)"/);
+  if (kit) { const k = gz(read(kit[1])); rows.push([`${r} (kit)`, 0, 0, k]); if (k > 6144) bad.push(`${r} (kit): script ${k} bytes gzipped, over 6 KB`); if (js + k > 18432) bad.push(`${r}: script with its kit ${js + k} bytes gzipped, over 18 KB`); }
 }
 const w = Math.max(...rows.map((r) => r[0].length));
 console.log(rows.map(([r, h, c, j]) => `  ${r.padEnd(w)}  html ${String(h).padStart(5)}  css ${String(c).padStart(5)}  js ${String(j).padStart(5)}  total ${String(h + c + j).padStart(6)} bytes gzipped`).join("\n"));
