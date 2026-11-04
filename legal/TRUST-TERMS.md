@@ -1,18 +1,20 @@
 ---
 title: Trust Terms
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Trust Terms
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > "Checked" means a machine looked at that exact file and wrote down what it found. Not more.
 > "Origin" means we know who published it and from which repository. "Trusted" means people vetted the publisher and a reviewer read each release.
-> None of this means "harmless". We look at what a release declares and what changed. We do not run it for you.
-> A revoked certificate or a withdrawn version shows up on every WolOS machine that checks the list.
+> None of this means "harmless". Checked never means risk-free. We look at what a release declares and what changed. We do not run it for you.
+> Labels can change any time, at our call. A revoked certificate or a withdrawn version shows up on every WolOS machine that checks the list.
+> Think our own keys leaked? We can pull the plug on every certificate at once. Annoying for everyone; good for you.
+> You still decide what you install. The label is a fact, not a promise.
 > If you ask for a certificate, you accept this page and the Certificate Terms each time.
 
 ## 1. What this page is
@@ -33,7 +35,7 @@ Version 1, effective [effective date].
 
 2.3. The result is public, with the date of the check and the file's hash. Anyone can verify the hub's signed statement about it offline.
 
-2.4. **Checked is not a guarantee.** Automatic checks find known patterns and rule breaks. They do not prove that software is harmless, does what it says, has no faults, or is legal where you are.
+2.4. **Checked is not a guarantee. Checked never means harmless.** Automatic checks find known patterns and rule breaks. They do not prove that software is harmless, free of risk, does what it says, has no faults, or is legal where you are. A result of "nothing to report" means only that the checks reported nothing.
 
 ## 3. The levels
 
@@ -72,7 +74,9 @@ Version 1, effective [effective date].
 - **Trusted status withdrawn**: the publisher drops to the Origin level; who published the file is still proven.
 - **Version withdrawn**: that version is no longer offered, and WolOS tells people who have it.
 
-5.3. We may revoke or withdraw at any time, as the [Certificate Terms](/terms/certificates) say.
+5.3. We may revoke, downgrade or withdraw at any time, at our sole discretion, with or without notice, as the [Certificate Terms](/terms/certificates) say. A label shows what we know when it is shown; it may change at any time.
+
+5.4. **Emergency revocation of our own keys.** If we think a key of the hub or of a WolOS certificate authority may be in someone else's hands, we may revoke that key and every Certificate and signature that depends on it, at once. WolOS then treats all of them as invalid until new ones are issued. We announce it on the hub and in the public log, and say what to do.
 
 ## 6. No guarantee
 
@@ -80,6 +84,12 @@ Version 1, effective [effective date].
 
 6.2. **We are not the maker, seller or supplier of any Work published by others.** Its publisher answers for it.
 
+6.3. **No reliance.** A label, a check result or a Certificate is information, not advice and not a promise. You decide what you install, and you rely on a label at your own risk, as far as the law allows. To the extent the law allows, we owe no duty to you, or to anyone else, from showing, changing or removing a label.
+
+6.4. All rights in the labels, the index, the revocation list and the public log are reserved, except that anyone may copy the public index, revocation list and public log to check what they installed.
+
 ## 7. Changes and contact
 
-We change this page only by a new version, as the [Changes Log](/terms/changes) says. Questions: julia@wolos.org.
+7.1. We change this page only by a new version, as the [Changes Log](/terms/changes) says.
+
+7.2. Sections 18 (law and courts) and 21 (general) of the Terms of Use apply. Questions and notices: julia@wolos.org, our designated contact.

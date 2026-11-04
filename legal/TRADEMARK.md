@@ -1,19 +1,21 @@
 ---
 title: Trade Mark Policy
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Trade Mark Policy
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > The code is free. The names are not a free-for-all.
 > Say your app is "made for WolOS" or "runs on WolOS" all you like, if it is true.
 > Do not make people think WolOS made, approved or vouches for your thing. "Made by WolOS" is ours.
 > Fork away, but give your fork its own name and logo.
-> Unsure? Ask julia@wolos.org. We say yes a lot.
+> Unsure? Ask julia@wolos.org. We say yes a lot. We can also take a yes back.
+> Every mark is ours, all rights reserved. Letting something slide once is not a licence.
+> "Checked" on the hub never means harmless, so do not dress it up as more.
 
 ## 1. What this page is
 
@@ -30,7 +32,7 @@ The marks covered here, whether registered or not, are:
 - **rsh**, as the name of the WolOS shell, and its logo;
 - the names "Made by WolOS", "Trusted" and "Origin" as labels of the hub.
 
-They belong to Júlia Klee, for the WolOS project.
+They belong to Júlia Klee, for the WolOS project. All rights in them are reserved. This page gives a limited, revocable, non-exclusive, non-transferable permission for the uses in section 3, and nothing else. We may transfer the marks, and this page, to a legal entity that runs the WolOS project.
 
 ## 3. Uses that need no permission
 
@@ -73,6 +75,12 @@ You may not:
 
 7.2. To report misuse of a WolOS mark, or of your own mark on the hub, see the [Notices and Takedown](/terms/notices) page.
 
+7.3. **Our discretion.** We decide what counts as confusing or harmful use. At any time, at our discretion, we may withdraw the permission in section 3 or in 7.1 from anyone, ask you to stop, rename or withdraw a listing on the hub, and use every remedy the law gives us. Every use of a mark, with permission or without, benefits only us.
+
+7.4. **No waiver.** If we allow or do not act against a use, we do not give up our rights in the mark, against that use or any other.
+
+7.5. **Your responsibility.** If a claim is brought against us because of your use of a WolOS mark, section 16 of the [Terms of Use](/terms/usage) applies, with its limits for consumers.
+
 ## 8. Changes
 
-We change this page only by a new version, listed in the [Changes Log](/terms/changes).
+We change this page only by a new version, listed in the [Changes Log](/terms/changes). Sections 18 (law and courts) and 21 (general) of the Terms of Use apply. Questions and notices: julia@wolos.org, our designated contact.

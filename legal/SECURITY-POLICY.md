@@ -1,18 +1,19 @@
 ---
 title: Disclosure Policy
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Disclosure Policy
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > Found a hole in the hub, in WolOS or in the way we sign things? Tell us first, privately: security@wolos.org.
 > We answer within 2 working days, fix it in the open, and name you if you want.
 > Test in good faith, touch only your own data, stop when you find something. Do that and we will not come after you.
-> No bounty. We are a small project; we pay in thanks and credit.
+> No bounty. We are a small project; we pay in thanks and credit. Nothing here is a contract to pay you.
+> Break the rules on this page and the promise not to come after you is gone. We decide whether you stayed inside them, fairly.
 > Bugs in someone else's app go to its publisher, or to the report button.
 
 ## 1. What this page is
@@ -55,7 +56,9 @@ Version 1, effective [effective date].
 
 5.5. If you wish, we name you in the advisory and in the release notes. If you prefer, you stay anonymous.
 
-5.6. **No bounty.** We do not pay for reports, and nothing on this page promises payment.
+5.6. **No bounty.** We do not pay for reports, and nothing on this page promises payment or any other reward. We may change or end this policy at any time by a new version; research already reported stays under the version in force when you reported.
+
+5.7. **Your report.** You let us use, copy, change and publish your report, free and for good, to fix the problem, warn people and keep a record, with credit as 5.5 says. Until the agreed disclosure date, you keep the details confidential.
 
 ## 6. Good-faith research
 
@@ -73,10 +76,16 @@ Version 1, effective [effective date].
 
 6.4. If you are unsure whether something is allowed, ask us first.
 
+6.5. **Outside these rules.** The promise in 6.2 covers only research that follows section 6.1. We decide, fairly and in good faith, whether research followed it. Research that does not, such as taking or keeping other people's data, extortion, or harming the hub or WolOS machines, is not authorised, and we may act on it, report it to authorities and use every remedy the law gives us (Terms of Use, sections 10.6 and 10.7).
+
+6.6. You must be 16 or older to take part, and section 21.9 (export control and sanctions) of the Terms of Use applies. We do not name in credits a person those laws forbid us to deal with.
+
 ## 7. Our own disclosures
 
 We publish advisories for fixed problems in WolOS and the hub, with what was affected, what to do, and credit. We follow the reporting duties that apply to us by law.
 
 ## 8. Changes and contact
 
-We change this page only by a new version, listed in the [Changes Log](/terms/changes). Contact: security@wolos.org.
+8.1. We change this page only by a new version, listed in the [Changes Log](/terms/changes). Contact: security@wolos.org.
+
+8.2. Sections 14 and 15 (disclaimers and limits), 18 (law and courts) and 21 (general) of the [Terms of Use](/terms/usage) apply, with their protections for consumers. Legal notices about this page: julia@wolos.org, our designated contact.

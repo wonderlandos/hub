@@ -1,12 +1,12 @@
 ---
 title: Privacy Policy
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Privacy Policy
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > We keep what GitHub tells us when you sign in, what you accept, what you publish and report, and a log of who did what. That is it.
@@ -14,6 +14,8 @@ Version 1, effective [effective date].
 > One cookie keeps you signed in (and a short one lives for minutes during sign-in). No analytics, no ads, no tracking pixels, no selling, no sharing for ads. Ever.
 > Two companies run the machines for us: Cloudflare and GitHub.
 > You can see, fix, take away or delete your data. Write to julia@wolos.org; we answer within 15 days.
+> A few things stay even after you leave: the public log, the revocation list, and what we need to answer a court or defend ourselves. The law lets us keep those, and we keep nothing more.
+> If someone's life is at risk, or a crime is on the table, we talk to the police.
 > 16 or older only.
 
 ## 1. Who is responsible
@@ -27,6 +29,10 @@ Version 1, effective [effective date].
 1.4. This policy covers WolOS Hub at hub.wolos.org (the "hub"). Words such as "hub", "account", "publisher", "Work" and "public log" have the meanings in the [Terms of Use](/terms/usage), section 2.
 
 1.5. This policy follows the EU General Data Protection Regulation (GDPR), Brazil's Lei Geral de Proteção de Dados (LGPD, Lei 13.709/2018), the California Consumer Privacy Act as amended by the California Privacy Rights Act (CCPA), and the privacy laws of other US states. Where they differ, we follow the one that protects you more.
+
+1.6. **Legal representative in the EU** (GDPR, article 27): to be appointed; until then contact the controller directly at julia@wolos.org.
+
+1.7. **Address:** São Paulo, Brazil, full address on request.
 
 ## 2. What we never do
 
@@ -75,6 +81,7 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 - **Stop floods, abuse and attacks**. Data: 3.7, 3.8, 3.9. GDPR: 6(1)(f) legitimate interest (keeping the hub running). LGPD: 7 IX legitimate interest.
 - **Answer your messages and requests**. Data: 3.11. GDPR: 6(1)(c) legal obligation; 6(1)(f). LGPD: 7 II legal obligation; 7 IX.
 - **Defend or bring legal claims, answer authorities**. Data: any, as needed. GDPR: 6(1)(c), 6(1)(f). LGPD: 7 II, 7 VI.
+- **Protect someone's life or physical integrity, report a suspected crime**. Data: any, as needed. GDPR: 6(1)(d) vital interests; 6(1)(c) where a law asks (Digital Services Act, article 18); 6(1)(f). LGPD: 7 VII protection of life; 7 II; 7 IX.
 
 4.1. Our legitimate interests: running a public catalogue that people can check, stopping malware and impersonation, keeping the hub available, and proving what was agreed. We weighed them against your rights: the data is small, mostly public already on GitHub, and you expect it to be used this way.
 
@@ -107,7 +114,7 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 
 6.4. **GitHub as its own controller.** When you sign in, GitHub handles your GitHub account under its own privacy statement. We receive only what section 3.1 and 3.2 list.
 
-6.5. **Authorities and courts**, only when the law requires it, and after checking that the request is valid. We tell you, unless the law forbids it.
+6.5. **Authorities and courts**: when a law or a valid order requires it, after checking that the request is valid; and, without an order, only where the law allows it: to protect someone's life or physical integrity, to report a suspected crime that threatens them, or to establish, exercise or defend legal claims. We give only what is needed. We tell you, unless the law, the order or the risk forbids it, and then as soon as that reason ends.
 
 6.6. **A successor**, if someone takes over the hub. They must keep this policy or give you notice under section 17.
 
@@ -140,6 +147,13 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 
 8.4. **In California and other US states**, see section 11.
 
+8.5. **Limits the law sets on these rights.** We apply a limit only where the law that protects you allows it, and we tell you which one we rely on:
+- we keep data we must keep by law, or need to establish, exercise or defend legal claims (GDPR article 17(3)(b) and (e); LGPD article 16, I; CCPA section 1798.105(d));
+- we do not give you data that would reveal another person, such as the name of someone who reported you (GDPR article 15(4); in Brazil, the reporter's own rights under the LGPD);
+- we may go on using data after an objection where we have compelling legitimate grounds, or need it for legal claims (GDPR article 21(1));
+- we do not need to keep or collect extra data only to identify you for a request (GDPR article 11);
+- entries already in the public log and the revocation list stay, because they protect everyone who installed something; after a deletion we reduce them to your numeric GitHub id.
+
 ## 9. How to use your rights
 
 9.1. Write to julia@wolos.org from the email linked to your GitHub account, or write from any address and tell us your GitHub login. To confirm it is you, we may ask you to sign in to the hub or to post a short code in a place only your account controls. We never ask for ID documents.
@@ -148,7 +162,7 @@ GDPR article 6(1) and LGPD article 7 require a legal basis for each purpose. We 
 
 9.3. **Response times:** we confirm right away that we received your request and answer in full **within 15 days**. If a request is complex, we tell you within those 15 days why we need more time, and we never take longer than the law where you live allows (GDPR: 3 months in total; CCPA: 90 days in total).
 
-9.4. Answers are free. If requests are clearly unfounded or excessive, we may refuse and explain why.
+9.4. Answers are free. If requests are clearly unfounded or excessive, for example because they repeat, we may refuse and explain why, or, where the law allows (GDPR article 12(5); CCPA section 1798.145), charge a reasonable fee. In Brazil, answers are always free (LGPD article 18, §5).
 
 9.5. **If we refuse**, we tell you why. You can ask us to look again (an appeal) by answering our message within 60 days; we answer the appeal within 45 days and tell you how to complain to the authority where you live.
 
@@ -208,7 +222,7 @@ Júlia Klee is the data protection officer and the encarregado. Write to julia@w
 - We keep the data in section 3 and nothing more, and delete it on time (section 5).
 - Our processors are bound by data processing contracts and their own protection programmes.
 
-No system is perfect. If something goes wrong, section 16 applies.
+These measures fit the risk of the small amount of data we hold (GDPR article 32; LGPD article 46). No system is perfect, and no measure can rule out every attack. If something goes wrong, section 16 applies.
 
 ## 16. If there is a breach
 
@@ -225,4 +239,4 @@ We change this policy only by a new version, listed in the [Changes Log](/terms/
 
 ## 18. Contact
 
-julia@wolos.org, Júlia Klee, São Paulo, Brazil. You may write in English or Portuguese.
+Controller and designated contact: Júlia Klee, julia@wolos.org. Address: São Paulo, Brazil, full address on request. Legal representative in the EU: to be appointed; until then contact the controller directly. You may write in English or Portuguese.

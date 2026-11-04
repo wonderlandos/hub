@@ -1,19 +1,21 @@
 ---
 title: Publisher Agreement
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Publisher Agreement
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > Your work stays yours, under your licence. We list it, check it, sign the index and keep a public record.
 > You promise it does what the listing says, and nothing it hides. Malware ends everything, at once.
 > You answer for your code, every version, on every machine it runs on. That includes the laws that apply to software you put out there.
-> We can flag, hold, hide or withdraw any listing or version, any time, and we tell you why.
+> A listing is a favour, not a right. We can flag, hold, hide, delist or withdraw any listing or version, any time, at our call. We still tell you why.
+> Your code, your problem: if it lands us in front of a judge, you defend us and pay the bill.
 > Lost a key or your account? Tell us within 24 hours. Faster is better.
+> Checked never means harmless, and your listing must never say otherwise.
 > You accept this page before your first publish, and again for each new version of it.
 
 ## 1. What this agreement is
@@ -35,6 +37,8 @@ Version 1, effective [effective date].
 
 2.2. We may refuse to let you publish if you or a Work you published broke these texts before, or if the law forbids it.
 
+2.3. **No right to a listing.** Meeting every rule does not entitle you to be listed, to stay listed, to a level, or to a place in search. We decide, at our sole discretion, what we list, where the law allows.
+
 ## 3. What stays yours
 
 3.1. You keep every right in your Work and its listing. This agreement transfers nothing to us.
@@ -51,15 +55,19 @@ Version 1, effective [effective date].
 
 4.4. **Personal data.** If your Work handles people's personal data, you say so in its listing, you link a privacy notice, and you follow the privacy laws that apply to you and to the people who use it.
 
-4.5. **The law that applies to you.** You follow every law that applies to your Work and to you as its maker or seller, including where relevant: consumer law, export and sanctions rules, rules on encryption, product liability law, and, if you make your Work available in the EU in the course of a commercial activity, the EU Cyber Resilience Act (Regulation 2024/2847) duties of a manufacturer. We are not the maker, seller or supplier of your Work.
+4.5. **The law that applies to you.** You follow every law that applies to your Work and to you as its maker or seller, including where relevant: consumer law, privacy law, export and sanctions rules, rules on encryption, product liability law, and, if you make your Work available in the EU in the course of a commercial activity, the EU Cyber Resilience Act (Regulation 2024/2847) duties of a manufacturer. We are not the maker, seller, importer, distributor or supplier of your Work.
 
-4.6. **Payments outside the hub.** The hub takes no payments. If your Work is paid, or sells anything, you alone deal with your customers, prices, taxes, refunds and consumer rights.
+4.6. **Export control and sanctions.** Your Work may lawfully be published worldwide and downloaded from any place the hub serves, or your listing says clearly where it may not go. You classify your Work under the export rules that apply (for example the US Export Administration Regulations, Regulation (EU) 2021/821 and Brazilian law), and you do any filing they require. You are not a person that those laws forbid us to deal with (Terms of Use, section 21.9).
 
-4.7. **The Doctrine.** Your listing, release notes and answers follow the Wonderland Doctrine.
+4.7. **Payments outside the hub.** The hub takes no payments. If your Work is paid, or sells anything, you alone deal with your customers, prices, taxes, refunds and consumer rights.
 
-4.8. **Releases.** Each Release is a GitHub release on a tag of the Work's linked repository. You do not replace a published file under the same version. A new file needs a new, higher version.
+4.8. **The Doctrine.** Your listing, release notes and answers follow the Wonderland Doctrine.
 
-4.9. **Accounts and keys.** You keep your GitHub account, your organisation and your signing keys in your own hands only. Two-factor sign-in stays on.
+4.9. **Releases.** Each Release is a GitHub release on a tag of the Work's linked repository. You do not replace a published file under the same version. A new file needs a new, higher version.
+
+4.10. **Accounts and keys.** You keep your GitHub account, your organisation and your signing keys in your own hands only. Two-factor sign-in stays on.
+
+4.11. **No false promises.** Your listing, release notes and anything you say about your Work never claim that it is harmless, guaranteed, made, endorsed or vouched for by WolOS, or more than "checked" on the hub.
 
 ## 5. What you allow us
 
@@ -71,7 +79,11 @@ Version 1, effective [effective date].
 
 5.4. **Metadata copies.** We may keep copies of icons and screenshots and resize them for display.
 
-5.5. **No more than that.** None of this gives us a licence to your Work beyond what your licence gives everyone. We do not host or redistribute your Work's files; people download them from your GitHub release.
+5.5. **Telling people.** We may tell people who installed or looked at your Work about a flag, a withdrawal or a revocation, through WolOS, the hub and the public log, and say why in plain words.
+
+5.6. **No more than that.** None of this gives us a licence to your Work beyond what your licence gives everyone. We do not host or redistribute your Work's files; people download them from your GitHub release.
+
+5.7. **Your Work is yours alone.** Your Work, your listing and your Releases are third-party content under section 5.5 of the Terms of Use. You alone answer for them, to the people who use them and to everyone else. We give no warranty for them and take on none of your duties.
 
 ## 6. Waiting times and holds
 
@@ -81,14 +93,14 @@ Version 1, effective [effective date].
 
 ## 7. What we may do
 
-7.1. At our discretion, at any time, and without notice when waiting would cause harm, we may flag, hold, refuse, hide, demote in search, or withdraw a Listing or any Release, or add a Release to the revocation list, when we think:
+7.1. **At our sole discretion, at any time, with or without cause, and with or without notice, where the law allows**, we may list or refuse to list, flag, hold, hide, delist, demote in search, or withdraw a Listing or any Release, add a Release to the revocation list, reclaim or rename an id or namespace, or end your right to publish. Our usual grounds are that we think:
 - it breaks this agreement, the Terms of Use, the Hub Policies or the Doctrine;
 - it breaks the law, a court or authority order applies, or a valid notice says so;
 - it may harm people or WolOS machines;
 - its repository changed owner, or your keys or account may no longer be only yours;
 - you asked us to.
 
-7.2. We tell you what we did and why, as section 10.4 of the Terms of Use says, and you can ask us to look again (section 11 of the Terms of Use).
+7.2. We tell you what we did and why, as section 10.4 of the Terms of Use says, and you can ask us to look again (section 11 of the Terms of Use). Sections 10.3 and 10.6 to 10.8 of the Terms of Use apply: we may act on a reasonable suspicion, and we cooperate with authorities.
 
 7.3. A repository that moves to another owner withdraws its Listing. A new owner starts a new listing in their own namespace.
 
@@ -103,15 +115,17 @@ Version 1, effective [effective date].
 
 Write to julia@wolos.org with "incident" in the subject. We may withdraw Releases and revoke Certificates at once.
 
-8.3. You cooperate with us and with authorities that investigate harm caused through your Work, as far as the law allows you to.
+8.3. You cooperate with us and with authorities that investigate harm caused through your Work, as far as the law allows you to. We may give authorities information about your Work and your account as section 10.7 of the Terms of Use says.
 
 ## 9. Your responsibility to us
 
 9.1. You are responsible for your Work, every version of it, and what it does on people's machines.
 
-9.2. If a claim is brought against us because of your Work, your listing, or your breach of this agreement, you cover our reasonable costs, losses and legal fees from that claim. We tell you promptly, let you take part in the defence, and do not settle in your name without your consent.
+9.2. **You defend us, and pay for it.** If anyone brings a claim, demand, investigation or case against us, or against our moderators or reviewers, that comes from your Work, your software, any Release, your listing, the data your Work handles, your conduct, or your breach of this agreement or the law, you defend us at your cost and pay our reasonable costs, losses, damages, settlements and legal fees from it. This includes claims by people who used your Work, by rights holders, and by authorities.
 
-9.3. If you are a consumer, section 9.2 applies only as far as the law where you live allows.
+9.3. We tell you promptly. We may take over the defence at any time, and you cooperate and keep paying the reasonable costs. We do not settle in your name without your consent; you do not settle in ours, or admit anything for us, without ours.
+
+9.4. If you are a consumer, sections 9.2 and 9.3 apply only as section 16.3 of the Terms of Use says.
 
 ## 10. What a listing says, and what it does not
 
@@ -121,7 +135,7 @@ Write to julia@wolos.org with "incident" in the subject. We may withdraw Release
 
 ## 11. Disclaimers and limits
 
-Sections 14 and 15 of the Terms of Use apply. **To the extent the law allows, we are not liable to you for any loss from listing, checking, flagging, holding, withdrawing or revoking your Work, or from a pause or error of the hub.** Consumer protections in Brazil, the EU and US states remain, as those sections say.
+11.1. Sections 14 and 15 of the Terms of Use apply. **The hub, the checks and the listing come "as is" and "as available", without warranty of any kind. To the extent the law allows, we are not liable to you for any loss from listing or not listing, checking, flagging, holding, delisting, demoting, withdrawing or revoking your Work, from telling people about it, or from a pause, change, error or end of the hub, and we owe you no traffic, no downloads and no income.** Consumer protections in Brazil, the EU and US states remain, as those sections say.
 
 ## 12. Ending
 
@@ -131,12 +145,12 @@ Sections 14 and 15 of the Terms of Use apply. **To the extent the law allows, we
 
 12.3. When a Listing ends, what was already signed and logged stays in the public log and, where needed, in the revocation list, because that record is how people check what they installed.
 
-12.4. Sections 4, 8.3, 9, 11 and 12.3 continue after the end.
+12.4. Sections 4, 5.5, 5.7, 8.3, 9, 11, 12.3 and 13 continue after the end, with section 17.4 of the Terms of Use.
 
 ## 13. Changes, law and contact
 
 13.1. We change this agreement only by a new version, as section 19 of the Terms of Use and the [Changes Log](/terms/changes) say. You accept the new version before you publish again.
 
-13.2. Section 18 (law and courts) and section 21 (general) of the Terms of Use apply.
+13.2. Section 18 (law and courts, including individual claims only where enforceable) and section 21 (general: severability, no waiver, assignment by us, entire agreement, events beyond our control, export control) of the Terms of Use apply.
 
-13.3. Takedowns, disputes and incidents: julia@wolos.org. Conduct: conduct@wolos.org.
+13.3. Takedowns, disputes, notices and incidents: julia@wolos.org, our designated contact. Conduct: conduct@wolos.org.

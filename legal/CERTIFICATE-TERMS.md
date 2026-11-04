@@ -1,19 +1,21 @@
 ---
 title: Certificate Terms
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Certificate Terms
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > A certificate says who you are and which repositories you sign. It says nothing about whether your code is any good.
 > Origin is automatic if you meet the rules. Trusted needs people, a review of every release, and an incident contact that answers.
 > Your keys never leave your machine. Lose one, or think someone has it? Tell us within 24 hours.
-> We can revoke, downgrade or withdraw any certificate, any time, without notice. Your files then stop counting, as the reason says.
-> If your code hurts someone and they come after us, that one is on you.
+> We can revoke, downgrade, suspend or withdraw any certificate, any time, with or without notice, at our call. Your files then stop counting, as the reason says.
+> If we think our own keys leaked, every certificate can go at once. You then ask for a new one.
+> A certificate says who you are. Checked never means harmless, and your certificate never says so either.
+> If your code hurts someone and they come after us, that one is on you: you defend us and pay for it.
 
 ## 1. What this programme is
 
@@ -21,7 +23,9 @@ Version 1, effective [effective date].
 
 1.2. You accept these terms, with the [Trust Terms](/terms/trust), with every certificate request. The hub records the version, the SHA-256 hash of the exact text and the time. The [Publisher Agreement](/terms/publisher) also applies to you.
 
-1.3. Certificates are free. They belong to the WolOS Authors certificate authority; you may use yours under these terms. You may not sell, lend or transfer it.
+1.3. Certificates are free. They belong to the WolOS Authors certificate authority; you may use yours under these terms, for as long as it is live. You may not sell, lend or transfer it. All rights in the certificate authority, its keys and its Certificates are reserved.
+
+1.4. You must be 16 or older and not barred by section 21.9 (export control and sanctions) of the Terms of Use.
 
 ## 2. Who can get which level
 
@@ -45,7 +49,7 @@ If a request fails a rule, the hub refuses it and stores nothing but the record 
 
 2.3. A Trusted Certificate lasts one year and is renewed only by the same approval.
 
-2.4. We may refuse any request, at either level, if we think it is needed for the reasons in section 6.
+2.4. We may refuse any request, at either level, at our sole discretion, with or without giving a reason, where the law allows. Meeting the rules does not entitle you to a Certificate.
 
 ## 3. What we verify, and what we do not
 
@@ -92,7 +96,7 @@ If a request fails a rule, the hub refuses it and stores nothing but the record 
 
 ## 6. Our right to revoke, downgrade or withdraw
 
-6.1. **At our discretion, at any time and without notice**, we may revoke, downgrade, suspend, refuse to renew or withdraw any Certificate, or any Release signed with it, when we think:
+6.1. **At our sole discretion, at any time, with or without cause, and with or without notice, where the law allows**, we may revoke, downgrade, suspend, refuse to renew or withdraw any Certificate, or any Release signed with it. Our usual grounds are that we think:
 - a key, account, organisation, repository or build may be compromised;
 - the Certificate was misused, or used outside its repositories or namespace;
 - you broke these terms, the Trust Terms, the Publisher Agreement, the Terms of Use or the Doctrine;
@@ -102,28 +106,34 @@ If a request fails a rule, the hub refuses it and stores nothing but the record 
 
 6.2. Revocation for misuse needs two of our people. A key-exposure revocation starts at once.
 
-6.3. We tell you what we did and why, as section 10.4 of the Terms of Use says. You can ask us to look again (section 11 of the Terms of Use), but a revocation already published stays in the list; if we were wrong, we issue a new Certificate.
+6.3. We may act on a reasonable suspicion, and we cooperate with authorities (Terms of Use, sections 10.6 and 10.7).
+
+6.4. **Emergency revocation of our own keys.** If we think a key of the hub or of a WolOS certificate authority may be in someone else's hands, we may revoke it and, with it, every Certificate and signature that depends on it, yours included, at once. Files signed under those Certificates may stop counting until you get a new Certificate and sign again. We announce it on the hub and in the public log.
+
+6.5. We tell you what we did and why, as section 10.4 of the Terms of Use says. You can ask us to look again (section 11 of the Terms of Use), but a revocation already published stays in the list; if we were wrong, we issue a new Certificate.
 
 ## 7. No guarantee to users
 
-**A Certificate is not a promise to anyone that software is harmless, lawful or fit for a purpose.** Each publisher answers for its own Work. Sections 14 and 15 of the Terms of Use apply, with their protections for consumers.
+7.1. **A Certificate is not a promise to anyone that software is harmless, lawful or fit for a purpose. Checked never means harmless.** Each publisher answers for its own Work. You may never say or suggest that your Certificate means more.
+
+7.2. **The certificate programme, the Certificates, the revocation list and the hub come "as is" and "as available", without warranty of any kind. To the extent the law allows, we are not liable to you for any loss from refusing, revoking, downgrading, suspending or withdrawing a Certificate, from an emergency revocation of our own keys, or from files that stop counting.** Sections 14 and 15 of the Terms of Use apply, with their protections for consumers.
 
 ## 8. Your responsibility for damage
 
 8.1. You are responsible for every file signed with your Certificate, unless it was signed by someone who took your key without your fault and you told us within 24 hours of learning of it.
 
-8.2. **If a claim is brought against us because of harm caused by your code, by a file signed with your Certificate, or by your breach of these terms, you cover our reasonable costs, losses and legal fees from that claim.** We tell you promptly, let you take part in the defence, and do not settle in your name without your consent. If you are a consumer, this applies only as far as the law where you live allows.
+8.2. **If anyone brings a claim against us, or against our moderators or reviewers, because of your code, your data, a file signed with your Certificate, your conduct, or your breach of these terms, you defend us at your cost and pay our reasonable costs, losses, damages, settlements and legal fees from it.** Sections 9.2 to 9.4 of the [Publisher Agreement](/terms/publisher) and section 16 of the Terms of Use say how, including the limits for consumers.
 
 ## 9. Ending
 
 9.1. You can ask us at any time to revoke your Certificate as "stopped publishing".
 
-9.2. Sections 4.6, 5, 7 and 8 continue after a Certificate ends.
+9.2. Sections 1.3, 4.6, 5, 6.4, 7, 8 and 10 continue after a Certificate ends, with section 17.4 of the Terms of Use.
 
 ## 10. Changes, law and contact
 
 10.1. We change these terms only by a new version, listed in the [Changes Log](/terms/changes). A new version applies from your next request or renewal.
 
-10.2. Section 18 (law and courts) and section 21 (general) of the Terms of Use apply.
+10.2. Section 18 (law and courts, including individual claims only where enforceable) and section 21 (general: severability, no waiver, assignment by us, entire agreement, events beyond our control, export control) of the Terms of Use apply.
 
-10.3. Incidents, revocations and disputes: julia@wolos.org.
+10.3. Incidents, revocations, notices and disputes: julia@wolos.org, our designated contact.

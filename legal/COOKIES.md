@@ -1,22 +1,23 @@
 ---
 title: Cookie Notice
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Cookie Notice
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > One cookie keeps you signed in. A second one lives for ten minutes while you sign in, then goes.
 > No analytics, no ads, no tracking pixels, no third-party cookies, no fingerprinting.
 > Your colour theme stays in your own browser and never reaches us.
 > Both are strictly necessary, so there is no banner to click. Block them and you can still read everything; you just cannot sign in.
+> Same controller, same contact as the Privacy Policy: julia@wolos.org.
 
 ## 1. What this page is
 
-This page lists every cookie WolOS Hub sets. It is part of the [Privacy Policy](/terms/privacy), which explains your rights.
+This page lists every cookie WolOS Hub sets. It is part of the [Privacy Policy](/terms/privacy), which explains your rights. The controller, the designated contact and the legal representative in the EU are the ones in section 1 of the Privacy Policy.
 
 ## 2. The cookies
 
@@ -44,4 +45,4 @@ You can delete or block cookies in your browser at any time. If you block them, 
 
 ## 6. Changes and contact
 
-If we ever add a cookie, we update this page first, with a new version listed in the [Changes Log](/terms/changes), and we ask for consent where the law requires it. Questions: julia@wolos.org.
+If we ever add a cookie, we update this page first, with a new version listed in the [Changes Log](/terms/changes), and we ask for consent where the law requires it. We may remove a cookie, or shorten how long it lasts, at any time. Questions: julia@wolos.org.

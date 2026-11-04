@@ -1,18 +1,19 @@
 ---
 title: Notices and Takedown
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Notices and Takedown
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > See something illegal on the hub, or your work used without permission? Tell us: julia@wolos.org, subject "Notice".
 > Say what, where (the exact link), why it is illegal, who you are, and that you mean it in good faith.
 > We confirm we got it, decide fast, and tell both sides why. The other side can answer back.
 > Lying in a notice can cost you in court. Infringe again and again and your hub account goes.
+> We are the messenger, not the judge. We act on what we see, at our call, and the publisher answers for the content.
 > US copyright, Brazil's Marco Civil and the EU Digital Services Act each get their own steps below.
 
 ## 1. What this page is
@@ -25,13 +26,16 @@ Version 1, effective [effective date].
 
 ## 2. Where to send a notice
 
-2.1. Email: **julia@wolos.org**, subject "Notice". This is also our designated agent under the US Digital Millennium Copyright Act:
+2.1. Email: **julia@wolos.org**, subject "Notice". This is our designated contact for every notice on this page, including copyright notices and counter-notices under the US Digital Millennium Copyright Act (17 U.S.C. 512):
 
-- Designated agent: Júlia Klee, operator of WolOS Hub
+- Designated contact: Júlia Klee, operator of WolOS Hub
 - Email: julia@wolos.org
-- Address: São Paulo, State of São Paulo, Brazil (the full postal address is given on request)
+- Address: São Paulo, Brazil, full address on request
+- Legal representative in the EU: to be appointed; until then contact the controller directly at julia@wolos.org
 
 2.2. You may write in English or Portuguese. Notices are free, and you do not need a hub account.
+
+2.3. Notices count only when they reach julia@wolos.org, or arrive by the means a law or a court order requires. Notices sent elsewhere, such as to the report button, to a moderator or on GitHub, may not be handled as legal notices.
 
 ## 3. Any illegal content (all countries, and the EU Digital Services Act)
 
@@ -47,9 +51,13 @@ Version 1, effective [effective date].
 
 3.4. If we act on the content, we tell the publisher what we did and why (section 7).
 
+3.5. **Our role.** We are an intermediary, not a judge, and the content is the publisher's alone (Terms of Use, sections 5.5 and 5.6). We decide at our discretion, on what the notice and the content show, whether to act. An incomplete notice may not count as a notice, but we may still act on it. Acting or not acting on a notice is not a finding that anyone broke the law, and to the extent the law allows, it does not make us liable (Terms of Use, section 15).
+
+3.6. We may send a copy of a notice to the publisher, and record the decision in the public log, without the personal data of the sender, except where section 4.2 or the law says otherwise.
+
 ## 4. Copyright notices (United States, 17 U.S.C. 512)
 
-4.1. A copyright notice must be in writing to our designated agent and include:
+4.1. A copyright notice must be in writing to our designated contact (section 2) and include:
 1. a physical or electronic signature of the copyright owner or a person allowed to act for them;
 2. the copyrighted work you say was infringed, or a list of works for many at one site;
 3. the material you say is infringing, and enough information for us to find it (the exact link);
@@ -63,7 +71,7 @@ Version 1, effective [effective date].
 
 ## 5. Counter-notice (United States)
 
-5.1. If your material was removed because of a copyright notice and you believe it was a mistake or a misidentification, you can send a counter-notice to our designated agent. It must include:
+5.1. If your material was removed because of a copyright notice and you believe it was a mistake or a misidentification, you can send a counter-notice to our designated contact (section 2). It must include:
 1. your physical or electronic signature;
 2. the material that was removed and where it appeared before;
 3. a statement, under penalty of perjury, that you believe in good faith the material was removed or disabled by mistake or misidentification;
@@ -95,6 +103,8 @@ Version 1, effective [effective date].
 
 8.2. We act on valid orders to act against illegal content or to give information, tell the authority what we did, and tell the person concerned, unless the order says we must not.
 
+8.3. We check that an order is valid and comes from an authority that may give it. We may ask for clarification, and challenge an order we think is unlawful, as the law allows. We may also cooperate with authorities without an order, as section 10.7 of the Terms of Use says.
+
 ## 9. Threats to life or physical integrity
 
 If we learn of information that makes us suspect a crime that threatens someone's life or physical integrity has happened, is happening or is likely, we tell the police or the competent authorities at once, with the information we have.
@@ -116,3 +126,7 @@ If we learn of information that makes us suspect a crime that threatens someone'
 ## 12. Trade marks and names
 
 A notice about a trade mark or a look-alike name follows section 3. Tell us which mark, where it is registered or used, and why the listing confuses people. The [Trade Mark Policy](/terms/trademark) covers the WolOS marks.
+
+## 13. General
+
+Sections 14 to 16 (disclaimers, limits, your responsibility), 18 (law and courts) and 21 (general) of the [Terms of Use](/terms/usage) apply to everything on this page, with their protections for consumers. Questions: julia@wolos.org.

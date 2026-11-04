@@ -1,12 +1,12 @@
 ---
 title: Hub Policies
 version: 1
-effective: [effective date]
+effective: 2026-11-04
 ---
 
 # Hub Policies
 
-Version 1, effective [effective date].
+Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > The hub is slow on purpose. A stranger's first app waits a week; updates wait three days. Bad actors hate calendars.
@@ -14,12 +14,18 @@ Version 1, effective [effective date].
 > Your name lives in your namespace. Look-alikes of someone else's name wait for a person, and usually lose.
 > Report malware and a person looks within 24 hours, often within 4. Other reports within 3 to 7 days.
 > Every decision comes with a reason, and you can ask a different person to look again.
+> Following every rule here gets you considered, not listed. We decide, and in a fire we can tighten any rule on the spot.
+> Checked never means harmless. Not here, not anywhere.
 
 ## 1. What this page is
 
 1.1. These are the rules for listings, names, waiting times, reports and appeals on WolOS Hub. They are part of the [Terms of Use](/terms/usage) and the [Publisher Agreement](/terms/publisher). The definitions in section 2 of the Terms of Use apply.
 
-1.2. The numbers here are the rules today. We change them only by a new version of this page, listed in the [Changes Log](/terms/changes).
+1.2. The numbers here are the rules today. We change them only by a new version of this page, listed in the [Changes Log](/terms/changes), with one exception: during an incident or an attack, we may tighten any limit, waiting time or rule at once, for as long as it lasts, and record it in the public log.
+
+1.3. **Discretion.** Meeting every rule here does not entitle anyone to a listing, a level, a name or a place in search. We may list, refuse, hold, delist or withdraw at our sole discretion, as section 10 of the Terms of Use says, where the law allows. We have no duty to review or monitor everything (Terms of Use, section 5.4).
+
+1.4. **Checked never means harmless.** A listing that passes every rule here is still only checked (Terms of Use, section 6).
 
 ## 2. What may be listed
 
@@ -70,6 +76,8 @@ In addition to section 7 of the Terms of Use:
 
 4.5. **Disputes about names.** If you think someone uses your name or mark, see the [Notices and Takedown](/terms/notices) page.
 
+4.6. **Names are not property.** An id, a namespace or a display name is a permission to use it on the hub, not something you own. We may reclaim, rename or reassign one at our discretion, for example after a valid trade mark notice, for confusion with another name, or when a listing was withdrawn. We tell you before, unless waiting would cause harm.
+
 ## 5. Accounts, waiting times and limits
 
 5.1. **First listing.** To publish your first listing:
@@ -101,7 +109,7 @@ Younger accounts may still sign in, accept the texts and check their files in th
 - A malware report from a reporter whose earlier reports held up, or three malware reports from different accounts, hides the listing at once and stops its updates.
 - Any other malware report puts the listing "under review": hidden from search, still reachable by its link with a visible line that says it was reported and is being looked at.
 
-6.4. **Response times** (from the report):
+6.4. **Response times** (from the report; these are targets we work to meet, not guarantees, and missing one gives no right to compensation, as far as the law allows):
 - **Malware or an exposed key**: a moderator looks within 4 hours in waking time, at most within 24 hours.
 - **Impersonation, licence**: a moderator looks within 3 days.
 - **Broken**: a moderator looks within 7 days.
@@ -125,7 +133,7 @@ A decision to hide or withdraw takes effect in the signed index within about an 
 
 8.1. You can ask us to look again at any decision about your Work, your account, your Certificate or your report, within 6 months, free: answer our message, or write to julia@wolos.org.
 
-8.2. A person who did not take the first decision decides, when we have one. We answer within 14 days, with reasons.
+8.2. A person who did not take the first decision decides, when we have one. We answer within 14 days, with reasons. The decision on appeal is ours; it does not limit your other ways in 8.3.
 
 8.3. You keep every other way: courts, and, in the EU, certified out-of-court dispute settlement bodies under the Digital Services Act.
 
@@ -137,4 +145,4 @@ A decision to hide or withdraw takes effect in the signed index within about an 
 
 ## 10. Contact
 
-Reports: the report button on each listing. Legal notices: [Notices and Takedown](/terms/notices). Everything else: julia@wolos.org.
+Reports: the report button on each listing. Legal notices: [Notices and Takedown](/terms/notices). Everything else: julia@wolos.org, our designated contact.
