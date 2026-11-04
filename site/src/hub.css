@@ -308,10 +308,38 @@ dialog.sheet::backdrop { background: color-mix(in srgb, var(--wol-bg) 70%, trans
 /* Terms and policies */
 .legal-meta { margin-top: .5rem; font-size: var(--text-sm); }
 .legal-meta a, .legal-text a { text-decoration-color: var(--wol-accent); text-underline-offset: 3px; }
-.legal-text { margin-top: 2rem; max-width: 42rem; }
+.legal-text { margin-top: 1.5rem; max-width: 42rem; }
 .legal-text h2 { margin: 2rem 0 .75rem; font-size: var(--text-lg); line-height: var(--text-lg--line-height); }
 .legal-text h3, .legal-text h4 { margin: 1.5rem 0 .5rem; }
 .legal-text ul, .legal-text ol { margin: .75rem 0; padding-left: 1.4rem; display: flex; flex-direction: column; gap: .35rem; }
 .legal-text ul { list-style: disc; } .legal-text ol { list-style: decimal; }
 .legal-text blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 3px solid var(--wol-border); color: var(--wol-text-2); }
 .legal-text code { font-size: .9em; padding: .05em .35em; border-radius: 5px; background: var(--wol-surface-2); }
+.legal-text h2 { scroll-margin-top: 1rem; }
+.legal-cols { display: grid; gap: 1.5rem 3rem; margin-top: 1.5rem; grid-template-columns: minmax(0, 44rem) 16rem; grid-template-areas: "short toc" "text toc" "foot toc"; grid-template-rows: auto auto 1fr; justify-content: space-between; }
+.legal-cols > .short { grid-area: short; } .legal-cols > .legal-text { grid-area: text; margin-top: 0; } .legal-cols > .legal-foot { grid-area: foot; align-self: start; margin-top: 1rem; }
+.toc { grid-area: toc; align-self: start; position: sticky; top: 1rem; max-height: calc(100dvh - 2rem); overflow: auto; padding-left: 1rem; border-left: 1px solid var(--wol-border); }
+.toc ol { margin-top: .5rem; display: flex; flex-direction: column; gap: .35rem; font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
+.toc a { color: var(--wol-text-2); text-decoration: none; }
+.toc a:hover { color: var(--wol-text); text-decoration: underline; text-decoration-color: var(--wol-accent); }
+.short { padding: 1rem 1.2rem; border: 1px solid var(--wol-border); border-left: 3px solid var(--wol-accent); border-radius: var(--wol-radius-md); background: color-mix(in srgb, var(--wol-accent) 7%, var(--wol-surface)); display: flex; flex-direction: column; gap: .6rem; }
+.short-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.short-body { display: flex; flex-direction: column; gap: .4rem; }
+.short-note { font-size: var(--text-xs); line-height: var(--text-xs--line-height); color: var(--wol-text-2); }
+.short-sm { padding: .8rem 1rem; font-size: var(--text-sm); line-height: var(--text-sm--line-height); }
+.tag { display: inline-flex; padding: .05rem .55rem; border-radius: 999px; border: 1px solid var(--wol-border); background: var(--wol-surface-2); color: var(--wol-text-2); font-size: var(--text-xs); line-height: 1.6; font-weight: 600; }
+.legal-foot { margin-top: 2.5rem; padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: .75rem; }
+.terms-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 2rem; }
+.terms-card { padding: 1.2rem; display: flex; flex-direction: column; gap: .75rem; }
+.terms-card h2 a { color: inherit; text-decoration: none; }
+.terms-card h2 a:hover { text-decoration: underline; text-decoration-color: var(--wol-accent); }
+.terms-card > p:last-child { margin-top: auto; }
+.other-terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .35rem 1.5rem; margin-top: .5rem; }
+.other-terms + p { margin-top: 1rem; }
+.sig { margin-top: .5rem; display: flex; flex-direction: column; gap: .35rem; width: 100%; }
+.sig pre { margin: 0; padding: .45rem .65rem; border-radius: 6px; background: var(--wol-surface-2); font-size: var(--text-xs); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 62rem) {
+  .legal-cols { grid-template-columns: minmax(0, 1fr); grid-template-areas: "short" "toc" "text" "foot"; grid-template-rows: none; }
+  .toc { position: static; max-height: none; padding: .9rem 1.1rem; border: 1px solid var(--wol-border); border-radius: var(--wol-radius-md); background: var(--wol-surface); }
+  .terms-grid { grid-template-columns: minmax(0, 1fr); }
+}

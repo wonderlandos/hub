@@ -1,4 +1,5 @@
-/* WolOS Hub search: reads /search.json once and ranks by name, maker, words and category. Same card as the store. */
+/* WolOS Hub search: reads /search.json once and ranks by trust (Made by WolOS, Trusted, Origin, Community), then by
+   name, maker, words and category. Same card as the store, with its badge. */
 (function () {
   "use strict";
   var H = window.Hub, $ = H.$, el = H.el;
@@ -13,6 +14,9 @@
     }
     return sc;
   };
+  /* Made by WolOS first, then Trusted, Origin and Community (the lead's order), and only then how well it matches. */
+  var RANK = { wolos: 0, trusted: 1, origin: 2, community: 3, withdrawn: 4 };
+  var rank = function (r) { return r.t in RANK ? RANK[r.t] : 3; };
   var card = function (r) {
     var li = el("li", { class: "card item" });
     li.appendChild(el("a", { class: "stretch", href: r.u }, [el("span", { class: "sr", text: r.n + ", " })]));
@@ -30,7 +34,7 @@
     results.textContent = ""; none.hidden = true;
     if (!ws.length) { count.textContent = hint; return; }
     var hits = rows.map(function (r) { return [score(r, ws), r]; }).filter(function (x) { return x[0] > 0; })
-      .sort(function (a, b) { return b[0] - a[0] || a[1].n.localeCompare(b[1].n); });
+      .sort(function (a, b) { return rank(a[1]) - rank(b[1]) || b[0] - a[0] || a[1].n.localeCompare(b[1].n); });
     hits.forEach(function (x) { results.appendChild(card(x[1])); });
     count.textContent = hits.length ? hits.length + (hits.length === 1 ? " result" : " results") + " for “" + text + "”" : "“" + text + "”";
     none.hidden = hits.length > 0;

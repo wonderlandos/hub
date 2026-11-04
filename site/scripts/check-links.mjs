@@ -71,5 +71,18 @@ for (const f of files.filter((x) => /\.(html|js|json|xml|txt)$/.test(x) && !x.en
 }
 if (!/X-Robots-Tag: noindex/.test(readFileSync(resolve(dist, "_headers"), "utf8"))) bad.push("_headers: /admin is not noindex");
 
+// Every list ranks by trust (lead, 2026-11-04): Made by WolOS, Trusted, Origin, Community, withdrawn last; search too.
+const RANK = { wolos: 0, trusted: 1, origin: 2, community: 3, withdrawn: 4 };
+const ranked = (tones) => tones.every((t, i) => !i || RANK[tones[i - 1]] <= RANK[t]);
+let lists = 0;
+for (const f of pages) for (const m of readFileSync(f, "utf8").matchAll(/<ul class="grid cards"[^>]*>([\s\S]*?)<\/ul>/g)) {
+  const tones = [...m[1].matchAll(/<li class="card item">[\s\S]*?class="badge badge-(\w+)"/g)].map((x) => x[1]);
+  lists++;
+  if (!ranked(tones)) bad.push(`${relative(dist, f)}: a list is not ranked by trust (${tones.join(", ")})`);
+}
+const rows = JSON.parse(readFileSync(resolve(dist, "search.json"), "utf8")).map((e) => e.t);
+if (!ranked(rows)) bad.push(`search.json: not ranked by trust (${rows.join(", ")})`);
+if (!/rank\(a\[1\]\) - rank\(b\[1\]\)/.test(readFileSync(at("src/search.js"), "utf8"))) bad.push("src/search.js: results are not ranked by trust first");
+
 if (bad.length) { console.error(`check-links: ${bad.length} broken of ${checked} links\n  ${bad.slice(0, 60).join("\n  ")}`); process.exit(1); }
-console.log(`check-links: ${checked} internal links in ${pages.length} pages, search and sitemap: all resolve (${worker} go to the Worker's documented routes); every listing and every version has a Report link, every version its page and offline check; nothing links to the admin page`);
+console.log(`check-links: ${checked} internal links in ${pages.length} pages, search and sitemap: all resolve (${worker} go to the Worker's documented routes); every listing and every version has a Report link, every version its page and offline check; ${lists} lists and the search ranked by trust; nothing links to the admin page`);

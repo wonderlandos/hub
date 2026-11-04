@@ -17,6 +17,9 @@ export const kindOf = (k) => KINDS.find((x) => x.kind === k);
 export const TRUST = ["wolos", "trusted", "origin", "community", "withdrawn"];
 /** The short label on a card; the listing's trust row says the whole sentence (render.mjs trustRow). */
 export const TRUST_LABEL = { wolos: "Made by WolOS", trusted: "Trusted developer", origin: "Verified origin", community: "Community", withdrawn: "Withdrawn" };
+/** Every list ranks by trust first (lead, 2026-11-04): Made by WolOS, Trusted, Origin, Community, then withdrawn. */
+export const TRUST_RANK = { wolos: 0, trusted: 1, origin: 2, community: 3, withdrawn: 4 };
+export const byTrust = (list, then = () => 0) => list.map((e, i) => [e, i]).sort((a, b) => TRUST_RANK[a[0].trust] - TRUST_RANK[b[0].trust] || then(a[0], b[0]) || a[1] - b[1]).map((x) => x[0]);
 const trustOf = (t) => (t === "verified" ? "trusted" : TRUST.includes(t) ? t : "community");
 
 export const slug = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "other";
@@ -40,10 +43,10 @@ export function shape(raw) {
   for (const k of KINDS) {
     for (const e of raw[k.dir] || []) entries.push(entry(e, k.kind, owners));
   }
-  const shown = entries.filter((e) => e.verdict !== "block"); // a blocked file is not listed
+  const shown = byTrust(entries.filter((e) => e.verdict !== "block")); // a blocked file is not listed
   const ids = new Set();
   for (const e of shown) { if (ids.has(e.id)) throw new Error(`hub index: ${e.id} twice`); ids.add(e.id); }
-  const featured = (raw.featured || []).map((id) => shown.find((e) => e.id === id)).filter(Boolean);
+  const featured = byTrust((raw.featured || []).map((id) => shown.find((e) => e.id === id)).filter(Boolean));
   for (const o of owners.values()) o.entries = shown.filter((e) => e.owner.login === o.login);
   const cats = new Map();
   for (const e of shown) for (const c of e.categories || []) {
@@ -52,7 +55,7 @@ export function shape(raw) {
     cats.get(s).entries.push(e);
   }
   const categories = [...cats.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const newest = shown.slice().sort((a, b) => latest(b).first_seen - latest(a).first_seen);
+  const newest = byTrust(shown, (a, b) => latest(b).first_seen - latest(a).first_seen);
   return { serial: raw.serial, issued: raw.issued, entries: shown, owners: [...owners.values()], featured, categories, newest };
 }
 
@@ -63,7 +66,7 @@ function entry(e, kind, owners) {
   }
   const o = owners.get(e.owner.login);
   const trust = e.withdrawn ? "withdrawn" : trustOf(e.trust);
-  const top = { version: e.version, tag: e.source?.tag, commit: e.source?.commit, url: e.url, sha256: e.sha256, size: e.size, verdict: e.verdict, findings: e.findings, first_seen: e.first_seen, checked_at: e.checked_at, yanked: e.yanked, withdrawn: e.withdrawn, statement: e.statement, cert: e.cert, trust };
+  const top = { version: e.version, tag: e.source?.tag, commit: e.source?.commit, url: e.url, sha256: e.sha256, sha512: e.sha512, size: e.size, verdict: e.verdict, findings: e.findings, first_seen: e.first_seen, checked_at: e.checked_at, yanked: e.yanked, withdrawn: e.withdrawn, statement: e.statement, file_certificate: e.file_certificate, cert: e.cert, trust };
   const releases = (e.releases?.length ? e.releases : [top]).map((r) => ({ ...r, trust: r.withdrawn ? "withdrawn" : trustOf(r.trust || trust) }))
     .sort((a, b) => b.first_seen - a.first_seen);
   const dir = kindOf(kind).dir;

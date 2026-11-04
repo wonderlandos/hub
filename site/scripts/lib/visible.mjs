@@ -61,10 +61,17 @@ export function visible(html) {
   return decode(h.replace(/<[^>]+>/g, "\n") + "\n" + alts.join("\n")).split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
 }
 
+/** Exact addresses a page may show although a word in them is on a list (the disclosure policy names its
+ *  mailbox). Only the whole address passes: a longer address, another domain or the bare word still fail. */
+export const ALLOWED_ADDRESSES = ["security@wolos.org"];
+const ADDR = new RegExp(`(?<![\\w.+@-])(?:${ALLOWED_ADDRESSES.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\w@-]|\\.[\\w-])`, "g");
+/** A line with the allowed addresses taken out, so the lists never see them. */
+export const withoutAllowed = (l) => l.replace(ADDR, " ");
+
 /** Problems in a list of visible lines: [line, token, why]. */
 export function scan(lines, lists) {
   const out = [];
-  for (const l of lines) for (const list of lists) for (const [re, why] of list) for (const m of l.matchAll(re)) out.push([l, m[0], why]);
+  for (const l of lines) { const t = withoutAllowed(l); for (const list of lists) for (const [re, why] of list) for (const m of t.matchAll(re)) out.push([l, m[0], why]); }
   return out;
 }
 

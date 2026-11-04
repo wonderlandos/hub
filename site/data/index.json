@@ -113,6 +113,12 @@
           "statement": {
             "url": "https://wolos.squareweb.app/plugins/statements/org.wolos.notes/1.4.0.wsig",
             "serial": "5b209436d510496f"
+          },
+          "sha512": "a70aa0ac792cc7e01a6875b484670291bc4ad6ff095fcd825418fc11a65c761aa8be1cd9b5487e55aa96b3dca6e19aea34ed12e22b908ed32633a4f848f339b7",
+          "file_certificate": {
+            "serial": "5b209436d510496f",
+            "checked_at": 1793664600,
+            "verdict": "pass"
           }
         },
         {
@@ -129,6 +135,12 @@
           "statement": {
             "url": "https://wolos.squareweb.app/plugins/statements/org.wolos.notes/1.3.2.wsig",
             "serial": "00c4de3496ad92bf"
+          },
+          "sha512": "333e70f8b5e0dbed434cdf1fc44cfdb86fa29edc8d2356e272d01f0f2812444d69826ab4183064bf06e77b9719bec7065d4c1120c1875c2e99aed6febcea8349",
+          "file_certificate": {
+            "serial": "00c4de3496ad92bf",
+            "checked_at": 1791763800,
+            "verdict": "pass"
           }
         }
       ],
@@ -193,6 +205,12 @@
           "statement": {
             "url": "https://wolos.squareweb.app/plugins/statements/rivertools.clock/1.1.0.wsig",
             "serial": "5e0c2b8a91d4f763"
+          },
+          "sha512": "e6a68286845031185c28df757628d0d524a2e730363a92a6a9dca6b7f6c31e80c9404d0d00ce9972b806e713039e3f6e60e4386f9598ab3f4c05ff48855b2b3b",
+          "file_certificate": {
+            "serial": "5e0c2b8a91d4f763",
+            "checked_at": 1793837400,
+            "verdict": "pass"
           }
         },
         {
@@ -279,6 +297,12 @@
           "statement": {
             "url": "https://wolos.squareweb.app/plugins/statements/alicedoe.weather/2.1.0.wsig",
             "serial": "07117ee8a0e976f2"
+          },
+          "sha512": "e373603e5492bb43d2c47a84651fe507d460c96e7770157370a7201fac906843c55f66d5742e32d75a7fd9a0408c45dcf6982b9c1617de0a0d6dbeaa8e89f5ba",
+          "file_certificate": {
+            "serial": "07117ee8a0e976f2",
+            "checked_at": 1793578200,
+            "verdict": "pass"
           }
         },
         {
@@ -375,6 +399,12 @@
           "statement": {
             "url": "https://wolos.squareweb.app/plugins/statements/examplelabs.markdown-preview/0.9.1.wsig",
             "serial": "d57a569fd1c47472"
+          },
+          "sha512": "8b87c9a5b575588309a603ab4c5e7e8c0fb37a573dfcd98964bf90e21ebcabf2cfab704e4e3b2d024004836c86fbec46c54d68a65302160fbd24de0741e3f1a6",
+          "file_certificate": {
+            "serial": "d57a569fd1c47472",
+            "checked_at": 1793491800,
+            "verdict": "flag"
           }
         }
       ],

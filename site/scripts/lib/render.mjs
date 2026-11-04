@@ -31,7 +31,7 @@ export function trustRow(e, r = null) {
 }
 export const badgeOf = (tone, label) => `<span class="badge badge-${tone}"><span class="dot" aria-hidden="true"></span>${esc(label)}</span>`;
 export const badge = (e) => { const t = trustRow(e); return badgeOf(t.tone, t.label); };
-const trustBox = (t, label) => `<section class="trust trust-${t.tone}" aria-label="${label}"><p class="trust-line">${badgeOf(t.tone, t.label)}<strong>${esc(t.line)}</strong></p>${t.sentence ? `<p class="dim">${esc(t.sentence)}</p>` : ""}</section>`;
+const trustBox = (t, label, extra = "") => `<section class="trust trust-${t.tone}" aria-label="${label}"><p class="trust-line">${badgeOf(t.tone, t.label)}<strong>${esc(t.line)}</strong></p>${t.sentence ? `<p class="dim">${esc(t.sentence)}</p>` : ""}${extra}</section>`;
 
 /** What the check of one version says, in plain words. */
 export function checked(r) {
@@ -66,7 +66,7 @@ ${body}
 <footer class="foot">
 <div class="wrap foot-grid">
 <div><a class="brand" href="/"><img src="/wolos-mark.svg" alt="" width="22" height="22"><span>WolOS Hub</span></a><p class="dim">Apps, plugins and extensions for WolOS, from the people who make them. Every file stays with its maker on GitHub, and every version is checked before it is listed.</p></div>
-<nav aria-label="Hub"><h2 class="eyebrow">Hub</h2><ul><li><a href="/apps">Apps</a></li><li><a href="/plugins">Plugins</a></li><li><a href="/extensions">Extensions</a></li><li><a href="/report">Report a problem</a></li><li><a href="/terms/usage">Terms of Use</a></li><li><a href="/terms/privacy">Privacy</a></li></ul></nav>
+<nav aria-label="Hub"><h2 class="eyebrow">Hub</h2><ul><li><a href="/apps">Apps</a></li><li><a href="/plugins">Plugins</a></li><li><a href="/extensions">Extensions</a></li><li><a href="/report">Report a problem</a></li><li><a href="/terms/usage">Terms of Use</a></li><li><a href="/terms/privacy">Privacy</a></li><li><a href="/terms">All terms</a></li></ul></nav>
 <nav aria-label="Publish"><h2 class="eyebrow">Publish</h2><ul><li><a href="/publish">Publish your app</a></li><li><a href="/dashboard">Your dashboard</a></li><li><a href="https://wolos.org">wolos.org</a></li><li><a href="https://github.com/wonderlandos">GitHub</a></li></ul></nav>
 <div><h2 class="eyebrow" id="theme-l">Look</h2><div class="seg" role="group" aria-labelledby="theme-l" id="theme"><button type="button" data-theme="auto" aria-pressed="true">Auto</button><button type="button" data-theme="light" aria-pressed="false">Light</button><button type="button" data-theme="dark" aria-pressed="false">Dark</button></div></div>
 </div>
@@ -177,7 +177,7 @@ export function listing(e, assets, images, NAMES) {
 ${crumbs([`/${k.dir}`, k.many])}
 <header class="l-head">${icon(e, true)}<div><h1 class="h-xl">${esc(e.name)}</h1><p class="lead">${esc(e.summary)}</p>
 <p class="meta"><a href="${ownerPath(e.owner)}">${esc(e.ownerInfo.name)}</a><span class="dim">${esc(k.one)}</span><span class="dim">Version ${esc(r.version)}</span><span class="dim">${esc(e.license)}</span>${(e.categories || []).map((x) => `<span class="dim">${esc(x)}</span>`).join("")}</p></div></header>
-${trustBox(t, "Who made it")}
+${trustBox(t, "Who made it", sigHtml(authorLine(e), "Signature line", "The maker's certificate in one line. WolOS reads the same line when it checks a file from them."))}
 <section class="get card" aria-label="Download"><div><h2 class="h-md">${esc(e.name)} ${esc(r.version)}</h2><p class="dim">${out ? esc(c.text) : `Needs WolOS ${esc(e.min_wolos)} or newer. The file comes straight from GitHub, and WolOS checks it again on your PC before anything installs.`}</p></div>
 <p class="get-btns">${out ? "" : `<a class="btn btn-solid" href="${esc(r.url)}">Download</a>`}<a class="btn btn-quiet" href="https://github.com/${esc(e.source.repo)}">Source on GitHub</a></p></section>
 ${wi}
@@ -195,14 +195,37 @@ ${history(e)}
 }
 
 /* ---------- One version: its signed statement and the offline check ---------- */
-export const VERIFY_CMD = (file, st) => `wol verify ${file} ${st}`;
+export const VERIFY_CMD = (file, st) => `wol trust verify ${file} --file-cert ${st}`;
+/* Signature lines: a certificate in one line of angle-bracket fields, the form WolOS shows and checks
+   (TRUST-core-5). The index may carry the line itself (`line`); otherwise it is put together from the fields.
+   A line is shown only when every field is known. */
+const ymd = (s) => new Date(s * 1000).toISOString().slice(0, 10);
+const sigLine = (parts) => (parts.every((p) => p != null && p !== "") ? parts.map((p) => `<${p}>`).join(" ") : "");
+/** The file certificate of one version: <WolOS Index> <wolos.org/hub/APP/VERSION> <author: ID> <sha512:HASH> <checked YYYY-MM-DD> <pass|flag> <rkdb:SERIAL> */
+export function fileCertLine(e, r) {
+  const fc = r.file_certificate;
+  if (!fc) return "";
+  if (fc.line) return fc.line;
+  const at = fc.checked_at || r.checked_at, verdict = fc.verdict || r.verdict;
+  return sigLine(["WolOS Index", `wolos.org/hub/${e.id}/${r.version}`, (fc.author || r.cert || e.cert) && `author: ${fc.author || r.cert || e.cert}`,
+    (fc.sha512 || r.sha512) && `sha512:${fc.sha512 || r.sha512}`, at && `checked ${ymd(at)}`, /^(pass|flag)$/.test(verdict) ? verdict : "", fc.serial && `rkdb:${fc.serial}`]);
+}
+/** The author's certificate on a listing: <WolOS Hub> <author: ID> <github: LOGIN> <origin|trusted|wolos> */
+export function authorLine(e) {
+  if (e.author_line) return e.author_line;
+  const id = e.cert || e.ownerInfo.cert;
+  if (!id || !["wolos", "trusted", "origin"].includes(e.trust)) return "";
+  return sigLine(["WolOS Hub", `author: ${id}`, `github: ${e.owner.login}`, e.trust]);
+}
+const sigHtml = (line, label, why) => (line ? `<div class="sig"><p class="eyebrow">${label}</p><pre><code>${esc(line)}</code></pre><p class="dim small">${why}</p></div>` : "");
 const fileName = (u) => u.split("/").pop();
 
 export function version(e, r, assets, statementUrl) {
   const k = kindOf(e.kind), t = trustRow(e, r), c = checked(r);
   const file = fileName(r.url), st = `${e.id}-${r.version}.wsig`;
   const gh = r.tag ? `https://github.com/${e.source.repo}/releases/tag/${r.tag}` : `https://github.com/${e.source.repo}/releases`;
-  const cmd = statementUrl ? `sha256sum ${file}\n${VERIFY_CMD(file, st)}` : `sha256sum ${file}`;
+  const cmd = statementUrl ? VERIFY_CMD(file, st) : `sha256sum ${file}`;
+  const fcl = fileCertLine(e, r);
   return page({
     title: `${e.name} ${r.version} - WolOS Hub`, path: versionPath(e, r), assets,
     desc: `${e.name} ${r.version}: ${c.head}.`,
@@ -213,10 +236,11 @@ ${trustBox(t, "Who made it")}
 <section class="card statement statement-${c.tone}" aria-labelledby="st"><h2 id="st" class="h-md">${esc(c.head)}</h2>${checkedHtml(c)}
 ${r.tag ? `<p class="dim">Taken from the release ${esc(r.tag)} of ${esc(e.source.repo)} on GitHub.</p>` : ""}
 <div class="hash"><span class="eyebrow">sha256</span><code>${esc(r.sha256)}</code><button type="button" class="copy" data-copy="${esc(r.sha256)}" aria-label="Copy the sha256 of ${esc(r.version)}">Copy</button></div>
+${sigHtml(fcl, "Signature line", "The file certificate of this version in one line: who checked it, which file, whose it is, what the check found and its number.")}
 <p class="get-btns">${r.withdrawn || r.yanked ? "" : `<a class="btn btn-solid" href="${esc(r.url)}">Download ${esc(r.version)}</a>`}<a class="btn btn-quiet" href="/report?listing=${encodeURIComponent(e.id)}&amp;version=${encodeURIComponent(r.version)}">Report this version</a></p></section>
 <details class="card offline" id="offline"${statementUrl ? ` data-statement="${esc(statementUrl)}" data-name="${esc(st)}"` : ""}><summary class="btn btn-quiet">Verify offline</summary>
-<div class="offline-body"><p class="dim">${statementUrl ? "The statement is the hub's signed record of this check. With it, WolOS confirms the file without asking the hub, even with no connection." : "Compare the file's fingerprint with the sha256 above."}</p>
-<ol class="steps-sm"><li>Download <a href="${esc(r.url)}">the file</a>.</li>${statementUrl ? `<li>Download <a href="${esc(statementUrl)}" download="${esc(st)}">the statement</a>. Opening this panel starts that download.</li>` : ""}<li>In the folder with ${statementUrl ? "both" : "the file"}, run:</li></ol>
+<div class="offline-body"><p class="dim">${statementUrl ? "The file certificate is the hub's signed record of this check. With it, WolOS confirms the file without asking the hub, even with no connection." : "Compare the file's fingerprint with the sha256 above."}</p>
+<ol class="steps-sm"><li>Download <a href="${esc(r.url)}">the file</a>.</li>${statementUrl ? `<li>Download <a href="${esc(statementUrl)}" download="${esc(st)}">the file certificate</a>. Opening this panel starts that download.</li>` : ""}<li>In the folder with ${statementUrl ? "both" : "the file"}, run:</li></ol>
 <div class="code"><pre><code>${esc(cmd)}</code></pre><button type="button" class="copy" data-copy="${esc(cmd)}">Copy</button></div></div></details>
 <p class="gap"><a href="${esc(e.url_path)}#rels">Every version of ${esc(e.name)}</a></p>
 </article>`,
@@ -285,17 +309,43 @@ export const signin = (assets) => page({
 <p><a class="btn btn-solid" href="/auth/login?next=%2Fdashboard">Sign in with GitHub</a></p></section>`,
 });
 /* ---------- The agreements and policies ---------- */
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const isoDay = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : d; };
+/** The "In short" box: the text's own summary, marked as not binding wherever it is shown. */
+const shortBox = (t, small = false) => {
+  if (!t.short) return "";
+  const note = t.short.note ? t.short.note.replace(/^./, (c) => c.toUpperCase()).replace(/\.?$/, ".") : "Not the binding text.";
+  return `<aside class="short${small ? " short-sm" : ""}" aria-label="In short, not binding"><p class="short-head"><strong>In short</strong><span class="tag">Not binding</span></p>
+<div class="short-body">${t.short.lines.map((l) => `<p>${l.html}</p>`).join("")}</div><p class="short-note">${esc(note)}</p></aside>`;
+};
+const termsCrumbs = () => `<nav class="crumbs" aria-label="You are here"><a href="/">Hub</a><span aria-hidden="true"> / </span><a href="/terms">Terms</a></nav>`;
+
+export function termsIndex(all, assets) {
+  const item = (t) => `<li class="card terms-card"><h2 class="h-md"><a href="/terms/${t.doc}">${esc(t.title)}</a></h2>
+<p class="meta">${t.found && t.versionLine ? `<span class="dim">${esc(t.versionLine)}</span>` : ""}${t.binds ? `<span class="dim">${esc(t.binds.replace(/^./, (c) => c.toUpperCase()))}</span>` : ""}</p>
+${t.found ? shortBox(t, true) : `<p class="dim">This text is being written.</p>`}
+<p><a href="/terms/${t.doc}">Read the ${esc(t.title)}</a></p></li>`;
+  return page({
+    title: "Terms - WolOS Hub", path: "/terms", assets,
+    desc: "The agreements and policies of WolOS Hub, each with a short summary in plain words.",
+    body: `<section class="wrap block">${crumbs()}<h1 class="h-xl">Terms</h1>
+<p class="lead">The agreements and policies of WolOS Hub. Each one starts with a short summary in plain words. The summary helps you read; the numbered sections are what counts.</p>
+<ul class="terms-grid">${all.map(item).join("")}</ul></section>`,
+  });
+}
+
 export function terms(t, all, assets) {
   const others = all.filter((x) => x !== t).map((x) => `<li><a href="/terms/${x.doc}">${esc(x.title)}</a></li>`).join("");
-  const headLine = t.found ? [t.version && `Version ${esc(t.version)}`, t.effective && `in effect from ${esc(isoDay(t.effective))}`].filter(Boolean).join(", ") : "";
+  const toc = t.found && t.toc.length ? `<nav class="toc" aria-labelledby="toc-h"><h2 id="toc-h" class="eyebrow">On this page</h2><ol>${t.toc.map((h) => `<li><a href="#${h.id}">${esc(h.text)}</a></li>`).join("")}</ol></nav>` : "";
   return page({
-    title: `${t.title} - WolOS Hub`, path: `/terms/${t.doc}`, assets, desc: t.blurb,
-    body: `<article class="wrap narrow-col block legal-doc"><nav class="crumbs" aria-label="You are here"><a href="/">Hub</a></nav><h1 class="h-xl">${esc(t.title)}</h1>
-${t.found ? `<p class="legal-meta dim">${headLine ? `${headLine}. ` : ""}<a href="/terms/${t.doc}.txt" download="wolos-hub-${t.doc}.txt">Download as text</a></p>
-<div class="prose legal-text">${t.html}</div>` : `<p class="lead">This text is being written. It appears here as soon as it is ready.</p><p class="dim">${esc(t.blurb)}</p>`}
-<nav class="gap" aria-label="Other terms"><h2 class="h-sm">Other terms</h2><ul class="plain">${others}</ul></nav></article>`,
+    title: `${t.title} - WolOS Hub`, path: `/terms/${t.doc}`, assets, desc: t.short ? t.short.lines.map((l) => l.text).join(" ").slice(0, 200) : `The ${t.title} of WolOS Hub.`,
+    body: `<article class="wrap block legal-doc">${termsCrumbs()}<h1 class="h-xl">${esc(t.title)}</h1>
+${t.found ? `<p class="legal-meta dim">${esc(t.versionLine || [t.version && `Version ${t.version}`, t.effective && `effective ${t.effective}`].filter(Boolean).join(", "))}</p>
+<div class="legal-cols">${shortBox(t)}${toc}
+<div class="prose legal-text">${t.html}</div>
+<footer class="legal-foot card"><p><a class="btn btn-quiet" href="/terms/${t.doc}.txt" download="wolos-hub-${t.doc}.txt">Download as text</a></p>
+<div class="hash"><span class="eyebrow">sha256</span><code>${esc(t.listed || t.sha256)}</code><button type="button" class="copy" data-copy="${esc(t.listed || t.sha256)}" aria-label="Copy the sha256 of the ${esc(t.title)}">Copy</button></div>
+<p class="dim small">The fingerprint of this exact text. When you accept it, the hub records this fingerprint with the version and the time.</p></footer></div>`
+  : `<p class="lead">This text is being written. It appears here as soon as it is ready.</p>`}
+<nav class="gap" aria-label="Other terms"><h2 class="h-sm">Other terms</h2><ul class="plain other-terms">${others}</ul><p><a href="/terms">All terms, with their summaries</a></p></nav></article>`,
   });
 }
 

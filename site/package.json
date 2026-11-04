@@ -11,7 +11,7 @@
     "fixtures": "node scripts/fixture-shots.mjs && node scripts/fixture-icons.mjs",
     "build": "node scripts/build.mjs",
     "dev": "node scripts/dev.mjs",
-    "check": "node scripts/sync-tokens.mjs --check && node scripts/build.mjs && node scripts/check-links.mjs && node scripts/check-theme.mjs && node scripts/check-doctrine.mjs && node scripts/check-images.mjs && node scripts/check-size.mjs",
+    "check": "node scripts/sync-tokens.mjs --check && node scripts/build.mjs && node scripts/check-links.mjs && node scripts/check-theme.mjs && node scripts/check-doctrine.mjs && node scripts/check-legal.mjs && node scripts/check-images.mjs && node scripts/check-size.mjs",
     "proof": "node scripts/proof.mjs"
   }
 }

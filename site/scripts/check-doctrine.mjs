@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { at, ROOT } from "./lib/paths.mjs";
-import { ENGINEER, HEDGES, HUB_TALK, builtPages, scan, visible } from "./lib/visible.mjs";
+import { ALLOWED_ADDRESSES, ENGINEER, HEDGES, HUB_TALK, builtPages, scan, visible } from "./lib/visible.mjs";
 
 const read = (p) => readFileSync(p, "utf8").replace(/\r\n?/g, "\n");
 const list = JSON.parse(read(at("data/doctrine.json")));
@@ -57,6 +57,9 @@ const self = [
   scan(visible("<body><p>Not yet proven on real hardware. Coming soon. In review for the next build.</p></body>"), [HEDGES]).length >= 4,
   scan(visible("<body><p>It reads JSON from the API and is safe.</p></body>"), [HUB_TALK]).length >= 3,
   scan(visible("<body><template><p>Secure and approved software.</p></template></body>"), [HUB_TALK]).length >= 2,
+  // The one exact address passes; the bare word, a longer address or another domain still fail.
+  scan(visible("<body><p>Write to security@wolos.org, or <a href=\"mailto:security@wolos.org\">security@wolos.org</a>.</p></body>"), [HUB_TALK]).length === 0,
+  scan(visible("<body><p>Our security team: security@wolos.org.evil, security@wolos.org.uk, security@example.org, safe@wolos.org</p></body>"), [HUB_TALK]).length === 5,
   scan(visible('<body><pre>commit 0123456789abcdef0123456789abcdef01234567</pre><p>sha256 9c2e7a41f0b35d68e4a1c97b02f5d83e6b10a4c79d2e5f8b31c06a7d94e2b5f1</p><img alt="x"></body>'), [ENGINEER, HEDGES, HUB_TALK]).length === 0,
 ];
 if (self.includes(false)) { console.error(`check-doctrine: scanner self-test failed: ${JSON.stringify(self)}`); process.exit(1); }
@@ -71,7 +74,7 @@ for (const route of routes) {
   lines += vis.length;
   vis.forEach((l) => lineCheck(`${route} (text)`, l));
   // The legal texts may name the hub's processors and file formats (a privacy policy must); the safety words still never pass.
-  const lists = route.startsWith("/terms/") ? [HEDGES, HUB_TALK.slice(1)] : [ENGINEER, HEDGES, HUB_TALK];
+  const lists = route === "/terms" || route.startsWith("/terms/") ? [HEDGES, HUB_TALK.slice(1)] : [ENGINEER, HEDGES, HUB_TALK];
   for (const [line, token, why] of scan(vis, lists)) bad.push(`${route}: ${why} "${token}": ${line.slice(0, 140)}`);
 }
 // The scripts' own messages are read by people too (the admin panel has all its words there): scan their strings.
@@ -87,4 +90,4 @@ if (!existsSync(adminFile)) bad.push("/admin: no shell");
 else if (visible(read(adminFile)).length) bad.push(`/admin: the shell shows words: ${visible(read(adminFile)).join(" | ").slice(0, 140)}`);
 
 if (bad.length) { console.error(`check-doctrine: ${bad.length} problem(s)\n  ${bad.join("\n  ")}`); process.exit(1); }
-console.log(`check-doctrine: ${files.length} source files, ${strings} script messages and ${routes.length} built pages (${lines} lines of visible text, templates included), ${list.prose.length + list.credited.length} names: no upstream names, no engineer talk, no hedges, never "safe", "secure" or "approved software"; the admin shell has no words`);
+console.log(`check-doctrine: ${files.length} source files, ${strings} script messages and ${routes.length} built pages (${lines} lines of visible text, templates included), ${list.prose.length + list.credited.length} names: no upstream names, no engineer talk, no hedges, never "safe", "secure" or "approved software" (only the exact addresses ${ALLOWED_ADDRESSES.join(", ")} may show such a word); the admin shell has no words`);

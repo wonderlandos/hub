@@ -3,7 +3,7 @@
 //   node scripts/build.mjs           reads data/index.json (or HUB_INDEX: a file or an https address)
 //   FACTS_DIR / FACTS_BASE           where the package pictures named in the index are (lib/facts.mjs)
 //   STATEMENTS_DIR                   signed release statements as <id>/<version>.wsig (default data/statements)
-//   LEGAL_DIR                        the agreements and policies as <doc>.md (default ../legal)
+//   LEGAL_DIR                        the agreements and policies, routed by its README table (default ../legal)
 //   HUB_API=off                      no Worker behind the pages: they never call /api (sign-in links stay)
 //   DIST                             where to write (default dist)
 // Browsing needs no Worker: the store pages are rendered here from the published index. The live parts
@@ -44,7 +44,7 @@ const add = (path, html) => { put(path === "/" ? "/index.html" : `${path}/index.
 const statementOf = (e, r) => {
   const f = resolve(process.env.STATEMENTS_DIR || at("data/statements"), e.id, `${r.version}.wsig`);
   if (existsSync(f)) { const p = `/statements/${e.id}/${r.version}.wsig`; put(p, readFileSync(f)); return p; }
-  return r.statement?.url || null;
+  return r.statement?.url || r.file_certificate?.url || null;
 };
 
 add("/", R.home(idx, assets));
@@ -60,7 +60,8 @@ add("/publish", A.publish(assets));
 add("/dashboard", A.dashboard(assets));
 add("/report", R.report(assets));
 const legal = legalDocs();
-for (const t of legal) { add(`/terms/${t.doc}`, R.terms(t, legal, assets)); if (t.found) put(`/terms/${t.doc}.txt`, t.text); }
+add("/terms", R.termsIndex(legal, assets));
+for (const t of legal) { add(`/terms/${t.doc}`, R.terms(t, legal, assets)); if (t.found) put(`/terms/${t.doc}.txt`, t.bytes); } // the exact bytes the sha256 names
 add("/signin", R.signin(assets));
 put("/admin/index.html", A.admin(assets, ADMIN)); // not in `pages`: never in the sitemap
 put("/404.html", R.notFound(assets));

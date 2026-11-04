@@ -12,14 +12,21 @@
 //     per-version status on the dashboard, sending a report, by keyboard;
 //   - the admin page renders nothing and loads no panel without a role; with one, every action needs a reason
 //     and a confirmation and sends the Worker's field names.
-// Output: PROOF_OUT (default /home/ubuntu/wolos/.claude/tmp/hub-site3).
+//   - the terms: /terms lists all texts with their In short box, a text has its version line, the box marked not
+//     binding, the side list of headings, "Download as text" (the exact bytes the sha256 names) and the sha256;
+//   - the signature lines (file certificate on a version, the maker's certificate on a listing) and the
+//     offline command wol trust verify FILE --file-cert STATEMENT;
+//   - both builds without a Worker: the static one (HUB_API=off) and the API one served alone degrade the same.
+// Output: PROOF_OUT (default /home/ubuntu/wolos/.claude/tmp/hub-site4).
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { at } from "./lib/paths.mjs";
 import { launch, serve } from "./lib/browser.mjs";
+import { legalDocs } from "./lib/legal.mjs";
 
-const OUT = resolve(process.env.PROOF_OUT || "/home/ubuntu/wolos/.claude/tmp/hub-site3");
+const OUT = resolve(process.env.PROOF_OUT || "/home/ubuntu/wolos/.claude/tmp/hub-site4");
 mkdirSync(OUT, { recursive: true });
 
 /* The Worker, as HUB-worker-2/-3 froze it (chat 7303, 7352). */
@@ -95,7 +102,8 @@ const SHOTS = [["home", "/"], ["apps", "/apps"], ["plugins", "/plugins"], ["exte
   ["version", "/plugins/alicedoe.weather/2.1.0"], ["version-flagged", "/extensions/examplelabs.markdown-preview/0.9.1"], ["version-withdrawn", "/apps/rivertools.clock/1.0.0"],
   ["author", "/authors/alicedoe"], ["org", "/orgs/rivertools"], ["search", "/search?q=notes"],
   ["publish-out", "/publish"], ["publish", "/publish", "in"], ["dashboard", "/dashboard", "done"], ["dashboard-org", "/dashboard?as=examplelabs", "done"],
-  ["report", "/report?listing=alicedoe.weather&version=2.1.0", "done"], ["admin", "/admin", "done", "owner"], ["admin-none", "/admin", "done"]];
+  ["report", "/report?listing=alicedoe.weather&version=2.1.0", "done"], ["admin", "/admin", "done", "owner"], ["admin-none", "/admin", "done"],
+  ["terms", "/terms"], ["terms-usage", "/terms/usage"], ["terms-disclosure", "/terms/disclosure"]];
 for (const scheme of ["light", "dark"]) for (const w of [1280, 480]) {
   const { ctx, page } = await open(scheme, w);
   for (const [name, path, who, role] of SHOTS) {
@@ -131,11 +139,28 @@ for (const scheme of ["light", "dark"]) for (const w of [1280, 480]) {
   ok("the version page has its Report link", !!(await page.$('a[href="/report?listing=alicedoe.weather&version=2.1.0"]')));
   const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#offline summary")]);
   ok("one click on Verify offline downloads the statement", dl.suggestedFilename() === "alicedoe.weather-2.1.0.wsig", dl.suggestedFilename());
-  ok("and shows the command", await page.isVisible("#offline pre") && /wol verify alicedoe\.weather-2\.1\.0\.wolplug alicedoe\.weather-2\.1\.0\.wsig/.test(await page.textContent("#offline pre")));
+  ok("and shows the command", await page.isVisible("#offline pre") && (await page.textContent("#offline pre")) === "wol trust verify alicedoe.weather-2.1.0.wolplug --file-cert alicedoe.weather-2.1.0.wsig", await page.textContent("#offline pre"));
+  const fcl = (await page.textContent(".statement .sig pre")) || "";
+  ok("the version page shows the file certificate's signature line", /^<WolOS Index> <wolos\.org\/hub\/alicedoe\.weather\/2\.1\.0> <author: a1000000000000c7> <sha512:[0-9a-f]{128}> <checked \d{4}-\d\d-\d\d> <(pass|flag)> <rkdb:[0-9a-f]{16}>$/.test(fcl), fcl.slice(0, 90));
   await page.screenshot({ path: `${OUT}/version-offline-1280-light.png`, fullPage: true });
   await page.goto(srv.base + "/extensions/examplelabs.markdown-preview/0.9.1", { waitUntil: "networkidle" });
   ok("a flagged version names its finding in plain words", /opens? links in your browser/i.test(await page.textContent(".statement")));
+  ok("a version without a file certificate shows no signature line and the sha256 command", await (async () => { await page.goto(srv.base + "/apps/rivertools.clock/1.0.0", { waitUntil: "networkidle" }); return !(await page.$(".sig")) && (await page.textContent("#offline pre")) === "sha256sum rivertools.clock-1.0.0.wol"; })());
+  await page.goto(srv.base + "/plugins/alicedoe.weather", { waitUntil: "networkidle" });
+  const al = (await page.textContent(".trust .sig pre")) || "";
+  ok("the listing shows the maker's signature line", al === "<WolOS Hub> <author: a1000000000000c7> <github: alicedoe> <trusted>", al);
+  await page.goto(srv.base + "/extensions/examplelabs.markdown-preview", { waitUntil: "networkidle" });
+  ok("a community listing has no signature line", !(await page.$(".sig")));
+  const RANK = { wolos: 0, trusted: 1, origin: 2, community: 3, withdrawn: 4 };
+  const tones = async (sel) => (await page.locator(`${sel} .badge`).evaluateAll((b) => b.map((x) => x.className.replace(/.*badge-/, ""))));
+  const inOrder = (t) => t.every((x, i) => !i || RANK[t[i - 1]] <= RANK[x]);
+  await page.goto(srv.base + "/search?q=a", { waitUntil: "networkidle" });
+  await page.waitForSelector("#results li");
+  const st = await tones("#results");
+  ok("search ranks Made by WolOS, Trusted, Origin, Community, badge on every result", st.length >= 3 && inOrder(st) && st.length === (await page.locator("#results li").count()), st.join(", "));
   await page.goto(srv.base + "/", { waitUntil: "networkidle" });
+  const ft = await tones("section[aria-labelledby=feat] .cards");
+  ok("home: Featured is ranked by trust", ft.length === 4 && inOrder(ft) && ft[0] === "wolos", ft.join(", "));
   ok("home: categories lead to a page per category", (await page.locator(".hero .chips a").count()) === 2);
   await ctx.close();
 }
@@ -315,9 +340,40 @@ for (const scheme of ["light", "dark"]) for (const w of [1280, 480]) {
   ok("a cancelled sign-in is explained", /cancelled/.test(await page.textContent("#signin-msg")));
   await ctx.close();
 }
+/* 2b. The terms. */
+{
+  const docs = legalDocs().filter((t) => t.found);
+  const { ctx, page } = await open("light", 1280);
+  state.in = false; state.role = null;
+  await page.goto(srv.base + "/terms", { waitUntil: "networkidle" });
+  ok(`/terms lists all ${docs.length} texts, each with its In short box marked not binding`, docs.length === 12 && (await page.locator(".terms-card").count()) === docs.length && (await page.locator(".terms-card .short .tag").allTextContents()).every((x) => x === "Not binding") && (await page.locator(".terms-card .short").count()) === docs.length);
+  ok("the footer links to /terms", !!(await page.$('footer a[href="/terms"]')));
+  await page.click('.terms-card a[href="/terms/usage"]');
+  await page.waitForURL(/\/terms\/usage$/);
+  const u = docs.find((t) => t.doc === "usage");
+  ok("a text shows its version and effective-date line", (await page.textContent(".legal-meta")).trim() === u.versionLine, await page.textContent(".legal-meta"));
+  ok("the In short box comes first and says it is not binding", await page.evaluate(() => { const b = document.querySelector(".legal-cols > .short"); return !!b && /Not binding/.test(b.textContent) && /binding/i.test(b.querySelector(".short-note").textContent); }));
+  const tocBox = await page.locator(".toc").boundingBox(), textBox = await page.locator(".legal-text").boundingBox();
+  ok("at 1280 the headings are a side list beside the text", tocBox && textBox && tocBox.x > textBox.x + textBox.width - 1 && (await page.locator(".toc li").count()) === u.toc.length, JSON.stringify([tocBox, textBox]));
+  const last = u.toc[u.toc.length - 1];
+  await page.click(`.toc a[href="#${last.id}"]`);
+  await page.waitForTimeout(200);
+  ok("a heading in the side list scrolls to its section, and the list stays in view", await page.evaluate((id) => { const h = document.getElementById(id).getBoundingClientRect(), t = document.querySelector(".toc").getBoundingClientRect(); return location.hash === "#" + id && h.top >= 0 && h.top < innerHeight && t.top >= 0 && t.top < innerHeight; }, last.id));
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click('a[href="/terms/usage.txt"]')]);
+  const got = readFileSync(await dl.path());
+  ok("Download as text gives the exact bytes the sha256 at the bottom names", dl.suggestedFilename() === "wolos-hub-usage.txt" && createHash("sha256").update(got).digest("hex") === (await page.textContent(".legal-foot .hash code")) && u.listed === u.sha256, dl.suggestedFilename());
+  await page.goto(srv.base + "/terms/disclosure", { waitUntil: "networkidle" });
+  ok("the disclosure policy shows its address security@wolos.org", /security@wolos\.org/.test(await page.textContent(".legal-text")));
+  await ctx.close();
+  const n = await open("dark", 480);
+  await n.page.goto(srv.base + "/terms/usage", { waitUntil: "networkidle" });
+  const o = await n.page.evaluate(() => { const s = document.querySelector(".legal-cols > .short").getBoundingClientRect(), t = document.querySelector(".toc").getBoundingClientRect(), x = document.querySelector(".legal-text").getBoundingClientRect(); return [s.bottom <= t.top + 1, t.bottom <= x.top + 1]; });
+  ok("at 480 the In short box, then the list of headings, then the text", o.every(Boolean), JSON.stringify(o));
+  await n.ctx.close();
+}
 /* 3. The static review deploy (HUB_API=off, fixtures only): no Worker, no call to it, not one console error. */
 {
-  const dir = "/tmp/hub-site3-static";
+  const dir = "/tmp/hub-site4-static";
   execFileSync(process.execPath, [at("scripts/build.mjs")], { env: { ...process.env, HUB_API: "off", DIST: dir }, stdio: "ignore" });
   const st = await serve(dir); // no Worker: /api and /auth get the 404 page, as on Pages alone
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -331,10 +387,46 @@ for (const scheme of ["light", "dark"]) for (const w of [1280, 480]) {
   ok("static build: no request to the Worker, no console error or warning", !calls.length && !noise.length, [...calls, ...noise].slice(0, 3).join(" | "));
   await page.goto(st.base + "/publish", { waitUntil: "networkidle" });
   ok("static build: Sign in points at /auth/login, the steps show the signed-out state", /^\/auth\/login\?next=/.test(await page.getAttribute("#who a", "href")) && await page.isVisible('#s-signin [data-when="out"]'));
-  await page.goto(st.base + "/terms/privacy", { waitUntil: "networkidle" });
-  ok("a term not written yet says so", /being written/.test(await page.textContent("main")));
-  await page.screenshot({ path: `${OUT}/terms-placeholder-1280-light.png`, fullPage: true });
+  await page.goto(st.base + "/terms/usage", { waitUntil: "networkidle" });
+  ok("static build: the terms are there with their box and download", (await page.isVisible(".legal-cols > .short")) && !!(await page.$('a[href="/terms/usage.txt"]')));
   await ctx.close(); st.close();
+
+  // The API build served alone (Pages with no Worker behind it): the Worker's routes give the 404 page. Every
+  // page must read the same as the static build: signed out, the same words, no page error. The browser's own
+  // note about a 404 is the only console line allowed, and only for /api or /auth.
+  const pages = ["/", "/plugins/alicedoe.weather", "/plugins/alicedoe.weather/2.1.0", "/publish", "/dashboard", "/report?listing=alicedoe.weather", "/signin", "/terms", "/terms/usage", "/admin"];
+  const words = async (base, extra) => {
+    const c = await browser.newContext({ viewport: { width: 1280, height: 900 } }), p = await c.newPage(), errs = [], fails = [];
+    p.on("pageerror", (e) => errs.push(e.message));
+    p.on("console", (m) => { if (m.type() === "error" && !/status of 404/.test(m.text())) errs.push(m.text()); });
+    p.on("response", (r) => { if (r.status() >= 400 && !/^\/(api|auth)\//.test(new URL(r.url()).pathname)) fails.push(r.url()); });
+    const out = {};
+    for (const path of pages) {
+      await p.goto(base + path, { waitUntil: "networkidle" });
+      await p.waitForTimeout(100);
+      out[path] = await p.evaluate(() => document.querySelector("main").innerText.replace(/\s+/g, " ").trim());
+      if (extra) await extra(p, path);
+    }
+    await c.close();
+    return { out, errs, fails };
+  };
+  const st2 = await serve(dir), alone = await serve(at("dist"));
+  const a = await words(st2.base), b = await words(alone.base, async (p, path) => {
+    if (path === "/publish") ok("API build without a Worker: the publishing steps show the signed-out state and Sign in", await p.isVisible('#s-signin [data-when="out"]') && /^\/auth\/login\?next=/.test(await p.getAttribute("#who a", "href")));
+    if (path === "/admin") ok("API build without a Worker: the admin page stays empty", (await p.evaluate(() => document.querySelector("main").innerText.trim())) === "");
+  });
+  const diff = pages.filter((x) => a.out[x] !== b.out[x]);
+  ok("API build without a Worker reads the same as the static build on every page", !diff.length, diff.map((x) => `${x}: ${b.out[x].slice(0, 80)} | ${a.out[x].slice(0, 80)}`).join(" || "));
+  ok("API build without a Worker: no page error, no missing file", !b.errs.length && !b.fails.length, [...b.errs, ...b.fails].slice(0, 3).join(" | "));
+  st2.close(); alone.close();
+  rmSync(dir, { recursive: true, force: true });
+
+  // A text that is not in the folder yet: its page says so, the build does not fail.
+  const empty = "/tmp/hub-site4-nolegal", nd = "/tmp/hub-site4-nolegal-dist";
+  rmSync(empty, { recursive: true, force: true }); mkdirSync(empty, { recursive: true });
+  execFileSync(process.execPath, [at("scripts/build.mjs")], { env: { ...process.env, HUB_API: "off", DIST: nd, LEGAL_DIR: empty }, stdio: "ignore" });
+  ok("a text not written yet says so", /being written/.test(readFileSync(`${nd}/terms/privacy/index.html`, "utf8")));
+  rmSync(nd, { recursive: true, force: true }); rmSync(empty, { recursive: true, force: true });
 }
 await browser.close();
 srv.close();
