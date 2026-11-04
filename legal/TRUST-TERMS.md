@@ -12,6 +12,7 @@ Version 1, effective 2026-11-04.
 > "Checked" means a machine looked at that exact file and wrote down what it found. Not more.
 > "Origin" means we know who published it and from which repository. "Trusted" means people vetted the publisher and a reviewer read each release.
 > None of this means "harmless". Checked never means risk-free. We look at what a release declares and what changed. We do not run it for you.
+> A listing and a certificate are licences we give and may take back, never a licence over anyone's code. That holds in every country.
 > Labels can change any time, at our call. A revoked certificate or a withdrawn version shows up on every WolOS machine that checks the list.
 > Think our own keys leaked? We can pull the plug on every certificate at once. Annoying for everyone; good for you.
 > You still decide what you install. The label is a fact, not a promise.
@@ -63,6 +64,8 @@ Version 1, effective 2026-11-04.
 
 4.4. A Certificate is about the publisher, not about any file. It never states that software is harmless or fit for a purpose.
 
+4.5. **Licences, not rights over code.** A Certificate is a revocable licence from us to its holder to use the WolOS Authors certificate and its signature lines ([Certificate Terms](/terms/certificates), section 1.3). A Listing and its labels are part of the revocable hub distribution licence ([Publisher Agreement](/terms/publisher), section 2.4). Neither gives us any right over a publisher's code, and neither changes the Work's own licence.
+
 ## 5. Revocation and withdrawal
 
 5.1. We publish revoked Certificates and withdrawn Releases in the signed revocation list. WolOS machines read it and act on it the next time they check it, online or from a copy.
@@ -74,7 +77,7 @@ Version 1, effective 2026-11-04.
 - **Trusted status withdrawn**: the publisher drops to the Origin level; who published the file is still proven.
 - **Version withdrawn**: that version is no longer offered, and WolOS tells people who have it.
 
-5.3. We may revoke, downgrade or withdraw at any time, at our sole discretion, with or without notice, as the [Certificate Terms](/terms/certificates) say. A label shows what we know when it is shown; it may change at any time.
+5.3. We may revoke, downgrade or withdraw at any time, at our sole discretion, with or without notice, as the [Certificate Terms](/terms/certificates) and the [Publisher Agreement](/terms/publisher) say. Revoking ends the licence; the files count or stop counting as 5.2 says. A label shows what we know when it is shown; it may change at any time.
 
 5.4. **Emergency revocation of our own keys.** If we think a key of the hub or of a WolOS certificate authority may be in someone else's hands, we may revoke that key and every Certificate and signature that depends on it, at once. WolOS then treats all of them as invalid until new ones are issued. We announce it on the hub and in the public log, and say what to do.
 

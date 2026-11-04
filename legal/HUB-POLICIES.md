@@ -14,7 +14,7 @@ Version 1, effective 2026-11-04.
 > Your name lives in your namespace. Look-alikes of someone else's name wait for a person, and usually lose.
 > Report malware and a person looks within 24 hours, often within 4. Other reports within 3 to 7 days.
 > Every decision comes with a reason, and you can ask a different person to look again.
-> Following every rule here gets you considered, not listed. We decide, and in a fire we can tighten any rule on the spot.
+> A listing is a licence we give and may take back, never a licence over your code. Following every rule here gets you considered, not listed. We decide, and in a fire we can tighten any rule on the spot.
 > Checked never means harmless. Not here, not anywhere.
 
 ## 1. What this page is
@@ -23,7 +23,7 @@ Version 1, effective 2026-11-04.
 
 1.2. The numbers here are the rules today. We change them only by a new version of this page, listed in the [Changes Log](/terms/changes), with one exception: during an incident or an attack, we may tighten any limit, waiting time or rule at once, for as long as it lasts, and record it in the public log.
 
-1.3. **Discretion.** Meeting every rule here does not entitle anyone to a listing, a level, a name or a place in search. We may list, refuse, hold, delist or withdraw at our sole discretion, as section 10 of the Terms of Use says, where the law allows. We have no duty to review or monitor everything (Terms of Use, section 5.4).
+1.3. **Discretion.** Meeting every rule here does not entitle anyone to a listing, a level, a name or a place in search. A listing is the hub distribution licence of section 2.4 of the [Publisher Agreement](/terms/publisher): revocable at our sole discretion, and never a licence over the publisher's code. We may list, refuse, hold, delist or withdraw at our sole discretion, as section 10 of the Terms of Use says, where the law allows. We have no duty to review or monitor everything (Terms of Use, section 5.4).
 
 1.4. **Checked never means harmless.** A listing that passes every rule here is still only checked (Terms of Use, section 6).
 
@@ -76,7 +76,7 @@ In addition to section 7 of the Terms of Use:
 
 4.5. **Disputes about names.** If you think someone uses your name or mark, see the [Notices and Takedown](/terms/notices) page.
 
-4.6. **Names are not property.** An id, a namespace or a display name is a permission to use it on the hub, not something you own. We may reclaim, rename or reassign one at our discretion, for example after a valid trade mark notice, for confusion with another name, or when a listing was withdrawn. We tell you before, unless waiting would cause harm.
+4.6. **Names are not property.** An id, a namespace or a display name is part of the hub distribution licence, a permission to use it on the hub, not something you own. We may reclaim, rename or reassign one at our discretion, for example after a valid trade mark notice, for confusion with another name, or when a listing was withdrawn. We tell you before, unless waiting would cause harm.
 
 ## 5. Accounts, waiting times and limits
 

@@ -9,10 +9,13 @@ effective: 2026-11-04
 Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
-> Your work stays yours, under your licence. We list it, check it, sign the index and keep a public record.
+> Your code stays yours, under your licence. We take no right over it.
+> Being on the hub is a licence we give you: free, personal, not transferable, and revocable at our call, with or without notice. It covers distribution through the hub, never your code.
+> Why a licence? One that we give and may take back holds in every country. It does not hang on local rules about your code, consumer contracts or platform liability.
+> In return you let us host, hash, scan, mirror, show and sign your files. Nothing more.
 > You promise it does what the listing says, and nothing it hides. Malware ends everything, at once.
 > You answer for your code, every version, on every machine it runs on. That includes the laws that apply to software you put out there.
-> A listing is a favour, not a right. We can flag, hold, hide, delist or withdraw any listing or version, any time, at our call. We still tell you why.
+> A listing is a licence, not a right. We can flag, hold, hide, delist or withdraw any listing or version, any time, at our call, and we owe you nothing for it. We still tell you why.
 > Your code, your problem: if it lands us in front of a judge, you defend us and pay the bill.
 > Lost a key or your account? Tell us within 24 hours. Faster is better.
 > Checked never means harmless, and your listing must never say otherwise.
@@ -26,7 +29,7 @@ Version 1, effective 2026-11-04.
 
 1.3. If you also hold a Certificate, the [Certificate Terms](/terms/certificates) apply as well.
 
-## 2. Who may publish
+## 2. Who may publish, and on what basis
 
 2.1. To publish, you need:
 - to be 16 or older, with a hub account in good standing;
@@ -39,11 +42,30 @@ Version 1, effective 2026-11-04.
 
 2.3. **No right to a listing.** Meeting every rule does not entitle you to be listed, to stay listed, to a level, or to a place in search. We decide, at our sole discretion, what we list, where the law allows.
 
+2.4. **The hub distribution licence.** Distribution through the hub is a licence that we grant you. It covers:
+- listing your Work and including it in the signed index;
+- hosting copies of its files and delivering them through our network, including a content delivery network;
+- its verdict and version pages;
+- the "checked" marks and the other labels the [Trust Terms](/terms/trust) describe.
+
+2.5. The hub distribution licence is:
+- non-exclusive;
+- free;
+- personal to you, and to the organisation you publish for;
+- not transferable: you may not sell, lend, sublicense or pass it on;
+- revocable at our sole discretion, at any time, with or without cause, and with or without notice, where the law allows. It may be revoked for one Release, one Listing, or all of your Work.
+
+2.6. **A licence to distribute through the hub, never a licence over your code.** We grant you this licence over what is ours: the hub, the signed index, its signatures and its pages. It gives us no right in your code, and it does not change, add to or replace your Work's own licence. Your own licence stays yours (section 3).
+
+2.7. **Why a licence.** We use this shape on purpose. A licence that we grant, and may revoke, rests only on our own rights in the hub. That makes it enforceable in every jurisdiction, without depending on local rules about your code, consumer contracts or platform liability. The protections that the law gives you and that sections 7.2 and 11 keep still apply.
+
+2.8. **When we revoke it.** The Listing, the Release or the publisher it names leaves the hub, as section 7 says. To the extent the law allows, we owe you nothing for a revocation: no payment, no notice period, no traffic, no downloads and no income (section 11). Files already signed and logged stay in the record (section 12.3), and they count, or stop counting, as the reason for the revocation says in the [Certificate Terms](/terms/certificates).
+
 ## 3. What stays yours
 
-3.1. You keep every right in your Work and its listing. This agreement transfers nothing to us.
+3.1. You keep every right in your Work and its listing. This agreement transfers nothing to us, and takes no right over your code.
 
-3.2. The licence you name for your Work is the licence that applies to everyone who uses it. You may use any licence, open or not, that lets people install and run the Work and that you have the right to give.
+3.2. The licence you name for your Work is the licence that applies to everyone who uses it. You may use any licence, open or not, that lets people install and run the Work and that you have the right to give. This agreement never changes it.
 
 ## 4. What you promise
 
@@ -71,17 +93,19 @@ Version 1, effective 2026-11-04.
 
 ## 5. What you allow us
 
+For the hub to distribute your Work, you give us a limited permission: worldwide, free and non-exclusive, only to host, hash, scan, mirror, show and sign your files and your listing, as 5.1 to 5.5 say. It lasts as long as the Listing, and, for the signed index, the public log and the revocation list, as long as they exist, because they are how people check what they installed.
+
 5.1. **Listing.** We may show the Work's name, summary, description, icon, screenshots, licence, permissions, versions, publisher, repository and release links, and the check results, on the hub, in the signed index, in WolOS, in search results and in the public log.
 
 5.2. **Checking.** We may download every Release, compute its hash, open it, and run the hub's automatic checks on it, and publish what they found. For Trusted publishers, a reviewer reads each Release as the Certificate Terms describe.
 
 5.3. **Signing and records.** We may sign the index that lists your Work and keep the public log of every index, check result, Certificate, withdrawal and moderation decision.
 
-5.4. **Metadata copies.** We may keep copies of icons and screenshots and resize them for display.
+5.4. **Copies and delivery.** We may keep copies of each Release file, its icons and its screenshots, mirror them, deliver them through our network, and resize images for display. People may download a file from your GitHub release or from our copy; WolOS compares each one with the hash in the signed index.
 
 5.5. **Telling people.** We may tell people who installed or looked at your Work about a flag, a withdrawal or a revocation, through WolOS, the hub and the public log, and say why in plain words.
 
-5.6. **No more than that.** None of this gives us a licence to your Work beyond what your licence gives everyone. We do not host or redistribute your Work's files; people download them from your GitHub release.
+5.6. **No more than that.** This permission is not a licence to your code. It does not let us change, sell, sublicense or relicense your Work, or use its code in our own software. Beyond what 5.1 to 5.5 need, we may do with your Work only what your licence lets everyone do.
 
 5.7. **Your Work is yours alone.** Your Work, your listing and your Releases are third-party content under section 5.5 of the Terms of Use. You alone answer for them, to the people who use them and to everyone else. We give no warranty for them and take on none of your duties.
 
@@ -93,7 +117,7 @@ Version 1, effective 2026-11-04.
 
 ## 7. What we may do
 
-7.1. **At our sole discretion, at any time, with or without cause, and with or without notice, where the law allows**, we may list or refuse to list, flag, hold, hide, delist, demote in search, or withdraw a Listing or any Release, add a Release to the revocation list, reclaim or rename an id or namespace, or end your right to publish. Our usual grounds are that we think:
+7.1. **At our sole discretion, at any time, with or without cause, and with or without notice, where the law allows**, we may list or refuse to list, flag, hold, hide, delist, demote in search, or withdraw a Listing or any Release, revoke the hub distribution licence (section 2.4), add a Release to the revocation list, reclaim or rename an id or namespace, or end your right to publish. Our usual grounds are that we think:
 - it breaks this agreement, the Terms of Use, the Hub Policies or the Doctrine;
 - it breaks the law, a court or authority order applies, or a valid notice says so;
 - it may harm people or WolOS machines;
@@ -141,11 +165,11 @@ Write to julia@wolos.org with "incident" in the subject. We may withdraw Release
 
 12.1. You can stop at any time: withdraw your Listings yourself, or ask us.
 
-12.2. We can stop listing your Work, or end your right to publish, under section 7. Malware, threats or misuse of keys end it at once.
+12.2. We can revoke the hub distribution licence, stop listing your Work, or end your right to publish, under sections 2.5 and 7. Malware, threats or misuse of keys end it at once.
 
 12.3. When a Listing ends, what was already signed and logged stays in the public log and, where needed, in the revocation list, because that record is how people check what they installed.
 
-12.4. Sections 4, 5.5, 5.7, 8.3, 9, 11, 12.3 and 13 continue after the end, with section 17.4 of the Terms of Use.
+12.4. Sections 2.6, 2.8, 3, 4, 5.5 to 5.7, 8.3, 9, 11, 12.3 and 13 continue after the end, with section 17.4 of the Terms of Use.
 
 ## 13. Changes, law and contact
 

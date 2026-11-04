@@ -59,6 +59,7 @@ Version 1, effective 2026-11-04.
 - **Disclosure Policy (/terms/disclosure)**: version 1, effective 2026-11-04, first version.
 - **Trade Mark Policy (/terms/trademark)**: version 1, effective 2026-11-04, first version.
 - **Changes Log (/terms/changes)**: version 1, effective 2026-11-04, first version.
+- Version 1 reworded before first acceptance: hub distribution and certificates are revocable licences.
 
 ## 5. Contact
 

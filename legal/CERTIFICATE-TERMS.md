@@ -10,9 +10,11 @@ Version 1, effective 2026-11-04.
 
 > **In short (not the binding text; the numbered sections below are):**
 > A certificate says who you are and which repositories you sign. It says nothing about whether your code is any good.
+> A certificate is a licence we give you: to use the WolOS Authors certificate and its signature lines. Free, personal, not transferable, revocable at our call. It is never a licence over your code.
+> Why a licence? One that we give and may take back holds in every country. It does not hang on local rules about your code, consumer contracts or platform liability.
 > Origin is automatic if you meet the rules. Trusted needs people, a review of every release, and an incident contact that answers.
 > Your keys never leave your machine. Lose one, or think someone has it? Tell us within 24 hours.
-> We can revoke, downgrade, suspend or withdraw any certificate, any time, with or without notice, at our call. Your files then stop counting, as the reason says.
+> We can revoke, downgrade, suspend or withdraw any certificate, any time, with or without notice, at our call. We owe you nothing for it. Your files then stop counting, as the reason says.
 > If we think our own keys leaked, every certificate can go at once. You then ask for a new one.
 > A certificate says who you are. Checked never means harmless, and your certificate never says so either.
 > If your code hurts someone and they come after us, that one is on you: you defend us and pay for it.
@@ -23,9 +25,22 @@ Version 1, effective 2026-11-04.
 
 1.2. You accept these terms, with the [Trust Terms](/terms/trust), with every certificate request. The hub records the version, the SHA-256 hash of the exact text and the time. The [Publisher Agreement](/terms/publisher) also applies to you.
 
-1.3. Certificates are free. They belong to the WolOS Authors certificate authority; you may use yours under these terms, for as long as it is live. You may not sell, lend or transfer it. All rights in the certificate authority, its keys and its Certificates are reserved.
+1.3. **A Certificate is a licence.** Each Certificate, and the signature lines that WolOS and the hub show for a file signed with it (who signed it, from which repository, at which level), belong to the WolOS Authors certificate authority. Issuing a Certificate grants you a licence to use it, and to have those lines shown for your files. The licence is:
+- non-exclusive;
+- free;
+- personal to you, and to the organisation it names;
+- not transferable: you may not sell, lend, sublicense or pass it on;
+- revocable at our sole discretion, at any time, with or without cause, and with or without notice, where the law allows (section 6).
+
+All rights in the certificate authority, its keys, its Certificates and the signature lines are reserved.
 
 1.4. You must be 16 or older and not barred by section 21.9 (export control and sanctions) of the Terms of Use.
+
+1.5. **Never a licence over your code.** The Certificate is a licence over what is ours. It gives us no right in your code, and it does not change, add to or replace your Work's own licence, which stays yours. What we may do with your files to check, hash and sign them is in section 5 of the [Publisher Agreement](/terms/publisher).
+
+1.6. **Why a licence.** We use this shape on purpose. A licence that we grant, and may revoke, rests only on our own rights in the certificate authority. That makes it enforceable in every jurisdiction, without depending on local rules about your code, consumer contracts or platform liability. The protections that the law gives you and that sections 6.5 and 7.2 keep still apply.
+
+1.7. **When we revoke it.** The licence ends, and your files count or stop counting as section 5 says for the reason given. To the extent the law allows, we owe you nothing for a revocation, a downgrade or a suspension (section 7.2).
 
 ## 2. Who can get which level
 
@@ -96,7 +111,7 @@ If a request fails a rule, the hub refuses it and stores nothing but the record 
 
 ## 6. Our right to revoke, downgrade or withdraw
 
-6.1. **At our sole discretion, at any time, with or without cause, and with or without notice, where the law allows**, we may revoke, downgrade, suspend, refuse to renew or withdraw any Certificate, or any Release signed with it. Our usual grounds are that we think:
+6.1. **At our sole discretion, at any time, with or without cause, and with or without notice, where the law allows**, we may revoke, downgrade, suspend, refuse to renew or withdraw any Certificate, and with it the licence in section 1.3, or any Release signed with it. Our usual grounds are that we think:
 - a key, account, organisation, repository or build may be compromised;
 - the Certificate was misused, or used outside its repositories or namespace;
 - you broke these terms, the Trust Terms, the Publisher Agreement, the Terms of Use or the Doctrine;
@@ -128,7 +143,7 @@ If a request fails a rule, the hub refuses it and stores nothing but the record 
 
 9.1. You can ask us at any time to revoke your Certificate as "stopped publishing".
 
-9.2. Sections 1.3, 4.6, 5, 6.4, 7, 8 and 10 continue after a Certificate ends, with section 17.4 of the Terms of Use.
+9.2. Sections 1.3, 1.5, 1.7, 4.6, 5, 6.4, 7, 8 and 10 continue after a Certificate ends, with section 17.4 of the Terms of Use.
 
 ## 10. Changes, law and contact
 

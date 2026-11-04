@@ -11,6 +11,7 @@ Version 1, effective 2026-11-04.
 > **In short (not the binding text; the numbered sections below are):**
 > WolOS Hub is a free catalogue of apps, plugins and extensions made by other people. We check files and verify who published them. "Checked" means checked. It never means harmless, and it is never a guarantee.
 > You sign in with GitHub, you are 16 or older, and you follow the Wonderland Doctrine. Be blunt about code, never about people.
+> Being listed or certified is a licence we give and may take back. Your code and its licence stay yours. A licence works the same in every country.
 > Our house, our keys. We can list, delist, hide, revoke, downgrade, suspend or switch off anything, any time, as far as the law lets us. We still tell you why, and you can ask a person to look again.
 > Other people's apps are other people's apps. If yours lands us in court, you pay for the lawyers.
 > The hub comes "as is". If it breaks, our bill is capped at the smallest amount the law allows.
@@ -40,6 +41,7 @@ These words mean the same thing in every text listed in section 2.2.
 - **"Publisher"**: an account or organisation that lists Work on the hub.
 - **"Work"**: an app, plugin or extension listed on the hub, every version of it, and its listing text, icon and screenshots.
 - **"Listing"**: the hub's page and index entry for one Work.
+- **"Hub distribution licence"**: the free, personal, non-transferable licence, revocable at our sole discretion, that we grant a publisher to distribute a Work through the hub ([Publisher Agreement](/terms/publisher), section 2.4). It is never a licence to or over the publisher's code.
 - **"Release"**: one version of a Work, published as a GitHub release of the Work's repository.
 - **"Content"**: anything you send to the hub: listing text, release notes, reports, answers, requests, and the metadata of your releases.
 - **"Check"** and **"checked"**: the hub's automatic checks of a Release, as described in the [Trust Terms](/terms/trust).
@@ -52,7 +54,7 @@ These words mean the same thing in every text listed in section 2.2.
 
 2.2. The texts (all at hub.wolos.org):
 - [Terms of Use](/terms/usage): this page, for everyone.
-- [Contributor Licence Agreement](/terms/cla): for code and content you send to WolOS repositories and for what you publish on the hub.
+- [Contributor Licence Agreement](/terms/cla): for code and content you send to WolOS repositories, and for hub content such as listing text and reports. It does not cover your Work.
 - [Privacy Policy](/terms/privacy): what we keep about you and your rights.
 - [Cookie Notice](/terms/cookies): the one cookie we use.
 - [Publisher Agreement](/terms/publisher): for publishers.
@@ -64,7 +66,7 @@ These words mean the same thing in every text listed in section 2.2.
 - [Trade Mark Policy](/terms/trademark): how to use the WolOS names.
 - [Changes Log](/terms/changes): how we change these texts.
 
-2.3. If two texts disagree: the Privacy Policy wins on personal data; the Contributor Licence Agreement wins on licences; the Publisher Agreement and the Certificate Terms win on publishing and Certificates; these Terms of Use win on everything else.
+2.3. If two texts disagree: the Privacy Policy wins on personal data; the Contributor Licence Agreement wins on licences for contributions to WolOS repositories; the Publisher Agreement and the Certificate Terms win on publishing and Certificates; these Terms of Use win on everything else.
 
 ## 3. Who may use the hub
 
@@ -90,7 +92,7 @@ These words mean the same thing in every text listed in section 2.2.
 
 ## 5. What the hub does
 
-5.1. The hub lists Work made by publishers. It does not host the Work's files. People download them from the publisher's GitHub release, and WolOS compares each file with the hash in the hub's signed index.
+5.1. The hub lists Work made by publishers. People download its files from the publisher's GitHub release, or from a copy the hub keeps and delivers through its network, and WolOS compares each file with the hash in the hub's signed index.
 
 5.2. The hub checks each Release with automatic checks before it lists it, publishes the result, signs the index, keeps the public log and the revocation list, and issues Certificates at two levels:
 - **Origin**: given automatically when the rules in the Certificate Terms are met. It states who published a file and from which repository.
@@ -102,7 +104,9 @@ These words mean the same thing in every text listed in section 2.2.
 
 5.5. **Third-party content belongs to the person who sent it.** Every Work, Listing, Release and piece of Content that someone else publishes is that person's alone: their responsibility, their liability, their promise. We do not make it, sell it, endorse it or adopt it. This stays true when we check it, label it, sign its hash, show it in search or leave it up after a report.
 
-5.6. **Our role.** For the law, the hub is an intermediary: a hosting service that stores and shows what users send, and an information location tool that links to files on GitHub. We rely on every liability exemption the law gives intermediaries, including articles 4 to 8 of the EU Digital Services Act, articles 18 and 19 of Brazil's Marco Civil da Internet, 47 U.S.C. section 230 and 17 U.S.C. section 512. Our own checks, reviews and moderation are voluntary and done in good faith; they do not make us the author of anyone's content and do not take those exemptions away (Digital Services Act, article 7).
+5.6. **Our role.** For the law, the hub is an intermediary: a hosting service that stores, shows and delivers what users send, and an information location tool that links to files on GitHub. We rely on every liability exemption the law gives intermediaries, including articles 4 to 8 of the EU Digital Services Act, articles 18 and 19 of Brazil's Marco Civil da Internet, 47 U.S.C. section 230 and 17 U.S.C. section 512. Our own checks, reviews and moderation are voluntary and done in good faith; they do not make us the author of anyone's content and do not take those exemptions away (Digital Services Act, article 7).
+
+5.7. **Distribution and Certificates are licences.** Distribution through the hub is the hub distribution licence that we grant each publisher. A Certificate is a licence that we grant its holder to use the WolOS Authors certificate and its signature lines ([Certificate Terms](/terms/certificates), section 1.3). Both are free, personal, not transferable, and revocable at our sole discretion, with or without notice, where the law allows. Neither is a licence to or over anyone's code: each Work stays under its own licence. We use this shape because a licence that we grant, and may revoke, rests on our own rights, so it holds in every jurisdiction, whatever local rules say about code, consumer contracts or platform liability.
 
 ## 6. What "checked" means, and what it does not
 
@@ -140,7 +144,7 @@ These words mean the same thing in every text listed in section 2.2.
 
 8.2. You give us a worldwide, free, non-exclusive licence to store, copy, show, translate, adapt for display, and publish your Content, and to sign and publish hashes and metadata of your Releases, as far as needed to run, show, check, moderate and keep a record of the hub. This licence lasts as long as your Content is on the hub, and for the public log and the revocation list, for as long as they exist, because they are how people check what they installed.
 
-8.3. The licence in 8.2 does not let us sell your Work or change its licence. Your Work's own licence decides what everyone, including us, may do with the Work itself. The [Contributor Licence Agreement](/terms/cla) covers what you send to WolOS repositories.
+8.3. The licence in 8.2 gives us no right over your code. It does not let us sell your Work or change its licence. Your Work's own licence decides what everyone, including us, may do with the Work itself. The [Contributor Licence Agreement](/terms/cla) covers what you send to WolOS repositories.
 
 8.4. You promise that you have the rights needed for your Content, and that publishing it does not break the law or anyone's rights.
 
