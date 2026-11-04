@@ -38,6 +38,10 @@ Register it like the other commands in the argument table of `crates/controller/
 3. Tag: the argument, else the newest version tag that points at `HEAD` (`git tag --points-at HEAD`, sorted as versions), else error 2 "No tag on this commit. Run wol publish v1.0.0 to tag it and publish." With a `TAG` that does not exist locally, the command creates it on `HEAD` (`git tag TAG`) after showing "Tag v1.0.0 will be created on <short commit>." and, on a terminal, asking `[Y/n]`; then `git push origin TAG`.
 4. The working tree must be clean for a tag it creates; otherwise error 2 "There are uncommitted changes. Commit them, then run it again."
 5. Version = the tag without a leading `v` before a digit (the same rule as the hub: `versionOf`).
+   The file has to say that same version (the check blocks it otherwise, `listing/version-mismatch`): `version` in
+   `plugin.toml` / `extension.toml` for a plugin or extension, so its tag is `v<version>`; `version` in `Info.json` for
+   an app, which is the pacman version of its payload, `<pkgver>-<pkgrel>`, so an app is tagged `v<pkgver>-<pkgrel>`
+   (`v0.1.0-1`, file `<id>-0.1.0-1.wol`).
 
 ## 4. Finding the file
 

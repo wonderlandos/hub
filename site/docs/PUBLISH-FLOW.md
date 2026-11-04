@@ -28,6 +28,16 @@ Five screens the first time, one command afterwards.
 | 4 | hub | Picks the repository in the list, picks **App / Plugin / Extension**, presses **Connect** (id, file name, name, summary and licence are filled from the repository; **Details** opens them for editing) | a listing exists in state "Connected" |
 | 5 | terminal | `git tag v1.0.0 && git push origin v1.0.0 && gh release create v1.0.0 alice.notes-1.0.0.wol` (the hub shows these three lines with the real names filled in), or `wol publish` | the status page of v1.0.0 shows Published |
 
+**Which tag, which version inside the file.** The version of a release is its tag without a leading `v` before a digit
+(`v1.2.0` is `1.2.0`), and the file must say the same version: the check blocks a release whose file says another one
+(`listing/version-mismatch`). For a **plugin or extension** the file's version is the `version` of its `plugin.toml` /
+`extension.toml`, so the tag is `v<version>` (`v1.0`). For an **app** (`.wol`) the file's version is `Info.json`
+`version`, and WolOS refuses to install an app whose `Info.json` version differs from the pacman version of its
+payload (`crates/api/src/admind.rs`, the payload check before `pkg -U`), which is `<pkgver>-<pkgrel>`. So an app is
+tagged `v<pkgver>-<pkgrel>` (`v0.1.0-1`) and its `Info.json` says `"version": "0.1.0-1"`; the file is named
+`<id>-<pkgver>-<pkgrel>.wol`. A new package release of the same program (`pkgrel` 2) is a new tag, `v0.1.0-2`. A tag such
+as `v0.1.0` for that app would be version `0.1.0`, not the file's `0.1.0-1`, and the check would block it.
+
 After that: **push a tag**. The hub sees the tag at once ("Waiting for your release"), the release when it is published
 ("Received"), and walks the version through Checked, Signed and Published on its status page, which refreshes itself.
 
