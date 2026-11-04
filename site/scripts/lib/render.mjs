@@ -90,6 +90,7 @@ ${noindex ? `<meta name="robots" content="${closed ? "noindex, nofollow" : "noin
 <meta name="color-scheme" content="light dark">
 ${assets.apiOff ? '<meta name="hub-api" content="off">\n' : ""}${noindex ? "" : `<meta property="og:site_name" content="WolOS Hub"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:type" content="website">`}
 <script src="${assets.theme}"></script>
+<script src="${assets.debug}"></script>
 <link rel="icon" type="image/svg+xml" href="/wolos-mark.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">

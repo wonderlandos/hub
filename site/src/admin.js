@@ -6,11 +6,14 @@
   var H = window.Hub, $ = H.$, $$ = H.$$, el = H.el, call = H.call, q = H.queue || {};
   var main = $("main[data-admin]"), role = q.role || "";
   var GRANTS = {
-    owner: "approve refuse revoke downgrade resolve takedown flag withdraw second roles",
-    admin: "approve refuse revoke downgrade takedown withdraw second",
+    owner: "approve refuse revoke downgrade resolve takedown flag withdraw second roles errors",
+    admin: "approve refuse revoke downgrade takedown withdraw second errors",
     reviewer: "approve refuse flag", support: "resolve",
   };
-  var allowed = function (a) { return (q.can || (GRANTS[role] || "").split(" ")).indexOf(a) >= 0; };
+  /* The Worker's queue lists the permissions of the role ("request.approve"); the panel's actions are named shorter. */
+  var PERM = { approve: "request.approve", refuse: "request.refuse", revoke: "cert.revoke", downgrade: "cert.downgrade", second: "cert.revoke", resolve: "report.resolve",
+    takedown: "report.takedown", flag: "release.flag", withdraw: "release.withdraw", roles: "roles.manage", errors: "errors.read" };
+  var allowed = function (a) { return q.can ? q.can.indexOf(PERM[a] || a) >= 0 : (GRANTS[role] || "").split(" ").indexOf(a) >= 0; };
   var E = encodeURIComponent;
   /* label, sheet title, what happens, route, body (text from the box, choice) */
   var ACTIONS = {
@@ -161,14 +164,30 @@
     }, function (x) { box.appendChild(el("p", { class: "err", text: x.message })); });
   }
 
+  /* TEMPORARY (debug only): script errors the pages reported, last 7 days. Remove with src/debug.js before the public launch. */
+  function errors(box, before) {
+    call("GET", "/api/admin/errors" + (before ? "?before=" + before : "")).then(function (j) {
+      if (!before) box.appendChild(el("p", { class: "dim", text: j.enabled ? "Debug only. Script errors the pages reported in the last " + j.keep_days + " days." : "The error reports are off (HUB_DEBUG_ERRORS is not 1)." }));
+      var list = $("ol", box) || box.appendChild(el("ol", { class: "card adm-audit" }));
+      (j.errors || []).forEach(function (e) {
+        list.appendChild(el("li", {}, [el("span", { class: "dim", text: new Date(e.at * 1000).toISOString().slice(0, 19).replace("T", " ") }), el("strong", { text: e.message }),
+          el("span", { text: e.url + " (build " + e.build + (e.person ? ", " + e.person : "") + ")" }), el("span", { class: "dim", text: e.ua }), el("pre", { class: "dim", text: e.stack })]));
+      });
+      var more = $(".adm-more", box); if (more) more.remove();
+      if (j.next) { more = el("button", { type: "button", class: "btn btn-quiet adm-more", text: "Older reports" }); more.onclick = function () { errors(box, j.next); }; box.appendChild(more); }
+      else if (j.enabled && !list.children.length) box.appendChild(el("p", { class: "dim", text: "Nothing reported." }));
+    }, function (x) { box.appendChild(el("p", { class: "err", text: x.message })); });
+  }
+
   /* ---- The page ---- */
   var tabs = el("nav", { class: "seg seg-lg", "aria-label": "Admin" });
-  var views = { queue: queue(), lookup: lookup(), roles: el("div", { class: "block" }), audit: el("div", { class: "block" }) };
-  var TABS = [["queue", "Queue"], ["lookup", "Look up"], ["roles", "Roles"], ["audit", "Audit trail"]].filter(function (t) { return t[0] !== "roles" || allowed("roles"); });
+  var views = { queue: queue(), lookup: lookup(), roles: el("div", { class: "block" }), audit: el("div", { class: "block" }), errors: el("div", { class: "block" }) };
+  var TABS = [["queue", "Queue"], ["lookup", "Look up"], ["roles", "Roles"], ["audit", "Audit trail"], ["errors", "Errors"]].filter(function (t) { return (t[0] !== "roles" || allowed("roles")) && (t[0] !== "errors" || allowed("errors")); });
   var open = function (k) {
     $$("a", tabs).forEach(function (a) { a.setAttribute("aria-current", String(a.dataset.v === k)); });
     Object.keys(views).forEach(function (v) { views[v].hidden = v !== k; });
     if (k === "audit" && !views.audit.dataset.got) { views.audit.dataset.got = "1"; audit(views.audit); }
+    if (k === "errors" && !views.errors.dataset.got) { views.errors.dataset.got = "1"; errors(views.errors); }
     if (k === "roles" && !views.roles.dataset.got) { views.roles.dataset.got = "1"; roles(views.roles); }
   };
   TABS.forEach(function (t) {

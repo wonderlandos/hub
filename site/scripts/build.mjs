@@ -44,7 +44,7 @@ const put = (path, text) => {
 const css = readFileSync(at("src/tokens.css"), "utf8") + "\n" + readFileSync(at("src/hub.css"), "utf8");
 const hashed = (name, ext, text) => { const n = `/assets/${name}.${createHash("sha256").update(text).digest("hex").slice(0, 10)}.${ext}`; put(n, text); return n; };
 const js = (name) => hashed(name, "js", readFileSync(at(`src/${name}.js`), "utf8"));
-const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account") };
+const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account"), certcmd: js("certcmd"), debug: js("debug") };
 const ADMIN = js("admin");
 
 const idx = await loadIndex(fixture ? at("data/index.json") : at("data/empty-index.json"));

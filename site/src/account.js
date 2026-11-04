@@ -28,13 +28,13 @@
   }
 
   /* ---- Certificates: origin and trusted, for a person or an organisation ---- */
-  function certs(box, m, acct) {
-    var c = H.tpl("t-certs"); if (!box || !c) return;
-    box.textContent = ""; box.appendChild(c);
-    var cmd = "wol cert request " + acct.id + " " + acct.login + " " + acct.login + ". " + (acct.org ? acct.login + " --org" : (m.name || m.login));
+  function certs(box, m, acct, stale) {
+    var c = H.tpl("t-certs"); if (!box || !c) return Promise.resolve();
+    /* Built apart and put in place when the states are known, so switching accounts replaces the card in one step. */
+    var cmd = window.HubCert.command(acct, m);
     slot(c, "cmd", cmd); $("[data-copy-slot=cmd]", c).dataset.copy = cmd;
     $$(".terms", c).forEach(function (t) { terms(t, m); });
-    Promise.all([call("GET", "/api/cert/requests").catch(function () { return { requests: [] }; }),
+    return Promise.all([call("GET", "/api/cert/requests").catch(function () { return { requests: [] }; }),
       call("GET", "/api/certs/" + encodeURIComponent(acct.login)).catch(function () { return { certs: [] }; })]).then(function (r) {
       var reqs = (r[0].requests || []).filter(function (q) { return q.subject && String(q.subject.login).toLowerCase() === acct.login.toLowerCase(); });
       var got = {};
@@ -51,6 +51,8 @@
         if (when) slot($('[data-state="' + s + '"]', card), "date", H.day(when));
         if (cert && s !== "pending") { slot(card, "serial", cert.serial); $("[data-slot-row=serial]", card).hidden = false; }
       });
+      if (stale && stale()) return;
+      box.textContent = ""; box.appendChild(c);
       var ask = $("[data-ask]", c), form = $("form", ask);
       var canTrusted = got.origin === "issued" && !/issued|pending/.test(got.trusted);
       var canOrigin = !/issued|pending/.test(got.origin);
@@ -66,7 +68,7 @@
         if (!t || !f.get("trust_ok")) return $('input[name="trust_ok"]', form).focus();
         req.tier = f.get("tier"); req.trust_terms = { version: t.version, sha256: t.sha256 };
         var btn = $("button[type=submit]", form); btn.disabled = true;
-        call("POST", "/api/cert/request", req).then(function () { return H.me(true); }).then(function (n) { certs(box, n, acct); },
+        call("POST", "/api/cert/request", req).then(function () { return H.me(true); }).then(function (n) { return certs(box, n, acct); }).then(null,
           function (x) { fail(form, x, "cert"); btn.disabled = false; });
       };
     });
@@ -127,59 +129,112 @@
     if (r.verdict === "block") return ["flagged", "block"];
     return ["listed", ""];
   };
+  /* The dashboard is one page. Choosing another account (a person or an organisation) changes only the regions under
+     the account switch: the address changes without a load, the header is not touched, and what is on screen stays
+     until the new answer is ready. */
+  var seq = 0;
+  /* The agreements this account accepted (the Worker's record); the list is replaced in one step when the answer is in. */
+  function agreements(acct, stale) {
+    call("GET", "/api/my/agreements" + (acct.org ? "?as=" + encodeURIComponent(acct.login) : "")).then(function (j) {
+      if (stale()) return;
+      var nodes = (j.agreements || []).map(function (a) {
+        var c = H.tpl("t-agreement");
+        slot(c, "name", a.name);
+        state(c, a.per_request ? (a.ok ? "req-ok" : "req-none") : a.ok ? "ok" : a.accepted.length ? "old" : "none");
+        $$("[data-slot=current]", c).forEach(function (n) { n.textContent = a.current; });
+        var rows = $('[data-slot="rows"]', c);
+        a.accepted.forEach(function (x) {
+          var li = H.tpl("t-agreed");
+          slot(li, "version", msg("a-version") + " " + x.version); slot(li, "date", H.day(x.accepted_at));
+          slot(li, "by", x.by ? msg("a-by") + " " + x.by : ""); slot(li, "hash", x.sha256);
+          rows.appendChild(li);
+        });
+        rows.hidden = !a.accepted.length;
+        slot(c, "link").href = a.url;
+        return c;
+      });
+      var box = $("#d-agreements"); box.textContent = "";
+      nodes.forEach(function (n) { box.appendChild(n); });
+    }, function () { $("#d-agreements").textContent = ""; });
+  }
   function dashboard(m) {
     show(document, "out", !m); show(document, "in", !!m);
     if (!m) return;
-    var want = new URLSearchParams(location.search).get("as");
     var accts = [{ id: m.github_id, login: m.login, role: "owner" }].concat((m.orgs || []).map(function (o) { return { id: o.github_org_id, login: o.login, org: true, role: o.role }; }));
-    var acct = accts.filter(function (a) { return a.login === want; })[0] || accts[0];
+    var pick = function () {
+      var want = new URLSearchParams(location.search).get("as");
+      return accts.filter(function (a) { return a.login === want; })[0] || accts[0];
+    };
+    var href = function (a) { return "/dashboard" + (a.org ? "?as=" + encodeURIComponent(a.login) : ""); };
     var nav = $("#d-accounts"); nav.textContent = "";
-    accts.forEach(function (a) {
-      var l = H.tpl("t-account"); l.textContent = a.login; l.href = "/dashboard" + (a.org ? "?as=" + encodeURIComponent(a.login) : "");
-      if (a === acct) l.setAttribute("aria-current", "page");
+    var links = accts.map(function (a) {
+      var l = H.tpl("t-account"); l.textContent = a.login; l.href = href(a);
+      l.addEventListener("click", function (e) {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        if (pick() !== a) history.pushState(null, "", href(a));
+        choose(a);
+      });
       nav.appendChild(l);
+      return l;
     });
+    var same = function (a, b) { return String(a).toLowerCase() === String(b).toLowerCase(); };
+    /* My listings and reports come once for all accounts; each account filters them. */
     var fromIndex = function () {
       return fetch("/search.json").then(function (r) { return r.json(); }).then(function (rows) {
-        return Promise.all(rows.filter(function (x) { return String(x.o).toLowerCase() === acct.login.toLowerCase(); })
-          .map(function (x) { return call("GET", "/api/listings/" + encodeURIComponent(x.id)).catch(function () { return null; }); }));
+        return Promise.all(rows.filter(function (x) { return accts.some(function (a) { return same(x.o, a.login); }); }).map(function (x) { return call("GET", "/api/listings/" + encodeURIComponent(x.id)).then(function (l) { return l.owner ? l : null; }, function () { return null; }); }));
       }).then(function (ls) { return { listings: ls.filter(Boolean), reports: [] }; }, function () { return { listings: [], reports: [] }; });
     };
-    call("GET", "/api/my/listings").catch(fromIndex).then(function (j) {
-      var mine = (j.listings || []).filter(function (l) { return l.owner && String(l.owner.login).toLowerCase() === acct.login.toLowerCase(); });
-      var box = $("#d-listings"); box.textContent = "";
-      $("#d-none").hidden = mine.length > 0;
-      mine.forEach(function (l) {
-        var a = H.tpl("t-listing"), link = slot(a, "link", l.name);
-        link.href = "/" + l.kind + "s/" + l.id; slot(a, "kind", l.kind); slot(a, "repo", l.source && l.source.repo);
-        (l.releases || []).forEach(function (r) {
-          var v = H.tpl("t-version"), s = STATUS(r);
-          slot(v, "version", r.version); slot(v, "date", r.first_seen ? H.day(r.first_seen) : "");
-          $$("[data-status]", v).forEach(function (n) { if (n.dataset.status !== s[0]) n.remove(); });
-          $$("[data-why]", v).forEach(function (n) { if (n.dataset.why !== s[1]) n.remove(); });
-          var fl = $(".dv-find", v);
-          (r.findings || []).concat(r.flag && r.flag.reason ? [{ sentence: r.flag.reason }] : []).forEach(function (x) { fl.appendChild(el("li", { text: x.sentence })); });
-          if (!fl.children.length) fl.remove();
-          $(".dl-vers", a).appendChild(v);
+    var mineP = call("GET", "/api/my/listings").catch(fromIndex);
+    function choose(acct) {
+      var mark = ++seq, stale = function () { return mark !== seq; };
+      links.forEach(function (l, i) { if (accts[i] === acct) l.setAttribute("aria-current", "page"); else l.removeAttribute("aria-current"); });
+      mineP.then(function (j) {
+        if (stale()) return;
+        var mine = (j.listings || []).filter(function (l) { return l.owner && same(l.owner.login, acct.login); });
+        var box = $("#d-listings"), nodes = [];
+        mine.forEach(function (l) {
+          var a = H.tpl("t-listing"), link = slot(a, "link", l.name);
+          link.href = "/" + l.kind + "s/" + l.id; slot(a, "kind", l.kind); slot(a, "repo", l.source && l.source.repo);
+          (l.releases || []).forEach(function (r) {
+            var v = H.tpl("t-version"), s = STATUS(r);
+            slot(v, "version", r.version); slot(v, "date", r.first_seen ? H.day(r.first_seen) : "");
+            $$("[data-status]", v).forEach(function (n) { if (n.dataset.status !== s[0]) n.remove(); });
+            $$("[data-why]", v).forEach(function (n) { if (n.dataset.why !== s[1]) n.remove(); });
+            var fl = $(".dv-find", v);
+            (r.findings || []).concat(r.flag && r.flag.reason ? [{ sentence: r.flag.reason }] : []).forEach(function (x) { fl.appendChild(el("li", { text: x.sentence })); });
+            if (!fl.children.length) fl.remove();
+            $(".dl-vers", a).appendChild(v);
+          });
+          nodes.push(a);
         });
-        box.appendChild(a);
+        box.textContent = ""; nodes.forEach(function (n) { box.appendChild(n); });
+        $("#d-none").hidden = mine.length > 0;
+        var ids = mine.map(function (l) { return l.id; }), rl = $("#d-reports"); rl.textContent = "";
+        (j.reports || []).filter(function (r) { return ids.indexOf(r.listing_id) >= 0; }).forEach(function (r) {
+          var li = H.tpl("t-report"); slot(li, "listing", r.listing_id + (r.version ? " " + r.version : "")); slot(li, "reason", r.reason);
+          slot(li, "date", H.day(r.created_at)); slot(li, "state", msg(r.state === "open" ? "r-open" : "r-closed")); rl.appendChild(li);
+        });
+        rl.hidden = !rl.children.length; $("#d-noreports").hidden = !rl.hidden;
       });
-      var ids = mine.map(function (l) { return l.id; }), rl = $("#d-reports"); rl.textContent = "";
-      (j.reports || []).filter(function (r) { return ids.indexOf(r.listing_id) >= 0; }).forEach(function (r) {
-        var li = H.tpl("t-report"); slot(li, "listing", r.listing_id + (r.version ? " " + r.version : "")); slot(li, "reason", r.reason);
-        slot(li, "date", H.day(r.created_at)); slot(li, "state", msg(r.state === "open" ? "r-open" : "r-closed")); rl.appendChild(li);
-      });
-      rl.hidden = !rl.children.length; $("#d-noreports").hidden = !rl.hidden;
-    });
-    certs($("#certs"), m, acct);
-    var ml = $("#d-members"); ml.textContent = "";
-    var row = function (login, role) { var li = H.tpl("t-member"); slot(li, "login", login); slot(li, "role", msg(role === "owner" ? "role-owner" : "role-member")); ml.appendChild(li); };
-    $("#d-solo").hidden = !!acct.org; $("#d-orgintro").hidden = !acct.org;
-    if (!acct.org) { accts.slice(1).forEach(function (a) { row(a.login, a.role); }); ml.hidden = !ml.children.length; return; }
-    ml.hidden = false;
-    call("GET", "/api/orgs/" + encodeURIComponent(acct.login) + "/members").then(function (j) {
-      (j.members || []).forEach(function (x) { row(x.login, x.role); });
-    }, function () { row(m.login, acct.role); });
+      certs($("#certs"), m, acct, stale);
+      agreements(acct, stale);
+      var rows = [], row = function (login, role) { rows.push([login, msg(role === "owner" ? "role-owner" : "role-member")]); };
+      var put = function () {
+        if (stale()) return;
+        var ml = $("#d-members"); ml.textContent = "";
+        rows.forEach(function (r) { var li = H.tpl("t-member"); slot(li, "login", r[0]); slot(li, "role", r[1]); ml.appendChild(li); });
+        $("#d-solo").hidden = !!acct.org; $("#d-orgintro").hidden = !acct.org;
+        ml.hidden = !acct.org && !ml.children.length;
+      };
+      if (!acct.org) { accts.slice(1).forEach(function (a) { row(a.login, a.role); }); put(); return; }
+      call("GET", "/api/orgs/" + encodeURIComponent(acct.login) + "/members").then(function (j) {
+        (j.members || []).forEach(function (x) { row(x.login, x.role); });
+      }, function () { row(m.login, acct.role); }).then(put);
+    }
+    choose(pick());
+    if (!dashboard.popped) { dashboard.popped = true; window.addEventListener("popstate", function () { if (dashboard.go) dashboard.go(); }); }
+    dashboard.go = function () { choose(pick()); };
   }
   if ($("#d-listings")) redraw = dashboard;
   if (lf || $("#d-listings")) H.me().then(function (m) { redraw(m); }, function () { redraw(null); });

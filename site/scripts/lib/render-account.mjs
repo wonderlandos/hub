@@ -48,7 +48,7 @@ ${copyCode("wol cert request", "cmd")}
 
 /* ---------- Publish: the steps ---------- */
 export const publish = (assets) => page({
-  title: "Publish your app - WolOS Hub", path: "/publish", assets, scripts: [assets.account],
+  title: "Publish your app - WolOS Hub", path: "/publish", assets, scripts: [assets.certcmd, assets.account],
   desc: "Publish an app, plugin or extension on WolOS Hub: sign in with GitHub, accept the agreements, link your repository and push a tag.",
   body: `<section class="wrap narrow-col block">${crumbs}<h1 class="h-xl">Publish your app</h1>
 <p class="lead">Apps, plugins and extensions all publish the same way. Your files stay on GitHub; the hub checks every version and lists it.</p>
@@ -91,7 +91,7 @@ ${terms("publisher", "Publisher Agreement", "What you promise about the files yo
 
 /* ---------- Dashboard: one developer or organisation ---------- */
 export const dashboard = (assets) => page({
-  title: "Your dashboard - WolOS Hub", path: "/dashboard", assets, noindex: true, scripts: [assets.account],
+  title: "Your dashboard - WolOS Hub", path: "/dashboard", assets, noindex: true, scripts: [assets.certcmd, assets.account],
   desc: "Your listings, versions, reports, certificates and organisation members on WolOS Hub.",
   body: `<section class="wrap block dash">${crumbs}<h1 class="h-xl">Your dashboard</h1>
 <div data-when="out"><p class="lead">Sign in to see your listings, their versions and your certificates.</p><p><a class="btn btn-solid" href="/auth/login?next=%2Fdashboard">Sign in with GitHub</a></p></div>
@@ -115,6 +115,19 @@ export const dashboard = (assets) => page({
 <section aria-labelledby="d-r" class="gap"><h2 id="d-r">Reports</h2><ul id="d-reports" class="card dash-rows"></ul><p class="dim" id="d-noreports">Nobody has reported anything about these listings.</p></section>
 <template id="t-report"><li><span data-slot="listing"></span><span class="dim" data-slot="reason"></span><span class="dim" data-slot="date"></span><span class="badge" data-slot="state"></span></li></template>
 <section aria-labelledby="d-c" class="gap"><h2 id="d-c">Certificates</h2><div id="certs"></div></section>
+<section aria-labelledby="d-a" class="gap" id="agreements"><h2 id="d-a">Agreements</h2>
+<p class="dim" id="d-aintro">The texts this account accepted, as the hub recorded them: the version, the day, who accepted it, and the SHA-256 of the exact text.</p>
+<div id="d-agreements" class="dash-list"></div></section>
+<template id="t-agreement"><article class="card agr"><h3 class="h-sm" data-slot="name"></h3>
+<p class="cert-state" hidden data-state="ok"><strong>Current.</strong> Version <span data-slot="current"></span> is accepted.</p>
+<p class="cert-state" hidden data-state="old"><strong>A newer version is out.</strong> Version <span data-slot="current"></span> is the current one. You accept it before your next release.</p>
+<p class="cert-state" hidden data-state="none"><strong>Not accepted yet.</strong> Version <span data-slot="current"></span> is the current one.</p>
+<p class="cert-state" hidden data-state="req-ok"><strong>Accepted with each certificate request.</strong> Version <span data-slot="current"></span> is the current one and was accepted.</p>
+<p class="cert-state" hidden data-state="req-none"><strong>Accepted with each certificate request.</strong> Version <span data-slot="current"></span> is the current one. No request has been made yet.</p>
+<ul class="plain agr-rows" data-slot="rows"></ul>
+<p><a data-slot="link">Read the text</a></p></article></template>
+<template id="t-agreed"><li><span data-slot="version"></span> <span class="dim" data-slot="date"></span> <span class="dim" data-slot="by"></span> <code class="hash" data-slot="hash"></code></li></template>
+<p hidden data-msg="a-version">Version</p><p hidden data-msg="a-by">accepted by</p>
 <section aria-labelledby="d-m" class="gap"><h2 id="d-m">Members and roles</h2><p class="dim" id="d-orgintro">From GitHub: who belongs to this organisation and what they may do there. Change it on GitHub.</p>
 <p class="dim" id="d-solo" hidden>This is your own account. These are your organisations on GitHub and your role in each.</p><ul id="d-members" class="card dash-rows"></ul></section>
 <template id="t-member"><li><span data-slot="login"></span><span class="dim" data-slot="role"></span></li></template>

@@ -98,23 +98,47 @@
     document.body.appendChild(a); a.click(); a.remove();
   });
 
-  /* ---- Signed in or not ---- */
-  var who = $("#who");
+  /* ---- Signed in or not ----
+     The last answer (login, name, picture; nothing secret) is kept in localStorage, so the next page draws the signed-in header
+     at once and keeps it until the session answers. "Sign in" shows only when the Worker says 401 (then the copy is removed).
+     A failed or slow request changes nothing. The header is built once; later answers only change its words. */
+  var who = $("#who"), KEY = "hub-who", signedOutHtml = who ? who.innerHTML : "";
+  var keep = function (m) { try { localStorage.removeItem("hub-signing"); if (m) localStorage.setItem(KEY, JSON.stringify({ login: m.login, name: m.name || null, avatar: m.avatar || null })); else localStorage.removeItem(KEY); } catch (x) {} };
+  var kept = function () { try { var v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v.login === "string" ? v : null; } catch (x) { return null; } };
+  var htmlOf = document.documentElement;
   function renderWho(m) {
     var t = document.getElementById("t-who");
-    if (!who || !m || !t) return;
-    who.textContent = "";
-    who.appendChild(t.content.cloneNode(true));
+    if (!who || !t) return;
+    if (!m) {
+      delete htmlOf.dataset.who;
+      if (who.dataset.in) { who.textContent = ""; who.innerHTML = signedOutHtml; delete who.dataset.in; }
+      who.dataset.ready = "";
+      return;
+    }
+    htmlOf.dataset.who = "in";
+    if (!who.dataset.in) {
+      who.textContent = "";
+      who.appendChild(t.content.cloneNode(true));
+      who.dataset.in = "1";
+      var out = $('[data-act="signout"]', who);
+      out.addEventListener("click", function () {
+        out.disabled = true;
+        call("POST", "/auth/logout").then(function () { keep(null); location.reload(); }, function () { out.disabled = false; });
+      });
+    }
     var pic = $("img", who);
-    if (m.avatar) { pic.src = m.avatar; pic.hidden = false; }
+    if (m.avatar) { if (pic.getAttribute("src") !== m.avatar) pic.src = m.avatar; pic.hidden = false; } else pic.hidden = true;
     slot(who, "name", m.name || m.login);
-    var out = $('[data-act="signout"]', who);
-    out.addEventListener("click", function () {
-      out.disabled = true;
-      call("POST", "/auth/logout").then(function () { location.reload(); }, function () { out.disabled = false; });
-    });
+    who.dataset.ready = "";
   }
+  var first = kept();
+  if (first) renderWho(first);
+  /* Going to GitHub to sign in: the page we come back to waits for the answer instead of showing "Sign in" first. */
+  document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest('a[href^="/auth/login"]'); if (a) try { localStorage.setItem("hub-signing", String(Date.now())); } catch (x) {} });
+  /* Another tab signed in or out: this one follows. */
+  window.addEventListener("storage", function (e) { if (e.key === KEY) renderWho(kept()); });
   var needsMe = who || $("[data-when]");
-  if (needsMe) me().then(function (m) { renderWho(m); document.dispatchEvent(new CustomEvent("hub:me", { detail: m })); }, function () { document.dispatchEvent(new CustomEvent("hub:me", { detail: null })); });
+  if (needsMe) me().then(function (m) { keep(m); renderWho(m); document.dispatchEvent(new CustomEvent("hub:me", { detail: m })); },
+    function () { delete htmlOf.dataset.who; if (who) who.dataset.ready = ""; document.dispatchEvent(new CustomEvent("hub:me", { detail: first })); });
 
 })();

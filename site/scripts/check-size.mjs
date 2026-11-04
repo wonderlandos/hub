@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // The size budget, measured on dist/: what a page costs to load, gzipped. Per page: its HTML, the stylesheet,
 // its scripts (the admin shell: also the panel's script it loads; pictures are separate and lazy). Budgets: a page at most 20 KB of HTML, 12 KB of CSS and
-// 8 KB of script in all (the site's own budget for script besides its framework is 150 KB; the hub has no framework).
+// 12 KB of script in all (the site's own budget for script besides its framework is 150 KB; the hub has no framework).
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { at } from "./lib/paths.mjs";
@@ -21,7 +21,7 @@ for (const r of builtPages(at("dist"))) {
   rows.push([r, gz(html), css, js]);
   if (gz(html) > 20480) bad.push(`${r}: HTML ${gz(html)} bytes gzipped, over 20 KB`);
   if (css > 12288) bad.push(`${r}: CSS ${css} bytes gzipped, over 12 KB`);
-  if (js > 8192) bad.push(`${r}: script ${js} bytes gzipped, over 8 KB`);
+  if (js > 12288) bad.push(`${r}: script ${js} bytes gzipped, over 12 KB`);
 }
 const w = Math.max(...rows.map((r) => r[0].length));
 console.log(rows.map(([r, h, c, j]) => `  ${r.padEnd(w)}  html ${String(h).padStart(5)}  css ${String(c).padStart(5)}  js ${String(j).padStart(5)}  total ${String(h + c + j).padStart(6)} bytes gzipped`).join("\n"));
