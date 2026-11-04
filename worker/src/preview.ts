@@ -3,20 +3,21 @@
 // listing that is not withdrawn. Read only; the pipeline signs, the Worker never does.
 // Entries keep today's 0.12 fields and gain, when the check reported them: kinds and permissions
 // (plugins only, as 0.12 reads them), min_wolos, and cert (the signing certificate's serial, for
-// trust wolos or verified). Withdrawn listings (taken down, or their repository changed hands) are
+// trust wolos, trusted or origin; trust comes from hubcheck's report, pipeline.ts indexTrust). Withdrawn listings (taken down, or their repository changed hands) are
 // left out of the lists and named in "withdrawn", so the sign job can mark them.
 
 import type { Ctx } from "./ctx";
 import type { Env } from "./env";
 import { now } from "./env";
 import { json } from "./http";
+import { indexTrust } from "./pipeline";
 
 interface Row {
   id: string; kind: "app" | "plugin" | "extension"; host: string | null; name: string; summary: string; license: string;
   owner_kind: string; owner_id: number; owner_login: string | null; repo: string; repo_id: number;
   version: string; tag: string; commit_sha: string | null; asset_url: string; size: number | null; sha256: string;
   trust: string; verdict: string; first_seen: number; findings: string | null;
-  kinds: string | null; permissions: string | null; min_wolos: string | null; cert: string | null;
+  kinds: string | null; permissions: string | null; min_wolos: string | null; cert: string | null; signature: string | null;
 }
 interface WithdrawnRow { id: string; kind: string; at: number; reason: string | null }
 
@@ -33,7 +34,7 @@ export async function buildIndex(env: Env) {
        CASE l.owner_kind WHEN 'org' THEN o.login WHEN 'person' THEN p.login ELSE 'wonderlandos' END AS owner_login,
        r.version, r.tag, r.commit_sha, r.asset_url, r.size, r.sha256, r.trust, r.verdict, r.first_seen,
        (SELECT v.findings FROM verdicts v WHERE v.listing_id = r.listing_id AND v.version = r.version ORDER BY v.id DESC LIMIT 1) AS findings,
-       f.kinds, f.permissions, f.min_wolos, f.cert
+       f.kinds, f.permissions, f.min_wolos, f.cert, f.signature
      FROM listings l
      JOIN releases r ON r.listing_id = l.id
      LEFT JOIN release_facts f ON f.listing_id = r.listing_id AND f.version = r.version
@@ -53,11 +54,12 @@ export async function buildIndex(env: Env) {
     try { findings = JSON.parse(r.findings ?? "[]"); } catch { /* stored by us; never fails */ }
     const kinds = r.kind === "plugin" ? list(r.kinds) : undefined;
     const permissions = r.kind === "plugin" ? list(r.permissions) : undefined;
-    const signed = r.cert && (r.trust === "wolos" || r.trust === "verified") ? r.cert : undefined;
+    const trust = indexTrust(r.signature, r.trust);
+    const signed = r.cert && trust !== "community" ? r.cert : undefined;
     const entry = {
       id: r.id, name: r.name, version: r.version, summary: r.summary, author: r.owner_login, license: r.license,
       ...(kinds ? { kinds } : {}), ...(permissions ? { permissions } : {}), ...(r.min_wolos ? { min_wolos: r.min_wolos } : {}),
-      url: r.asset_url, sha256: r.sha256, size: r.size, trust: r.trust, ...(signed ? { cert: signed } : {}), verdict: r.verdict, findings,
+      url: r.asset_url, sha256: r.sha256, size: r.size, trust, ...(signed ? { cert: signed } : {}), verdict: r.verdict, findings,
       owner: { kind: r.owner_kind, github_id: r.owner_id, login: r.owner_login },
       source: { repo: r.repo, repo_id: r.repo_id, tag: r.tag, commit: r.commit_sha },
       first_seen: r.first_seen, yanked: false,

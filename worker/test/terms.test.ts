@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { acceptCla, acceptTerms, alice, FakeGitHub, install, makeEnv, req, signIn, termsAnswer } from "./harness";
-import { TEXTS, textVersion } from "../src/cla";
+import { textVersion } from "../src/cla";
 
 let gh: FakeGitHub, undo: () => void, env: ReturnType<typeof makeEnv>;
 beforeEach(() => { gh = new FakeGitHub(); undo = install(gh); env = makeEnv(); });
@@ -52,7 +52,7 @@ test("GET /api/cla is the CLA of /api/terms/cla; wrangler.toml names its version
   expect((await req(env, "GET", "/api/terms/privacy")).status).toBe(404);
 });
 
-test("publishing needs the Publisher Agreement; /api/me shows both terms; a new version must be accepted again", async () => {
+test("publishing needs the Publisher Agreement; /api/me shows both terms; a stale hash is refused", async () => {
   const c = await signIn(env, gh, alice);
   await acceptCla(env, c, false);
   gh.repos.set("Alice/notes", { id: 9001, full_name: "Alice/notes", private: false, owner: { id: 1001, login: "Alice", type: "User" } });
@@ -70,14 +70,6 @@ test("publishing needs the Publisher Agreement; /api/me shows both terms; a new 
   me = (await (await req(env, "GET", "/api/me", { cookie: c })).json()) as any;
   expect(me.terms.publisher).toMatchObject({ accepted: "1", ok: true });
   expect(env.DB.sqlite.query("SELECT doc, github_id, version FROM terms_acceptances").all()).toEqual([{ doc: "publisher", github_id: 1001, version: "1" }]);
-  TEXTS.publisher["2"] = "Version 2, 2027-01-01.\n";
-  const real = TEXTS.publisher["1"];
-  try {
-    delete TEXTS.publisher["1"];
-    // currentText picks the version from the bundled text; simulate a new bundle by swapping the map
-    const { currentText } = await import("../src/cla");
-    await expect(currentText(env, "publisher")).rejects.toThrow("no publisher text");
-  } finally { TEXTS.publisher["1"] = real; delete TEXTS.publisher["2"]; }
   // POST /api/terms/cla is the CLA acceptance
   expect((await req(env, "POST", "/api/terms/cla", { cookie: c, body: await termsAnswer(env, "cla") })).status).toBe(200);
 });

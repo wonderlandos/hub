@@ -11,6 +11,7 @@ import { liveRole } from "./orgs";
 import { getRepo } from "./github";
 import { limit, MAX_LISTINGS_PER_PERSON, RULES } from "./ratelimit";
 import { audit } from "./audit";
+import { indexTrust } from "./pipeline";
 
 export const KINDS = ["app", "plugin", "extension"] as const;
 export type Kind = (typeof KINDS)[number];
@@ -56,8 +57,9 @@ export async function ownerLogin(env: Env, kind: string, id: number): Promise<st
 
 export async function listingView(env: Env, l: ListingRow) {
   const rel = (await env.DB.prepare(
-    "SELECT * FROM releases WHERE listing_id = ? ORDER BY first_seen DESC LIMIT 50",
-  ).bind(l.id).all<ReleaseRow>()).results;
+    `SELECT r.*, f.signature, f.cert FROM releases r LEFT JOIN release_facts f ON f.listing_id = r.listing_id AND f.version = r.version
+     WHERE r.listing_id = ? ORDER BY r.first_seen DESC LIMIT 50`,
+  ).bind(l.id).all<ReleaseRow & { signature: string | null; cert: string | null }>()).results;
   return {
     id: l.id, kind: l.kind, host: l.host, name: l.name, summary: l.summary, license: l.license, status: l.status,
     owner: { kind: l.owner_kind, github_id: l.owner_id, login: await ownerLogin(env, l.owner_kind, l.owner_id) },
@@ -65,7 +67,7 @@ export async function listingView(env: Env, l: ListingRow) {
     created_at: l.created_at, updated_at: l.updated_at,
     releases: rel.map((r) => ({
       version: r.version, tag: r.tag, commit: r.commit_sha, asset: r.asset_name, url: r.asset_url, size: r.size,
-      sha256: r.sha256, trust: r.trust, verdict: r.verdict, prerelease: !!r.prerelease,
+      sha256: r.sha256, trust: indexTrust(r.signature, r.trust), cert: r.cert, verdict: r.verdict, prerelease: !!r.prerelease,
       first_seen: r.first_seen, checked_at: r.checked_at, yanked: r.yanked_at !== null,
     })),
   };

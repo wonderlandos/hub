@@ -9,7 +9,7 @@ CREATE TABLE release_facts (
   kinds       TEXT,                      -- JSON list; plugins
   permissions TEXT,                      -- JSON list; plugins
   min_wolos   TEXT,
-  signature   TEXT CHECK (signature IN ('wolos','verified','community','withdrawn','invalid')),
+  signature   TEXT CHECK (signature IN ('wolos','trusted','origin','verified','community','withdrawn','invalid')), -- hubcheck's trust
   cert        TEXT,                      -- serial of the certificate that signed the file
   updated_at  INTEGER NOT NULL,
   PRIMARY KEY (listing_id, version),

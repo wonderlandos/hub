@@ -119,10 +119,16 @@ const SHA1 = /^[0-9a-f]{40}$/;
 
 interface Finding { rule: string; sentence: string; evidence: string }
 
-/** What hubcheck reports about the signature (I7). wolos, verified and community are index trust levels;
- * withdrawn and invalid are kept in release_facts and the release stays community, without a cert. */
-export const SIG_TRUST = ["wolos", "verified", "community", "withdrawn", "invalid"] as const;
-const INDEX_TRUST = new Set(["wolos", "verified", "community"]);
+/** What hubcheck reports about the signature (I7): wolos, trusted, origin, community, withdrawn, invalid
+ * (an older hubcheck says verified for any author certificate). Kept in release_facts.signature. */
+export const SIG_TRUST = ["wolos", "trusted", "origin", "verified", "community", "withdrawn", "invalid"] as const;
+
+/** The trust the index shows (hub-index schema: wolos, trusted, origin, community). verified (older hubcheck,
+ * no certificate class) counts as origin, as hubcheck itself maps it; withdrawn and invalid as community. */
+export function indexTrust(signature: string | null, fallback: string): string {
+  if (signature === null) return fallback === "verified" ? "origin" : fallback;
+  return signature === "verified" ? "origin" : ["wolos", "trusted", "origin"].includes(signature) ? signature : "community";
+}
 const SERIAL = /^[0-9a-f]{16}$/;
 const WORD = /^[\x21-\x7e]{1,64}$/;
 const MIN_WOLOS = /^([0-9]{1,4}\.[0-9]{1,4}(\.[0-9]{1,4})?)?$/;
@@ -199,16 +205,14 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
     }
     const t = now();
     const keepSha = rel.sha256 ?? sha;
-    // The trust the index shows: the signature's, when it is one the index knows; otherwise community.
-    const indexTrust = facts.trust === null ? null : INDEX_TRUST.has(facts.trust) ? facts.trust : "community";
     const hasFacts = facts.kinds || facts.permissions || facts.min_wolos || facts.trust || facts.cert;
     await db.batch([
       db.prepare(
         "INSERT OR IGNORE INTO verdicts (listing_id, version, verdict, sha256, size, findings, run_id, workflow_sha, posted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       ).bind(listing, version, verdict, sha, size, JSON.stringify(findings), run, c.job_workflow_sha ?? null, t),
       db.prepare(
-        "UPDATE releases SET verdict = ?, sha256 = ?, size = coalesce(?, size), commit_sha = coalesce(?, commit_sha), checked_at = ?, trust = coalesce(?, trust) WHERE listing_id = ? AND version = ?",
-      ).bind(verdict, keepSha, size, commit, t, indexTrust, listing, version),
+        "UPDATE releases SET verdict = ?, sha256 = ?, size = coalesce(?, size), commit_sha = coalesce(?, commit_sha), checked_at = ? WHERE listing_id = ? AND version = ?",
+      ).bind(verdict, keepSha, size, commit, t, listing, version),
       ...(hasFacts ? [db.prepare(
         "INSERT INTO release_facts (listing_id, version, kinds, permissions, min_wolos, signature, cert, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
         "ON CONFLICT (listing_id, version) DO UPDATE SET kinds = excluded.kinds, permissions = excluded.permissions, min_wolos = excluded.min_wolos, " +

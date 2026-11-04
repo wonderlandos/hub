@@ -239,6 +239,18 @@ test("a request needs a session, the hub's origin and the CLA; it is rate limite
   expect((await req(env, "POST", "/api/cert/request", { cookie: c, body: await withTerms(woltrustRequest()) })).status).toBe(429);
 });
 
+test("the Trust Terms are accepted with every request, and recorded", async () => {
+  const c = await asPerson();
+  const r1 = await req(env, "POST", "/api/cert/request", { cookie: c, body: woltrustRequest() });
+  expect([r1.status, ((await r1.json()) as any).error]).toEqual([403, "trust-terms-needed"]);
+  const r2 = await req(env, "POST", "/api/cert/request", { cookie: c, body: { ...woltrustRequest(), trust_terms: { version: "1", sha256: "0".repeat(64) } } });
+  expect([r2.status, ((await r2.json()) as any).error]).toEqual([409, "terms-changed"]);
+  expect(env.DB.sqlite.query("SELECT count(*) AS n FROM cert_requests").get()).toEqual({ n: 0 });
+  expect((await req(env, "POST", "/api/cert/request", { cookie: c, body: await withTerms(woltrustRequest()) })).status).toBe(201);
+  expect(env.DB.sqlite.query("SELECT doc, github_id, version FROM terms_acceptances WHERE doc = 'trust'").all()).toEqual([{ doc: "trust", github_id: 1001, version: "1" }]);
+  expect(((await (await req(env, "GET", "/api/me", { cookie: c })).json()) as any).terms.trust).toMatchObject({ accepted: "1", ok: true });
+});
+
 test("a person may name an organisation GitHub shows them in; its id comes from GitHub", async () => {
   gh.orgs.set(alice.id, [{ id: 501, login: "ExampleLabs", role: "member" }]);
   const { body } = await requestAs(alice, { subject: { github_id: 1001, login: "alice", name: "Alice", org: { login: "examplelabs" } } });

@@ -19,6 +19,8 @@ exports[`the frozen route table (I4) 1`] = `
   "GET ^\\/api\\/pipeline\\/pending$",
   "POST ^\\/api\\/pipeline\\/verdicts$",
   "GET ^\\/api\\/pipeline\\/export$",
+  "GET ^\\/api\\/terms\\/([a-z]{1,16})$",
+  "POST ^\\/api\\/terms\\/([a-z]{1,16})$",
   "POST ^\\/api\\/cert\\/request$",
   "GET ^\\/api\\/cert\\/requests$",
   "GET ^\\/api\\/certs\\/([^/]{1,39})$",
