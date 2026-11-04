@@ -44,7 +44,7 @@ const put = (path, text) => {
 const css = readFileSync(at("src/tokens.css"), "utf8") + "\n" + readFileSync(at("src/hub.css"), "utf8");
 const hashed = (name, ext, text) => { const n = `/assets/${name}.${createHash("sha256").update(text).digest("hex").slice(0, 10)}.${ext}`; put(n, text); return n; };
 const js = (name) => hashed(name, "js", readFileSync(at(`src/${name}.js`), "utf8"));
-const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account"), certcmd: js("certcmd"), debug: js("debug") };
+const assets = { apiOff, origin: ORIGIN, css: hashed("hub", "css", css), js: js("hub"), theme: js("theme"), search: js("search"), pictures: js("pictures"), account: js("account"), publish: js("publish"), dashboard: js("dashboard"), status: js("status"), certcmd: js("certcmd"), debug: js("debug") };
 const ADMIN = js("admin");
 
 const idx = await loadIndex(fixture ? at("data/index.json") : at("data/empty-index.json"));
@@ -72,6 +72,7 @@ for (const o of idx.owners) add(ownerPath(o), R.ownerPage(o, assets));
 add("/search", R.search(assets));
 add("/publish", A.publish(assets));
 add("/dashboard", A.dashboard(assets));
+add("/status", A.status(assets));
 add("/report", R.report(assets));
 const legal = legalDocs();
 add("/terms", R.termsIndex(legal, assets));
@@ -86,7 +87,7 @@ put("/search.json", JSON.stringify(idx.entries.map((e) => ({
   c: e.categories || [], id: e.id, o: e.owner.login, ...(e.iconUrl ? { i: e.iconUrl } : { l: R.tileClass(e) }),
 }))));
 
-const noindex = new Set(["/search", "/report", "/signin", "/dashboard"]);
+const noindex = new Set(["/search", "/report", "/signin", "/dashboard", "/status"]);
 put("/sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.filter((p) => !noindex.has(p)).map((p) => `<url><loc>${ORIGIN}${p === "/" ? "/" : p}</loc></url>`).join("\n")}\n</urlset>\n`);
 put("/robots.txt", fixture ? "User-agent: *\nDisallow: /\n" : `User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /api/\nSitemap: ${ORIGIN}/sitemap.xml\n`);
 put("/_headers", `${fixture ? "/*\n  X-Robots-Tag: noindex, nofollow\n" : ""}/assets/*

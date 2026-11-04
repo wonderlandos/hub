@@ -13,7 +13,7 @@ import { builtPages } from "./lib/visible.mjs";
 const read = (p) => readFileSync(p, "utf8");
 const bad = [];
 const css = read(at("src/hub.css")), tokens = read(at("src/tokens.css"));
-const js = ["hub", "search", "account", "admin"].map((n) => read(at(`src/${n}.js`))).join("\n");
+const js = ["hub", "search", "account", "publish", "dashboard", "status", "admin"].map((n) => read(at(`src/${n}.js`))).join("\n");
 
 const strip = (c) => c.replace(/\/\*[\s\S]*?\*\//g, "");
 const LIT = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(|(?<![-\w])(?:white|black|red|green|blue|gray|grey|orange|yellow|purple|pink|teal|navy)(?![-\w])/g;

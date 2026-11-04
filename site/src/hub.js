@@ -17,9 +17,10 @@
 
   /* ---- The Worker (none behind a static build: then nothing is asked and everyone is signed out) ---- */
   var NOAPI = !!document.querySelector('meta[name="hub-api"][content="off"]');
-  function call(method, path, body) {
-    if (NOAPI) return Promise.reject(Object.assign(new Error(OFFLINE), { status: path === "/api/me" ? 401 : 0 }));
+  function call(method, path, body, cache) {
+    if (NOAPI) return Promise.reject(Object.assign(new Error(OFFLINE), { status: /^\/api\/(me|my\/overview)/.test(path) ? 401 : 0 }));
     var opt = { method: method, credentials: "include", headers: { accept: "application/json" } };
+    if (cache) opt.cache = cache;
     if (body !== undefined) { opt.headers["content-type"] = "application/json"; opt.body = JSON.stringify(body); }
     return fetch(path, opt).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
@@ -28,9 +29,49 @@
       });
     }, function () { throw new Error(OFFLINE); });
   }
+  /* One answer per page: the pages of people who publish ask /api/my/overview (the person and everything the page shows,
+     one round trip) and take the signed-in person from it; the other pages ask /api/me. The last overview of each account is
+     kept for this tab (sessionStorage), so the next page draws from it at once and replaces it when the answer arrives. */
+  var OV = !!document.querySelector("[data-overview]");
+  var ovs = {}, SNAP = "hub-snap:";
+  var asOf = function () { return new URLSearchParams(location.search).get("as") || ""; };
+  /* A snapshot belongs to one person: it is stored under the login this browser last signed in as, and never used for another
+     (not when the kept sign-in changed, not when the snapshot's own person differs). */
+  var snapKey = function (k) { var w = kept(); return w ? SNAP + w.login.toLowerCase() + "|" + k : null; };
+  var snap = function (k) {
+    try {
+      var key = snapKey(k), v = key && JSON.parse(sessionStorage.getItem(key) || "null"), w = kept();
+      return v && (!v.me || (w && v.me.login.toLowerCase() === w.login.toLowerCase())) ? v : null;
+    } catch (x) { return null; }
+  };
+  var save = function (k, v) {
+    try {
+      var login = v && v.me ? v.me.login : (kept() || {}).login;
+      if (login) sessionStorage.setItem(SNAP + login.toLowerCase() + "|" + k, JSON.stringify(v));
+    } catch (x) {}
+  };
+  /* Forget this tab's snapshots (all, or all but one person's). */
+  var forget = function (except) {
+    if (!except) ovs = {};
+    try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf(SNAP) === 0 && !(except && k.indexOf(SNAP + except.toLowerCase() + "|") === 0)) sessionStorage.removeItem(k); }); } catch (x) {}
+  };
+  /* fresh: after a change, skip the browser's copy. */
+  function overview(as, fresh) {
+    var k = as || "";
+    if (!ovs[k] || fresh) {
+      ovs[k] = call("GET", "/api/my/overview" + (k ? "?as=" + encodeURIComponent(k) : ""), undefined, fresh ? "reload" : null).then(function (o) {
+        save(k, o);
+        return o;
+      }, function (e) { delete ovs[k]; throw e; });
+    }
+    return ovs[k];
+  }
   var meP = null;
   function me(fresh) {
-    if (!meP || fresh) meP = call("GET", "/api/me").catch(function (e) { if (e.status === 401) return null; throw e; });
+    if (!meP || fresh) {
+      var p = OV ? overview(asOf(), fresh).then(function (o) { return o.me; }) : call("GET", "/api/me");
+      meP = p.catch(function (e) { if (e.status === 401) return null; throw e; });
+    }
     return meP;
   }
   /* A <template> by id, cloned; slot(n, name) finds [data-slot=name] in it. */
@@ -44,7 +85,19 @@
   };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var day = function (s) { var d = new Date(s * 1000); return d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear(); };
-  window.Hub = { $: $, $$: $$, el: el, call: call, me: me, tpl: tpl, slot: slot, msg: msg, show: show, fail: fail, day: day, GENERIC: GENERIC };
+  var time = function (s) { var d = new Date(s * 1000); return day(s) + ", " + ("0" + d.getUTCHours()).slice(-2) + ":" + ("0" + d.getUTCMinutes()).slice(-2); };
+  /* The four stages of a version as a track: received, checked, signed, published (each done, current, waiting, failed or skipped). */
+  var STAGE_NAMES = { received: "Received", checked: "Checked", signed: "Signed", published: "Published" };
+  function track(stages, small) {
+    var ol = el("ol", { class: "track" + (small ? " track-sm" : ""), "aria-label": "Where this version stands" });
+    stages.forEach(function (s) {
+      var li = el("li", { class: "tr", "data-state": s.state }, [el("span", { class: "tr-dot", "aria-hidden": "true" }), el("span", { class: "tr-name", text: STAGE_NAMES[s.key] })]);
+      if (s.at && !small) li.appendChild(el("time", { class: "tr-at dim", text: time(s.at) }));
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+  window.Hub = { $: $, $$: $$, el: el, call: call, me: me, overview: overview, snap: snap, save: save, forget: forget, asOf: asOf, tpl: tpl, slot: slot, msg: msg, show: show, fail: fail, day: day, time: time, track: track, GENERIC: GENERIC };
 
   /* ---- The closed admin page: nothing unless the Worker gives the queue ---- */
   var adm = $("main[data-admin]");
@@ -80,6 +133,17 @@
     else done(false);
   });
 
+  /* ---- Warming: pointing at Publish or Dashboard asks for their data, so the page finds it in the browser's cache ---- */
+  var warmed = false;
+  var warm = function (e) {
+    if (warmed || !htmlOf.dataset.who || NOAPI) return;
+    var a = e.target.closest && e.target.closest('a[href="/publish"], a[href="/dashboard"], a.who-me');
+    if (!a) return;
+    warmed = true;
+    fetch("/api/my/overview", { credentials: "include", headers: { accept: "application/json" } }).catch(function () {});
+  };
+  ["pointerover", "focusin", "touchstart"].forEach(function (ev) { document.addEventListener(ev, warm, { passive: true }); });
+
   /* ---- "/" goes to the search field ---- */
   document.addEventListener("keydown", function (e) {
     if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -103,7 +167,7 @@
      at once and keeps it until the session answers. "Sign in" shows only when the Worker says 401 (then the copy is removed).
      A failed or slow request changes nothing. The header is built once; later answers only change its words. */
   var who = $("#who"), KEY = "hub-who", signedOutHtml = who ? who.innerHTML : "";
-  var keep = function (m) { try { localStorage.removeItem("hub-signing"); if (m) localStorage.setItem(KEY, JSON.stringify({ login: m.login, name: m.name || null, avatar: m.avatar || null })); else localStorage.removeItem(KEY); } catch (x) {} };
+  var keep = function (m) { if (!m) forget(); else forget(m.login); try { localStorage.removeItem("hub-signing"); if (m) localStorage.setItem(KEY, JSON.stringify({ login: m.login, name: m.name || null, avatar: m.avatar || null })); else localStorage.removeItem(KEY); } catch (x) {} };
   var kept = function () { try { var v = JSON.parse(localStorage.getItem(KEY) || "null"); return v && typeof v.login === "string" ? v : null; } catch (x) { return null; } };
   var htmlOf = document.documentElement;
   function renderWho(m) {
@@ -123,7 +187,7 @@
       var out = $('[data-act="signout"]', who);
       out.addEventListener("click", function () {
         out.disabled = true;
-        call("POST", "/auth/logout").then(function () { keep(null); location.reload(); }, function () { out.disabled = false; });
+        call("POST", "/auth/logout").then(function () { keep(null); forget(); location.reload(); }, function () { out.disabled = false; });
       });
     }
     var pic = $("img", who);
@@ -136,7 +200,7 @@
   /* Going to GitHub to sign in: the page we come back to waits for the answer instead of showing "Sign in" first. */
   document.addEventListener("click", function (e) { var a = e.target.closest && e.target.closest('a[href^="/auth/login"]'); if (a) try { localStorage.setItem("hub-signing", String(Date.now())); } catch (x) {} });
   /* Another tab signed in or out: this one follows. */
-  window.addEventListener("storage", function (e) { if (e.key === KEY) renderWho(kept()); });
+  window.addEventListener("storage", function (e) { if (e.key === KEY) { forget(); renderWho(kept()); } });
   var needsMe = who || $("[data-when]");
   if (needsMe) me().then(function (m) { keep(m); renderWho(m); document.dispatchEvent(new CustomEvent("hub:me", { detail: m })); },
     function () { delete htmlOf.dataset.who; if (who) who.dataset.ready = ""; document.dispatchEvent(new CustomEvent("hub:me", { detail: first })); });

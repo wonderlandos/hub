@@ -26,6 +26,12 @@ const api = (req, res, url) => {
   const p = url.pathname;
   calls.push(p);
   if (p === "/api/me") return live.in ? send(200, ME, 500) : send(401, { error: "signed-out", sentence: "Sign in first." }, 300);
+  if (p === "/api/my/overview") {
+    if (!live.in) return send(401, { error: "signed-out", sentence: "Sign in first." }, 300);
+    const as = url.searchParams.get("as") || "";
+    return send(200, { me: ME, account: { kind: as ? "org" : "person", login: as || "alicedoe" }, accounts: [], listings: [], attention: [], reports: [], certs: { states: { origin: "none", trusted: "none" }, refused: {}, list: [] },
+      agreements: AGREEMENTS(as || "alicedoe").agreements, members: as ? [{ login: "alicedoe", role: "owner" }, { login: "carol", role: "member" }] : ME.orgs.map((o) => ({ login: o.login, role: o.role })), generated: 0 }, as ? 150 : 500);
+  }
   if (p === "/api/my/agreements") return send(200, AGREEMENTS(url.searchParams.get("as") || "alicedoe"), 60);
   if (p === "/api/debug/errors") {
     let data = ""; req.on("data", (c) => (data += c));

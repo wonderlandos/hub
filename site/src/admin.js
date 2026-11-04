@@ -24,7 +24,7 @@
       [["key-compromise", "The key was stolen or exposed"], ["abuse", "Abuse of the certificate"]]],
     second: ["Approve the revocation", "Approve this revocation as the second admin?", "The revocation starts now and the files signed with the certificate are withdrawn.", function (x) { return "/api/admin/revocations/" + E(x.group) + "/approve"; }, function (t) { return { note: t }; }],
     flag: ["Flag version", "Flag this version?", "The version is listed with your note shown to everyone, until its maker releases again.", function (x) { return "/api/admin/releases/" + E(x.listing) + "/" + E(x.version) + "/flag"; }, function (t) { return { reason: t }; }],
-    withdraw: ["Withdraw version", "Withdraw this version?", "Only this version is withdrawn: it is no longer offered to install or as an update. The certificate of its maker is untouched.", function (x) { return "/api/admin/listings/" + E(x.listing) + "/versions/" + E(x.version) + "/withdraw"; }, function (t) { return { reason: t }; }],
+    withdraw: ["Withdraw version", "Withdraw this version?", "Only this version is withdrawn: it is no longer offered to install or as an update. The certificate of its maker is untouched.", function (x) { return "/api/admin/releases/" + E(x.listing) + "/" + E(x.version) + "/withdraw"; }, function (t) { return { reason: t }; }],
     resolve: ["Resolve", "Close this report without action?", "The listing stays as it is. The report is closed.", function (x) { return "/api/admin/reports/" + x.id + "/resolve"; }, function (t) { return { note: t }; }],
     takedown: ["Take down", "Take this listing down?", "The listing leaves the next signed index and its page.", function (x) { return "/api/admin/reports/" + x.id + "/takedown"; }, function (t) { return { note: t }; }],
     roles: ["Change the role", "Change this person's role?", "The new role applies at their next request. None removes the role.", function () { return "/api/admin/roles"; }, function (t, c, x) { return { login: x.login, role: c, reason: t }; },
@@ -32,36 +32,42 @@
   };
   var day = function (s) { return s ? H.day(s) : ""; };
 
-  /* ---- The confirmation sheet ---- */
-  var sheet = el("dialog", { class: "sheet", "aria-labelledby": "sh-t" });
-  sheet.innerHTML = '<form class="sheet-form" novalidate><h2 id="sh-t" class="h-md"></h2><p class="dim" id="sh-who"></p><p id="sh-what"></p><fieldset class="field" id="sh-c"></fieldset>' +
-    '<div class="field"><label for="sh-r">Reason, kept in the audit trail</label><textarea id="sh-r" rows="4" maxlength="500" required></textarea></div>' +
-    '<p class="err" role="alert" id="sh-e"></p><p class="get-btns"><button type="button" class="btn btn-quiet" id="sh-no">Cancel</button><button type="submit" class="btn btn-solid" id="sh-go"></button></p></form>';
-  document.body.appendChild(sheet);
-  var pending = null;
-  $("#sh-no").onclick = function () { sheet.close(); };
-  $("form", sheet).addEventListener("submit", function (e) {
-    e.preventDefault();
-    var text = $("#sh-r").value.trim(), p = pending, A = ACTIONS[p.a], ch = $("input:checked", sheet);
-    if (!text) { $("#sh-e").textContent = "Write the reason first."; $("#sh-r").focus(); return; }
-    var go = $("#sh-go"); go.disabled = true;
-    call("POST", A[3](p.x), A[4](text, ch && ch.value, p.x)).then(function (j) {
-      go.disabled = false; sheet.close();
-      p.row.classList.add("adm-done");
-      $$("button", p.row).forEach(function (b) { b.disabled = true; });
-      $(".adm-said", p.row).textContent = j.sentence || "Done: " + A[0] + ".";
-    }, function (x) { go.disabled = false; $("#sh-e").textContent = x.message; });
-  });
-  function ask(a, x, row, who) {
-    var A = ACTIONS[a], c = $("#sh-c");
-    pending = { a: a, x: x, row: row };
-    $("#sh-t").textContent = A[1]; $("#sh-who").textContent = who; $("#sh-what").textContent = A[2];
-    $("#sh-go").textContent = A[0]; $("#sh-r").value = ""; $("#sh-e").textContent = "";
-    c.textContent = ""; c.hidden = !A[5];
-    (A[5] || []).forEach(function (o, i) {
-      c.appendChild(el("label", { class: "check" }, [el("input", i ? { type: "radio", name: "sh-c", value: o[0] } : { type: "radio", name: "sh-c", value: o[0], checked: "" }), document.createTextNode(" " + o[1])]));
+  /* ---- Acting on a row ----
+     Approve and Resolve are one click. The others (the second approval of a revocation too: it is irreversible and withdraws signed files) open a reason field on the row itself
+     (no dialog) with the choice they need, say what will happen, and send. Every action lands in the audit trail. */
+  var ONE = ["approve", "resolve"];
+  function send(a, x, li, text, choice) {
+    var A = ACTIONS[a];
+    $$("button", li).forEach(function (b) { b.disabled = true; });
+    call("POST", A[3](x), A[4](text, choice, x)).then(function (j) {
+      li.classList.add("adm-done"); var f = $("form", li); if (f) f.remove();
+      $(".adm-said", li).textContent = j.sentence || "Done: " + A[0] + ".";
+    }, function (e) {
+      $$("button", li).forEach(function (b) { b.disabled = false; });
+      var err = $(".adm-err", li) || li.appendChild(el("p", { class: "err adm-err", role: "alert" })); err.textContent = e.message;
     });
-    sheet.showModal(); $("#sh-r").focus();
+  }
+  function ask(a, x, li) {
+    var A = ACTIONS[a], bar = $(".get-btns", li), old = $("form", li);
+    if (old) { old.remove(); bar.hidden = false; return; }
+    var f = el("form", { class: "adm-inline", novalidate: "" });
+    f.appendChild(el("p", { class: "dim", text: A[2] }));
+    if (A[5]) {
+      var fs = el("fieldset", { class: "field" });
+      A[5].forEach(function (o, i) { fs.appendChild(el("label", { class: "check" }, [el("input", i ? { type: "radio", name: "c", value: o[0] } : { type: "radio", name: "c", value: o[0], checked: "" }), document.createTextNode(" " + o[1])])); });
+      f.appendChild(fs);
+    }
+    f.appendChild(el("div", { class: "field" }, [el("label", { text: "Reason, kept in the audit trail" }), el("textarea", { rows: "3", maxlength: "500", required: "" })]));
+    var go = el("button", { type: "submit", class: "btn btn-solid", text: A[0] }), no = el("button", { type: "button", class: "btn btn-quiet", text: "Cancel" });
+    f.appendChild(el("p", { class: "get-btns" }, [go, no]));
+    no.onclick = function () { f.remove(); bar.hidden = false; };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      var t = $("textarea", f).value.trim(), c = $("input:checked", f);
+      if (!t) { $("textarea", f).focus(); return; }
+      send(a, x, li, t, c && c.value);
+    };
+    li.appendChild(f); $("textarea", f).focus();
   }
 
   /* ---- Rows and sections ---- */
@@ -71,7 +77,7 @@
     var bar = el("p", { class: "get-btns" });
     acts.filter(allowed).forEach(function (a, i) {
       var b = el("button", { type: "button", class: "btn " + (i ? "btn-quiet" : "btn-solid"), text: ACTIONS[a][0] });
-      b.onclick = function () { ask(a, x, li, who); };
+      b.onclick = function () { if (ONE.indexOf(a) >= 0) send(a, x, li, ""); else ask(a, x, li); };
       bar.appendChild(b);
     });
     li.appendChild(bar); li.appendChild(el("p", { class: "adm-said", role: "status" }));
@@ -99,6 +105,11 @@
       row(list, r.action + " " + r.serial, [r.reason + (r.note ? ": " + r.note : "") + ". Asked on " + day(r.created_at) + ".", "Approved by " + (r.approved_by || []).join(", ") + ".", r.dispatch_error],
         r.status === "pending" ? ["second"] : [], r);
     }, "No revocation is waiting."));
+    if (q.attention) box.appendChild(section("a-att", "Versions to look at", q.attention, function (list, r) {
+      var l = r.listing || {};
+      row(list, (l.name || l.id) + " " + r.version, [l.id + (l.owner ? ", by " + l.owner : "") + ", " + (r.verdict === "block" ? "blocked by the check" : r.verdict === "flag" ? "flagged by the check" : "the check could not read the file") + " on " + day(r.checked_at || r.first_seen) + ".", (r.findings || []).join(" ")],
+        ["flag", "withdraw"], { listing: l.id, version: r.version });
+    }, "No version needs a look."));
     if (q.reports) box.appendChild(section("a-rep", "Reports", q.reports, function (list, r) {
       var l = r.listing || {};
       row(list, (l.name || l.id) + (r.version ? " " + r.version : ""), [l.id + ", " + r.reason + ", " + day(r.created_at) + ".", r.text],
