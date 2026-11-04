@@ -10,6 +10,9 @@ export interface Env {
   GITHUB_CLIENT_SECRET: string;
   WEBHOOK_SECRET: string;
   SESSION_SECRET: string;
+  /** PEM private key of the GitHub App, for installation tokens (the ca dispatch). Optional: without it an
+   * approval is stored and the dispatch is reported as not sent. */
+  GITHUB_APP_PRIVATE_KEY?: string;
   // Variables (wrangler.toml).
   HUB_ORIGIN: string;
   OIDC_AUDIENCE: string;
@@ -18,6 +21,12 @@ export interface Env {
   PIPELINE_CHECK_ENVIRONMENT: string;
   PIPELINE_SIGN_WORKFLOW: string;
   PIPELINE_SIGN_ENVIRONMENT: string;
+  PIPELINE_CA_WORKFLOW: string;
+  PIPELINE_CA_ENVIRONMENT: string;
+  /** GitHub logins of the hub admins, comma separated (the same list as hub-index's CA_APPROVERS). */
+  ADMINS?: string;
+  /** "true" sends the ca dispatch as a dry run (TEST CA); anything else issues for real. */
+  CA_DISPATCH_DRY_RUN?: string;
   RATE_STORE?: string; // "d1" (default) or "kv"
   CLA_VERSION?: string;
   // Test hooks only; unset in production.
@@ -31,5 +40,9 @@ export const SECRETS = ["GITHUB_APP_ID", "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECR
 export const ghWeb = (env: Env) => env.GITHUB_WEB ?? "https://github.com";
 export const ghApi = (env: Env) => env.GITHUB_API ?? "https://api.github.com";
 export const oidcIssuer = (env: Env) => env.OIDC_ISSUER ?? "https://token.actions.githubusercontent.com";
+
+/** The hub admins, lower case. */
+export const admins = (env: Env): Set<string> =>
+  new Set((env.ADMINS ?? "").split(/[\s,]+/).filter(Boolean).map((s) => s.toLowerCase()));
 
 export const now = () => Math.floor(Date.now() / 1000);

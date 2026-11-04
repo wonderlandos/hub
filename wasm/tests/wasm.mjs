@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Runs the built wasm in Node: the 41 replay files of the trust crate, the fixture files against the native
+// Runs the built wasm in Node: the 45 replay files of the trust crate, the fixture files against the native
 // command's output (byte for byte), and one signature check timed. Build first: ./build.sh all
 // Run: node tests/wasm.mjs        (HUBCHECK_CHROME=/tmp/cw-tools/chrome/... is not needed for this file)
 import { readFileSync, readdirSync } from "node:fs";
@@ -23,7 +23,7 @@ const ok = (name) => { count++; console.log(`ok - ${name}`); };
 
 // 1. The replay files, byte for byte through the wasm.
 const files = readdirSync(vectors).filter((f) => f.endsWith(".json"));
-assert.equal(files.length, 41);
+assert.equal(files.length, 45);
 const pki = readFileSync(join(vectors, "pki.json"), "utf8");
 for (const f of files.filter((f) => f !== "pki.json")) {
   const why = wasm.replay_vector(pki, readFileSync(join(vectors, f), "utf8"));
@@ -37,7 +37,7 @@ ok("a changed expectation is caught in wasm");
 const store = fx("store.json").toString();
 const now = fx("now.txt").toString();
 const same = [];
-for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.wol", "app"], ["unsigned.wol", "app"], ["namespace.wol", "app"], ["weather.wolplug", "plugin"]]) {
+for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.wol", "app"], ["unsigned.wol", "app"], ["namespace.wol", "app"], ["origin.wol", "app"], ["weather.wolplug", "plugin"]]) {
   const bytes = fx(file);
   const p = join(root, "fixtures", file);
   assert.equal(wasm.check(bytes, kind), native("check", kind, p), `check ${file}`);
@@ -48,12 +48,17 @@ for (const [file, kind] of [["person.wol", "app"], ["org.wol", "app"], ["wolos.w
 ok(`check, verify and inspect of ${same.length} files print the native bytes`);
 
 const person = JSON.parse(wasm.inspect(fx("person.wol"), "app", store, Number(now)));
-assert.deepEqual(Object.keys(person).sort(), ["cert", "findings", "trust", "verdict"]);
+assert.deepEqual(Object.keys(person).sort(), ["cert", "file", "findings", "trust", "verdict"]);
+assert.deepEqual(person.file, { id: "alice.notes", version: "1.0" });
 assert.equal(person.trust, "verified");
 assert.equal(person.verdict, "pass");
 assert.equal(JSON.parse(wasm.inspect(fx("wolos.wol"), "app", store, Number(now))).trust, "wolos");
 assert.equal(JSON.parse(wasm.verify(fx("namespace.wol"), "app", store, Number(now))).code, "wrong-namespace");
-ok("fixture .wol: verified, wolos, wrong namespace");
+const origin = JSON.parse(wasm.inspect(fx("origin.wol"), "app", store, Number(now)));
+assert.equal(origin.trust, "verified");
+assert.equal(origin.origin.repo, "https://github.com/alice/notes");
+assert.equal(JSON.parse(wasm.inspect(fx("weather.wolplug"), "plugin", store, Number(now))).findings.some((f) => f.rule === "file/not-compressed" || f.rule === "file/compressed"), false);
+ok("fixture .wol: verified, wolos, wrong namespace, origin; the zstd .wolplug is unpacked");
 
 // A manifest on its own.
 const toml = "schema = 1\nid = \"alice.x\"\nname = \"X\"\nversion = \"1\"\nlicense = \"MIT\"\n";

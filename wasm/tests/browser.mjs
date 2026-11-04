@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Runs the built wasm in headless Chromium: the 41 replay files, the fixture files against the native bytes, one
+// Runs the built wasm in headless Chromium: the 45 replay files, the fixture files against the native bytes, one
 // signature check timed. Build first: ./build.sh test
 // Run: CHROME=/tmp/cw-tools/chrome PLAYWRIGHT=/tmp/cw-tools/node_modules/playwright-core node tests/browser.mjs
 import { createServer } from "node:http";
@@ -26,7 +26,7 @@ try {
   const pki = await text("/tests/vectors/pki.json");
   for (const n of names.filter((n) => n !== "pki.json")) out.replay.push([n, hc.replay_vector(pki, await text("/tests/vectors/" + n))]);
   const store = await text("/fixtures/store.json"), now = Number(await text("/fixtures/now.txt"));
-  for (const [f, k] of [["person.wol","app"],["org.wol","app"],["wolos.wol","app"],["unsigned.wol","app"],["namespace.wol","app"],["weather.wolplug","plugin"]]) {
+  for (const [f, k] of [["person.wol","app"],["org.wol","app"],["wolos.wol","app"],["unsigned.wol","app"],["namespace.wol","app"],["origin.wol","app"],["weather.wolplug","plugin"]]) {
     const b = await get("/fixtures/" + f);
     out.same[f] = [hc.check(b, k), hc.verify(b, k, store, now), hc.inspect(b, k, store, now)];
   }
@@ -59,9 +59,9 @@ await browser.close();
 srv.close();
 
 assert.deepEqual(r.errors, []);
-assert.equal(r.replay.length, 40);
+assert.equal(r.replay.length, 44);
 for (const [n, why] of r.replay) assert.equal(why, "", `${n}: ${why}`);
-console.log("ok - 41 replay files (pki.json and 40 vectors) replay to their recorded results in headless Chromium");
+console.log("ok - 45 replay files (pki.json and 44 vectors) replay to their recorded results in headless Chromium");
 const bin = join(root, "target/release/hubcheck"), store = join(root, "fixtures/store.json"), now = readFileSync(join(root, "fixtures/now.txt"), "utf8");
 for (const [f, [c, v, i]] of Object.entries(r.same)) {
   const k = f.endsWith(".wolplug") ? "plugin" : "app", p = join(root, "fixtures", f);

@@ -3,7 +3,8 @@
 //! the system itself enforces broke, `not-checked` when the file could not be read to the end,
 //! `flag` for everything that is listed with a sentence, `pass` when nothing broke. A clean
 //! result means only that no rule broke (ADR 0022).
-use woltrust::{Finding, Report, Trust, Verdict};
+use crate::report::{FileId, Report};
+use woltrust::{Finding, Trust, Verdict};
 
 /// Most findings kept in one report; the rest are counted in the last one.
 pub const MAX_FINDINGS: usize = 100;
@@ -77,6 +78,8 @@ pub struct Rules {
     more: usize,
     /// True when a rule about the file's shape or hashes broke (the signature then cannot be trusted).
     pub damaged: bool,
+    /// The id and version the manifest gave, once it was read.
+    pub file: Option<FileId>,
 }
 
 fn cut(s: String) -> String {
@@ -173,13 +176,16 @@ impl Rules {
     }
 
     /// The I7 report. `trust` is what the signature is worth (community until it is checked).
-    pub fn report(self, trust: Trust) -> Report {
+    pub fn report(mut self, trust: Trust) -> Report {
+        let file = self.file.take();
         let (verdict, findings) = self.into_findings();
         Report {
             verdict,
             findings,
             trust,
             cert: None,
+            origin: None,
+            file,
         }
     }
 }

@@ -461,7 +461,7 @@ dependencies = [
 [[package]]
 name = "woltrust"
 version = "0.12.0"
-source = "git+https://github.com/wonderlandos/wolos?rev=13655d7#13655d780bd6ced80459b2f736cb5202fe07c2e9"
+source = "git+https://github.com/wonderlandos/wolos?rev=fe64176#fe64176114c38475f38b6ebc75ef4bc8aa9d466c"
 dependencies = [
  "ed25519-dalek",
  "fips204",
@@ -469,6 +469,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "zeroize",
 ]
 
 [[package]]

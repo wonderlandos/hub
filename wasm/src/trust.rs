@@ -4,9 +4,10 @@
 //! is read from disk or the clock; the roots, the intermediates, the revocation lists and the time
 //! come in as arguments.
 use crate::files::{self, CHAIN, WSIG};
+use crate::report::Report;
 use crate::rules::Kind;
 use serde::{Deserialize, Serialize};
-use woltrust::{CertInfo, Finding, Input, Report, Store, Trust, Verdict};
+use woltrust::{CertInfo, Finding, Input, Origin, Store, Trust, Verdict};
 
 /// Pinned roots and known intermediates, as the text of `.wolcert` files.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -57,6 +58,10 @@ pub struct Trusted {
     /// The signing certificate, when one was found.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cert: Option<CertInfo>,
+    /// Where the release comes from, when the signature carries an origin that checked out
+    /// (woltrust checks the repository owner against the certificate: else `origin-mismatch`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<Origin>,
     /// The trust sentence, when the file is not plainly trusted (rule `trust/<code>`).
     pub findings: Vec<Finding>,
 }
@@ -98,6 +103,7 @@ fn unreadable(trust: Trust, code: &str, f: &files::Refusal) -> Trusted {
         stale: false,
         list_expires: None,
         cert: None,
+        origin: None,
         findings: vec![Finding {
             rule: format!("trust/{code}"),
             sentence: if trust == Trust::Invalid {
@@ -163,6 +169,7 @@ pub fn verify_in(
     let list_expires = out.list_expires;
     let stale = out.stale;
     let cert = out.cert.clone();
+    let origin = out.origin.clone();
     let trust = out.trust;
     let code = out.code.as_str().to_owned();
     let report = out.report(Verdict::Pass, Vec::new());
@@ -172,6 +179,7 @@ pub fn verify_in(
         stale,
         list_expires,
         cert,
+        origin,
         findings: report.findings,
     }
 }
@@ -213,7 +221,9 @@ pub fn inspect(
             evidence: String::new(),
         });
         t.trust = Trust::Invalid;
+        t.origin = None;
     }
+    let file = rules.file.take();
     let (verdict, mut findings) = rules.into_findings();
     findings.extend(t.findings);
     Report {
@@ -221,5 +231,7 @@ pub fn inspect(
         findings,
         trust: t.trust,
         cert: t.cert,
+        origin: t.origin,
+        file,
     }
 }

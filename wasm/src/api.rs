@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 //! The text interface shared by the browser module and the command line: every function takes
 //! plain arguments and returns the JSON text of interface I7, so the two print the same bytes.
+use crate::report::Report;
 use crate::rules::{self, Kind};
 use crate::trust::{self, StoreFile};
-use woltrust::Report;
 
 fn kind_problem(kind: &str) -> String {
     rules::input_problem(

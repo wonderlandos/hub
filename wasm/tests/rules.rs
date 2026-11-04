@@ -410,11 +410,28 @@ fn a_compressed_plugin_is_unpacked_and_a_bomb_is_refused() {
     assert_eq!(rules_of(&r), Vec::<&str>::new());
     let bomb = zstd_zeros(5 << 20);
     assert!(bomb.len() <= 2 << 20, "{} bytes", bomb.len());
-    let r = hubcheck::check(&bomb, Kind::Plugin);
-    assert_eq!(
-        (r.verdict, r.findings[0].rule.as_str()),
-        (Verdict::Block, "file/too-large")
+    for kind in [Kind::Plugin, Kind::Extension] {
+        let r = hubcheck::check(&bomb, kind);
+        assert_eq!(
+            (r.verdict, r.findings[0].rule.as_str()),
+            (Verdict::Block, "file/too-large"),
+            "{kind:?}"
+        );
+    }
+    // An extension file (.wolext) is the same zstd frame around its folder.
+    let e = "schema = 1\nid = \"alice.ext\"\nname = \"Ext\"\nversion = \"1\"\nlicense = \"MIT\"\nhost = \"org.example.Editor\"\n";
+    let ext = Fixture::new().plugin(
+        "alice.ext",
+        &[("extension.toml", e.as_bytes())],
+        Signer::None,
     );
+    assert_eq!(&ext[..4], &[0x28, 0xb5, 0x2f, 0xfd]);
+    let r = hubcheck::check(&ext, Kind::Extension);
+    assert!(
+        !has(&r, "file/not-compressed") && !has(&r, "file/compressed") && !has(&r, "file/format"),
+        "{r:?}"
+    );
+    assert_eq!(r.file.as_ref().map(|f| f.id.as_str()), Some("alice.ext"));
     let mut cut = bytes.clone();
     cut.truncate(cut.len() / 2);
     assert_eq!(

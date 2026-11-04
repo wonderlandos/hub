@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! The 41 replay files of the trust crate (commit 13655d7, `crates/woltrust/vectors`) replay to their
-//! recorded results, byte for byte, through the same code the browser module runs.
+//! The 45 replay files of the trust crate (commit fe64176, `crates/woltrust/vectors`: `pki.json` and
+//! 44 verify vectors, 4 of them with an origin) replay to their recorded results, byte for byte,
+//! through the same code the browser module runs. The 13 seal vectors of `vectors/seal/` are not
+//! copied: opening a sealed file needs woltrust's `seal` feature (ring), which this crate leaves off
+//! so it builds for wasm.
 use std::path::PathBuf;
 
 fn dir() -> PathBuf {
@@ -19,9 +22,17 @@ fn files() -> Vec<String> {
 }
 
 #[test]
-fn there_are_41_files_and_each_replays_to_its_recorded_result() {
+fn there_are_45_files_and_each_replays_to_its_recorded_result() {
     let names = files();
-    assert_eq!(names.len(), 41, "pki.json and 40 vectors");
+    assert_eq!(names.len(), 45, "pki.json and 44 vectors");
+    for o in [
+        "valid-origin",
+        "valid-origin-organisation",
+        "origin-mismatch",
+        "origin-tampered",
+    ] {
+        assert!(names.contains(&format!("{o}.json")), "{o}");
+    }
     let pki = std::fs::read_to_string(dir().join("pki.json")).expect("pki.json");
     for n in names.iter().filter(|n| *n != "pki.json") {
         let text = std::fs::read_to_string(dir().join(n)).expect("vector");

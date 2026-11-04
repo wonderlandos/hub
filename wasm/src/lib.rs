@@ -14,6 +14,7 @@ pub mod fixtures;
 #[cfg(target_arch = "wasm32")]
 mod glue;
 pub mod manifest;
+pub mod report;
 pub mod rules;
 pub mod tar;
 pub mod toml;
@@ -21,6 +22,7 @@ pub mod trust;
 
 pub use files::check;
 pub use manifest::validate_manifest;
+pub use report::{FileId, Report};
 pub use rules::Kind;
 pub use trust::{Anchors, RevokedList, StoreFile, Trusted, inspect, verify, verify_seen};
-pub use woltrust::{CertInfo, Finding, Report, Trust, Verdict};
+pub use woltrust::{CertInfo, Finding, Origin, Trust, Verdict};

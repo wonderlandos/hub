@@ -2,7 +2,8 @@
 // I9: the hub-index pipeline calls these with a GitHub Actions OIDC token. No shared secret:
 // the Worker checks the token's signature and its issuer, audience, repository, workflow_ref,
 // ref, environment and runner. The check job fetches pending releases and posts verdicts;
-// the sign job reads the export. The Worker never signs, downloads or hashes an artefact.
+// the sign job reads the export; the ca job reads approved certificate requests and reports
+// the certificates it issued (certs.ts). The Worker never signs, downloads or hashes an artefact.
 
 import type { Ctx } from "./ctx";
 import type { Env } from "./env";
@@ -14,7 +15,7 @@ import { buildIndex } from "./preview";
 import { audit } from "./audit";
 import { log } from "./log";
 
-export type Job = "check" | "sign";
+export type Job = "check" | "sign" | "ca";
 export const SKEW = 60;
 export const MAX_TOKEN_AGE = 15 * 60;
 
@@ -79,8 +80,9 @@ export async function verifyPipelineToken(env: Env, token: string, job: Job): Pr
   if (typeof claims!.iat !== "number" || claims!.iat > t + SKEW || claims!.iat < t - MAX_TOKEN_AGE) deny("issued at a wrong time");
   if (claims!.nbf !== undefined && claims!.nbf > t + SKEW) deny("not valid yet");
   if (claims!.repository !== env.PIPELINE_REPOSITORY) deny("wrong repository");
-  const wf = job === "check" ? env.PIPELINE_CHECK_WORKFLOW : env.PIPELINE_SIGN_WORKFLOW;
-  const envName = job === "check" ? env.PIPELINE_CHECK_ENVIRONMENT : env.PIPELINE_SIGN_ENVIRONMENT;
+  const wf = { check: env.PIPELINE_CHECK_WORKFLOW, sign: env.PIPELINE_SIGN_WORKFLOW, ca: env.PIPELINE_CA_WORKFLOW }[job];
+  const envName = { check: env.PIPELINE_CHECK_ENVIRONMENT, sign: env.PIPELINE_SIGN_ENVIRONMENT, ca: env.PIPELINE_CA_ENVIRONMENT }[job];
+  if (!wf || !envName) deny("this job is not set up");
   if (claims!.workflow_ref !== wf) deny("wrong workflow");
   if (claims!.ref !== "refs/heads/main") deny("wrong branch");
   if (claims!.environment !== envName) deny("wrong environment");
@@ -89,7 +91,7 @@ export async function verifyPipelineToken(env: Env, token: string, job: Job): Pr
   return claims!;
 }
 
-async function pipelineAuth(ctx: Ctx, job: Job): Promise<Claims> {
+export async function pipelineAuth(ctx: Ctx, job: Job): Promise<Claims> {
   const h = ctx.req.headers.get("authorization") ?? "";
   if (!h.startsWith("Bearer ")) deny("missing");
   const c = await verifyPipelineToken(ctx.env, h.slice(7).trim(), job);
@@ -116,6 +118,47 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const SHA1 = /^[0-9a-f]{40}$/;
 
 interface Finding { rule: string; sentence: string; evidence: string }
+
+/** What hubcheck reports about the signature (I7). wolos, verified and community are index trust levels;
+ * withdrawn and invalid are kept in release_facts and the release stays community, without a cert. */
+export const SIG_TRUST = ["wolos", "verified", "community", "withdrawn", "invalid"] as const;
+const INDEX_TRUST = new Set(["wolos", "verified", "community"]);
+const SERIAL = /^[0-9a-f]{16}$/;
+const WORD = /^[\x21-\x7e]{1,64}$/;
+const MIN_WOLOS = /^([0-9]{1,4}\.[0-9]{1,4}(\.[0-9]{1,4})?)?$/;
+
+/** A list of at most 16 short printable words (plugin kinds, permissions), or null when absent. */
+function words(v: unknown, field: string): string[] | null {
+  if (v === undefined || v === null) return null;
+  if (!Array.isArray(v) || v.length > 16 || v.some((w) => typeof w !== "string" || !WORD.test(w))) {
+    fail(400, "bad-field", `'${field}' is a list of at most 16 words of printable characters.`);
+  }
+  return [...new Set(v as string[])];
+}
+
+export interface Facts { kinds: string[] | null; permissions: string[] | null; min_wolos: string | null; trust: string | null; cert: string | null }
+
+/** The optional facts a verdict carries about the file (from hubcheck's report). */
+export function factsOf(raw: Record<string, unknown>): Facts {
+  const kinds = words(raw.kinds, "kinds");
+  const permissions = words(raw.permissions, "permissions");
+  let min: string | null = null;
+  if (raw.min_wolos !== undefined && raw.min_wolos !== null) {
+    if (typeof raw.min_wolos !== "string" || !MIN_WOLOS.test(raw.min_wolos)) fail(400, "bad-field", "'min_wolos' is a version like 0.13 or 0.13.1.");
+    min = (raw.min_wolos as string) || null;
+  }
+  let trust: string | null = null;
+  if (raw.trust !== undefined && raw.trust !== null) {
+    if (!SIG_TRUST.includes(raw.trust as never)) fail(400, "bad-field", `'trust' is one of ${SIG_TRUST.join(", ")}.`);
+    trust = raw.trust as string;
+  }
+  let cert: string | null = null;
+  if (raw.cert !== undefined && raw.cert !== null) {
+    if (typeof raw.cert !== "string" || !SERIAL.test(raw.cert)) fail(400, "bad-field", "'cert' is a certificate serial, 16 hex digits.");
+    cert = raw.cert as string;
+  }
+  return { kinds, permissions, min_wolos: min, trust, cert };
+}
 
 export async function postVerdicts(ctx: Ctx): Promise<Response> {
   const c = await pipelineAuth(ctx, "check");
@@ -144,6 +187,7 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
       rule: str(f?.rule, "findings.rule", 64), sentence: str(f?.sentence, "findings.sentence", 500),
       evidence: f?.evidence === undefined ? "" : str(f.evidence, "findings.evidence", 1000, 0),
     }));
+    const facts = factsOf(raw);
 
     const rel = await db.prepare("SELECT sha256, yanked_at FROM releases WHERE listing_id = ? AND version = ?")
       .bind(listing, version).first<{ sha256: string | null; yanked_at: number | null }>();
@@ -155,13 +199,22 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
     }
     const t = now();
     const keepSha = rel.sha256 ?? sha;
+    // The trust the index shows: the signature's, when it is one the index knows; otherwise community.
+    const indexTrust = facts.trust === null ? null : INDEX_TRUST.has(facts.trust) ? facts.trust : "community";
+    const hasFacts = facts.kinds || facts.permissions || facts.min_wolos || facts.trust || facts.cert;
     await db.batch([
       db.prepare(
         "INSERT OR IGNORE INTO verdicts (listing_id, version, verdict, sha256, size, findings, run_id, workflow_sha, posted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       ).bind(listing, version, verdict, sha, size, JSON.stringify(findings), run, c.job_workflow_sha ?? null, t),
       db.prepare(
-        "UPDATE releases SET verdict = ?, sha256 = ?, size = coalesce(?, size), commit_sha = coalesce(?, commit_sha), checked_at = ? WHERE listing_id = ? AND version = ?",
-      ).bind(verdict, keepSha, size, commit, t, listing, version),
+        "UPDATE releases SET verdict = ?, sha256 = ?, size = coalesce(?, size), commit_sha = coalesce(?, commit_sha), checked_at = ?, trust = coalesce(?, trust) WHERE listing_id = ? AND version = ?",
+      ).bind(verdict, keepSha, size, commit, t, indexTrust, listing, version),
+      ...(hasFacts ? [db.prepare(
+        "INSERT INTO release_facts (listing_id, version, kinds, permissions, min_wolos, signature, cert, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+        "ON CONFLICT (listing_id, version) DO UPDATE SET kinds = excluded.kinds, permissions = excluded.permissions, min_wolos = excluded.min_wolos, " +
+        "signature = excluded.signature, cert = excluded.cert, updated_at = excluded.updated_at",
+      ).bind(listing, version, facts.kinds && JSON.stringify(facts.kinds), facts.permissions && JSON.stringify(facts.permissions),
+        facts.min_wolos, facts.trust, facts.cert, t)] : []),
       db.prepare(
         `UPDATE listings SET updated_at = ?, status = CASE
            WHEN EXISTS (SELECT 1 FROM releases r WHERE r.listing_id = listings.id AND r.verdict IN ('pass','flag') AND r.yanked_at IS NULL) THEN 'listed'
@@ -169,7 +222,7 @@ export async function postVerdicts(ctx: Ctx): Promise<Response> {
            ELSE 'draft' END
          WHERE id = ? AND status != 'withdrawn'`,
       ).bind(t, listing),
-      audit(db, "pipeline", run, `verdict.${verdict}`, `listing:${listing}`, { version, sha256: sha, findings: findings.length }),
+      audit(db, "pipeline", run, `verdict.${verdict}`, `listing:${listing}`, { version, sha256: sha, findings: findings.length, ...(facts.trust ? { trust: facts.trust } : {}), ...(facts.cert ? { cert: facts.cert } : {}) }),
     ]);
     results.push({ listing_id: listing, version, stored: verdict });
   }

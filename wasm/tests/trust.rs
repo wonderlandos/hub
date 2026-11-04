@@ -133,7 +133,11 @@ fn the_report_json_has_exactly_the_frozen_keys() {
     .unwrap();
     let mut keys: Vec<_> = v.as_object().unwrap().keys().cloned().collect();
     keys.sort();
-    assert_eq!(keys, ["cert", "findings", "trust", "verdict"]);
+    assert_eq!(keys, ["cert", "file", "findings", "trust", "verdict"]);
+    assert_eq!(
+        v["file"],
+        serde_json::json!({"id": "alice.notes", "version": "1.0"})
+    );
     let mut c: Vec<_> = v["cert"].as_object().unwrap().keys().cloned().collect();
     c.sort();
     assert_eq!(c, ["level", "serial", "subject"]);
@@ -200,4 +204,90 @@ fn a_store_loaded_once_gives_the_same_answers() {
         );
     }
     assert!(hubcheck::api::Loaded::new("nope", 0).is_err());
+}
+
+#[test]
+fn a_signed_origin_is_shown_and_checked_against_the_certificate() {
+    let f = Fixture::new();
+    let store = f.store_json();
+    let info = Fixture::info("alice.notes", "1.0");
+    let ours = f.wol_origin(&info, b"p", Signer::Alice, Some(&Fixture::origin("Alice")));
+    let v: serde_json::Value = serde_json::from_str(&hubcheck::api::inspect_json(
+        &ours, "app", &store, f.now, None,
+    ))
+    .unwrap();
+    assert_eq!(v["trust"], "verified", "{v}");
+    assert_eq!(v["origin"]["repo"], "https://github.com/Alice/notes");
+    assert_eq!(v["origin"]["tag"], "v1.0");
+    assert_eq!(
+        v["origin"]["commit"],
+        "0123456789abcdef0123456789abcdef01234567"
+    );
+    assert_eq!(v["origin"]["built"], f.now - 86_400);
+    let t = run(&f, &ours, Kind::App, f.now);
+    assert_eq!((t.code.as_str(), t.origin.is_some()), ("ok", true));
+    // Somebody else's repository: woltrust's finding, and no origin shown.
+    let theirs = f.wol_origin(&info, b"p", Signer::Alice, Some(&Fixture::origin("bob")));
+    let v: serde_json::Value = serde_json::from_str(&hubcheck::api::inspect_json(
+        &theirs, "app", &store, f.now, None,
+    ))
+    .unwrap();
+    assert_eq!(v["trust"], "invalid", "{v}");
+    assert!(v.get("origin").is_none());
+    assert!(
+        v["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["rule"] == "trust/origin-mismatch"),
+        "{v}"
+    );
+    assert_eq!(run(&f, &theirs, Kind::App, f.now).code, "origin-mismatch");
+    // No origin: no key.
+    let plain = f.wol("alice.notes", Signer::Alice);
+    let v = hubcheck::api::inspect_json(&plain, "app", &store, f.now, None);
+    assert!(!v.contains("\"origin\""), "{v}");
+}
+
+#[test]
+fn the_report_names_the_id_and_version_of_the_manifest() {
+    let f = Fixture::new();
+    let store = f.store_json();
+    let file =
+        |out: String| serde_json::from_str::<serde_json::Value>(&out).unwrap()["file"].clone();
+    let wol = f.wol_with(
+        &Fixture::info("alice.notes", "2.5~beta"),
+        b"p",
+        Signer::None,
+    );
+    assert_eq!(
+        file(hubcheck::api::check_json(&wol, "app")),
+        serde_json::json!({"id": "alice.notes", "version": "2.5~beta"})
+    );
+    let toml = Fixture::plugin_toml("alice.weather", "");
+    let plug = f.plugin(
+        "alice.weather",
+        &[
+            ("plugin.toml", toml.as_bytes()),
+            ("card.lua", b"return wol.widget {}\n"),
+        ],
+        Signer::Alice,
+    );
+    let want = serde_json::json!({"id": "alice.weather", "version": "1.0"});
+    assert_eq!(
+        file(hubcheck::api::inspect_json(
+            &plug, "plugin", &store, f.now, None
+        )),
+        want
+    );
+    assert_eq!(file(hubcheck::api::manifest_json(&toml, "plugin")), want);
+    // A malformed version is left out; a malformed id leaves out the whole object.
+    let bad_v = toml.replace("version = \"1.0\"", "version = \"1 0\"");
+    assert_eq!(
+        file(hubcheck::api::manifest_json(&bad_v, "plugin")),
+        serde_json::json!({"id": "alice.weather"})
+    );
+    let bad_id = toml.replace("id = \"alice.weather\"", "id = \"Alice Weather\"");
+    assert!(file(hubcheck::api::manifest_json(&bad_id, "plugin")).is_null());
+    assert!(file(hubcheck::api::check_json(b"junk", "app")).is_null());
 }

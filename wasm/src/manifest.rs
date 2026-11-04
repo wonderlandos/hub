@@ -3,9 +3,9 @@
 //! schema one) and the draft `extension.toml` of an extension (ADR 0047, H5). These are the pure
 //! rules of the system's own readers, written again here because the system's crate links libc and
 //! cannot be built for the browser; the field limits and the closed lists are the same.
+use crate::report::{FileId, Report};
 use crate::rules::{Kind, Rules};
 use crate::toml::{self, Doc, Pair, Val};
-use woltrust::Report;
 
 /// Reserved for what WolOS ships itself.
 pub const RESERVED_PREFIX: &str = "org.wolos.";
@@ -146,6 +146,8 @@ fn one_line(s: &str, max: usize) -> bool {
 pub struct Plugin {
     /// The id.
     pub id: String,
+    /// The version, or empty when absent or malformed.
+    pub version: String,
     /// Display name.
     pub name: String,
     /// Description (summary).
@@ -169,6 +171,8 @@ pub struct Plugin {
 pub struct App {
     /// The id.
     pub id: String,
+    /// The version, or empty when absent or malformed.
+    pub version: String,
     /// Display name.
     pub name: String,
     /// Summary.
@@ -299,7 +303,7 @@ pub fn read_plugin(text: &str, kind: Kind, r: &mut Rules) -> Option<Plugin> {
         None => r.block("manifest/name", "The manifest has no name.", ""),
     }
     match h.text("version", r) {
-        Some(v) if is_version(v) => {}
+        Some(v) if is_version(v) => v.clone_into(&mut m.version),
         Some(v) => r.block(
             "manifest/version",
             "The version is letters, digits and . _ + ~ -, like \"1.0\".",
@@ -584,7 +588,7 @@ pub fn read_app(text: &str, r: &mut Rules) -> Option<App> {
         None => r.block("manifest/id", "Info.json has no id.", ""),
     }
     match s("version") {
-        Some(v) if is_version(v) => {}
+        Some(v) if is_version(v) => v.clone_into(&mut a.version),
         Some(v) => r.block(
             "manifest/version",
             "The version is letters, digits and . _ , + ~ -, like \"1.0\".",
@@ -686,9 +690,11 @@ pub fn validate_manifest(text: &str, kind: Kind) -> Report {
     let mut r = Rules::default();
     if kind == Kind::App {
         if let Some(a) = read_app(text, &mut r) {
+            r.file = FileId::of(&a.id, &a.version);
             crate::files::name_rules(&a.name, &a.summary, &mut r);
         }
     } else if let Some(p) = read_plugin(text, kind, &mut r) {
+        r.file = FileId::of(&p.id, &p.version);
         crate::files::name_rules(&p.name, &p.description, &mut r);
     }
     r.report(woltrust::Trust::Community)

@@ -4,11 +4,12 @@
 //! caps, compiled programs and scripts inside, and the Wonderland Doctrine on names. Pure: bytes in,
 //! findings out; nothing is written, run or fetched, and every loop is bounded by the caps below.
 use crate::manifest::{self, Plugin};
+use crate::report::{FileId, Report};
 use crate::rules::{Kind, Rules};
 use crate::tar::{self, Member};
 use sha2::{Digest, Sha256};
 use std::borrow::Cow;
-use woltrust::{Report, Trust};
+use woltrust::Trust;
 
 /// Largest `.wol` read: the hub downloads at most 1 GiB (ADR 0047, H6).
 pub const MAX_WOL: usize = 1 << 30;
@@ -338,6 +339,7 @@ fn app(l: &Loaded, r: &mut Rules) {
         return;
     };
     if let Some(a) = manifest::read_app(text, r) {
+        r.file = FileId::of(&a.id, &a.version);
         if let Some(v) = serde_json::from_str::<serde_json::Value>(text).ok()
             && v.get("package")
                 .and_then(serde_json::Value::as_str)
@@ -660,6 +662,7 @@ fn folder(l: &Loaded, kind: Kind, r: &mut Rules) {
     let Some(p) = manifest::read_plugin(text, kind, r) else {
         return;
     };
+    r.file = FileId::of(&p.id, &p.version);
     if !p.id.is_empty() && p.id != id {
         r.block(
             "manifest/id",

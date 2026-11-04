@@ -70,11 +70,35 @@ impl Fixture {
 
     /// `(CHAIN, SHA256.wsig)` over `manifest` for `purpose`, or None when unsigned.
     pub fn sign(&self, s: Signer, purpose: Purpose, manifest: &[u8]) -> Option<(Vec<u8>, Vec<u8>)> {
+        self.sign_with(s, purpose, manifest, None)
+    }
+
+    /// [`Fixture::sign`], with the exact bytes of an origin signed along when given.
+    pub fn sign_with(
+        &self,
+        s: Signer,
+        purpose: Purpose,
+        manifest: &[u8],
+        origin: Option<&[u8]>,
+    ) -> Option<(Vec<u8>, Vec<u8>)> {
         let (leaf, ca) = self.who(s)?;
-        Some((
-            Pki::chain(&[leaf, ca]),
-            make::wsig(&leaf.body.serial, &leaf.secret, purpose, manifest),
-        ))
+        let serial = &leaf.body.serial;
+        let wsig = match origin {
+            Some(o) => make::wsig_with_origin(serial, &leaf.secret, purpose, manifest, o),
+            None => make::wsig(serial, &leaf.secret, purpose, manifest),
+        };
+        Some((Pki::chain(&[leaf, ca]), wsig))
+    }
+
+    /// The exact origin bytes of a release from `https://github.com/<owner>/notes`.
+    pub fn origin(owner: &str) -> Vec<u8> {
+        woltrust::Origin {
+            repo: format!("https://github.com/{owner}/notes"),
+            tag: "v1.0".to_owned(),
+            commit: "0123456789abcdef0123456789abcdef01234567".to_owned(),
+            built: NOW - DAY,
+        }
+        .to_bytes()
     }
 
     /// The `Info.json` of a test app.
@@ -86,6 +110,17 @@ impl Fixture {
 
     /// A `.wol` of format 2 with these `Info.json` text and payload, signed by `s`.
     pub fn wol_with(&self, info: &str, payload: &[u8], s: Signer) -> Vec<u8> {
+        self.wol_origin(info, payload, s, None)
+    }
+
+    /// [`Fixture::wol_with`], its signature also carrying `origin` (exact bytes) when given.
+    pub fn wol_origin(
+        &self,
+        info: &str,
+        payload: &[u8],
+        s: Signer,
+        origin: Option<&[u8]>,
+    ) -> Vec<u8> {
         let hashed: [(&str, &[u8]); 3] = [
             ("Info.json", info.as_bytes()),
             ("icon.png", PNG),
@@ -94,7 +129,7 @@ impl Fixture {
         let man = manifest(&hashed);
         let mut members: Vec<(&str, &[u8])> = hashed.to_vec();
         members.push(("SHA256", man.as_bytes()));
-        let signed = self.sign(s, Purpose::Package, man.as_bytes());
+        let signed = self.sign_with(s, Purpose::Package, man.as_bytes(), origin);
         if let Some((chain, wsig)) = &signed {
             members.push(("CHAIN", chain));
             members.push(("SHA256.wsig", wsig));

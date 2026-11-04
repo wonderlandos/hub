@@ -110,6 +110,15 @@ fn dev(cmd: &str, dir: &str) -> Result<String, String> {
             ("unsigned.wol", f.wol("alice.notes", Signer::None)),
             ("namespace.wol", f.wol("bob.notes", Signer::Alice)),
             (
+                "origin.wol",
+                f.wol_origin(
+                    &Fixture::info("alice.notes", "1.0"),
+                    b"pkg payload bytes",
+                    Signer::Alice,
+                    Some(&Fixture::origin("alice")),
+                ),
+            ),
+            (
                 "weather.wolplug",
                 f.plugin(
                     "alice.weather",
