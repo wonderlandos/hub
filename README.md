@@ -12,6 +12,13 @@ wasm/     hubcheck: the checker the pipeline runs on every release, and its wasm
 legal/    the hub's legal texts (rendered at /terms/<doc>)
 ```
 
+## Deploy
+
+`.github/workflows/deploy.yml` runs on every push to `main` and on manual dispatch: `npm run site` (the checks; no `npm ci`, the site has no dependencies and no lockfile),
+then the production build `npm run build:site` (never the fixture build), then `bunx wrangler pages deploy site/dist --project-name wolos-hub --branch main`.
+Permissions are `contents: read`; one `deploy` concurrency group. It needs two repository secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+The workflow does not set `HUB_INDEX`, so the catalogue is empty until it is wired in.
+
 ## What is elsewhere
 
 Lead decision 2026-11-04: the parts only the hub runs are private, to cut the attack surface.
