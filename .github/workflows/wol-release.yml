@@ -59,7 +59,7 @@ on:
       hubcheck_rev:
         description: "Commit of wonderlandos/hub whose hubcheck checks the file: the one the hub's check job pins"
         type: string
-        default: f2bce733772ea1b1a01fe7a36a35d891d614ecee
+        default: 3af340f3d1280b0c402c71bf69182c8ccc3bf894
       tools_ref:
         description: "Commit of wonderlandos/hub that holds tools/wolpack"
         type: string
