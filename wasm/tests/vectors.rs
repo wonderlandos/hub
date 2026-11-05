@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-//! The 54 replay files of the trust crate (commit 0b00c1e, `crates/woltrust/vectors`: `pki.json` and
-//! 53 verify vectors, among them the origin and trusted classes) and its 7 file certificate vectors
-//! (`vectors/filecert/`) replay to their recorded results, byte for byte, through the same code the
+//! The 69 replay files of the trust crate (commit b8bbd2d, trust phase 4, as `woltrust::vectors::generate`
+//! writes them: `pki.json` and 68 verify vectors, among them the origin and trusted classes, the
+//! co-signed intermediates, the emergency sections and the witness) and its 8 file certificate vectors
+//! (`woltrust::filecert_vectors::generate`, `tests/vectors/filecert/`) replay to their recorded results, byte for byte, through the same code the
 //! browser module runs. The seal and request vectors (`vectors/seal/`, `vectors/request/`) are not
 //! copied: they need woltrust's `seal` feature (ring), which this crate leaves off so it builds for wasm.
 use std::path::PathBuf;
@@ -22,9 +23,9 @@ fn files() -> Vec<String> {
 }
 
 #[test]
-fn there_are_54_files_and_each_replays_to_its_recorded_result() {
+fn there_are_69_files_and_each_replays_to_its_recorded_result() {
     let names = files();
-    assert_eq!(names.len(), 54, "pki.json and 53 vectors");
+    assert_eq!(names.len(), 69, "pki.json and 68 vectors");
     for o in [
         "valid-origin",
         "valid-origin-organisation",
@@ -79,7 +80,7 @@ fn filecert_files() -> Vec<String> {
 #[test]
 fn the_file_certificate_vectors_replay_and_are_what_the_generator_writes() {
     let names = filecert_files();
-    assert_eq!(names.len(), 7);
+    assert_eq!(names.len(), 8);
     for n in &names {
         let text = std::fs::read_to_string(dir().join("filecert").join(n)).expect("vector");
         let why = hubcheck::api::replay_filecert_vector(&text);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-// Runs the built wasm in Node: the 54 replay files and 7 file certificate vectors of the trust crate, the fixture files against the native
+// Runs the built wasm in Node: the 69 replay files and 8 file certificate vectors of the trust crate, the fixture files against the native
 // command's output (byte for byte), and one signature check timed. Build first: ./build.sh all
 // Run: node tests/wasm.mjs        (HUBCHECK_CHROME=/tmp/cw-tools/chrome/... is not needed for this file)
 import { readFileSync, readdirSync } from "node:fs";
@@ -23,7 +23,7 @@ const ok = (name) => { count++; console.log(`ok - ${name}`); };
 
 // 1. The replay files, byte for byte through the wasm.
 const files = readdirSync(vectors).filter((f) => f.endsWith(".json"));
-assert.equal(files.length, 54);
+assert.equal(files.length, 69);
 const pki = readFileSync(join(vectors, "pki.json"), "utf8");
 for (const f of files.filter((f) => f !== "pki.json")) {
   const why = wasm.replay_vector(pki, readFileSync(join(vectors, f), "utf8"));
@@ -32,7 +32,7 @@ for (const f of files.filter((f) => f !== "pki.json")) {
 ok(`${files.length} replay files replay to their recorded results in wasm`);
 assert.notEqual(wasm.replay_vector(pki, readFileSync(join(vectors, "valid-person.json"), "utf8").replace('"trust": "origin"', '"trust": "wolos"')), "");
 const fcs = readdirSync(join(vectors, "filecert")).filter((f) => f.endsWith(".json"));
-assert.equal(fcs.length, 7);
+assert.equal(fcs.length, 8);
 for (const f of fcs) {
   const why = wasm.replay_filecert_vector(readFileSync(join(vectors, "filecert", f), "utf8"));
   assert.equal(why, "", `${f}: ${why}`);

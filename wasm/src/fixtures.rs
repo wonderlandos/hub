@@ -166,6 +166,7 @@ impl Fixture {
             tag: "v1.0".to_owned(),
             commit: "0123456789abcdef0123456789abcdef01234567".to_owned(),
             built: NOW - DAY,
+            rkdb_serial: None,
         }
         .to_bytes()
     }
@@ -277,6 +278,8 @@ impl Fixture {
             verdict: woltrust::Verdict::Pass,
             findings: 0,
             checked_at: self.now - 3600,
+            rkdb_serial: None,
+            terms: None,
         };
         woltrust::filecert::make(&body, &self.pki.index.body.serial, &self.pki.index.secret)
     }

@@ -82,9 +82,12 @@ CHROME=/tmp/cw-tools/chrome PLAYWRIGHT=/tmp/cw-tools/node_modules/playwright-cor
 
 `woltrust` is a git dependency pinned by commit (see Cargo.toml for the path form used for local work).
 It is taken with `default-features = false`: woltrust's default `seal` feature pulls ring, which does not build for wasm.
-`tests/vectors/` holds the 54 replay files of that commit (0b00c1e: `pki.json` and 53 verify vectors, origin and
-trusted classes among them) and `tests/vectors/filecert/` its 7 file certificate vectors; tests prove both are what
-the pinned generators write. The seal and request vectors (`vectors/seal/`, `vectors/request/`) are not replayed
+`tests/vectors/` holds the 69 replay files of that commit (b8bbd2d, trust phase 4: `pki.json` and 68 verify vectors,
+origin and trusted classes, co-signed intermediates, emergency sections and the witness among them) and
+`tests/vectors/filecert/` its 8 file certificate vectors; tests prove both are what the pinned generators write (they are
+written by `woltrust::vectors::generate` and `filecert_vectors::generate` built without `seal`, not copied from
+`crates/woltrust/vectors/`, where 13 of the committed files differ from what the generator writes today). `lines.json` (signature lines) is not a
+verify vector and is not replayed. The seal and request vectors (`vectors/seal/`, `vectors/request/`) are not replayed
 here: they need the `seal` feature, which this crate leaves off.
 Feature `zstd` (on by default) unpacks zstd-compressed `.wolplug` and extension files with the pure-Rust `ruzstd`,
 capped at 4 MB unpacked (a bomb is `file/too-large`); built with `--no-default-features` such a file is `not-checked`.
