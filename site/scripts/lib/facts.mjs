@@ -27,6 +27,19 @@ export function sizeOf(b) {
   return null;
 }
 
+/**
+ * The address the build fetches a picture from: the clean URL plus `?probe=<sha256 prefix>-<build stamp>`. The CDN
+ * ignores the query on GET (wolos-cdn bucket.rs clean(path)), while a proxy in front of it (Square Cloud's Cloudflare
+ * ran Polish on the PNGs and the cached copy had other bytes) keys its cache by the full URL, so the build reads the
+ * origin's bytes. The stamp is new on every build: a query the proxy saw before is a cached, re-encoded copy again
+ * (measured 2026-11-06). FACTS_PROBE fixes the stamp (tests). The page keeps the clean address: the <img src> is
+ * dist/img/p/<sha256>.<ext>, never this one.
+ */
+const STAMP = process.env.FACTS_PROBE || Date.now().toString(36);
+export function probeUrl(base, name, sha256, stamp = STAMP) {
+  return `${base.replace(/\/$/, "")}/${name}?probe=${sha256.slice(0, 12)}-${stamp}`;
+}
+
 /** A reference in either shape as {sha256, type, width, height, file}, or null (a `file` that is not its own name too). */
 export function pictureRef(ref) {
   // The signed index (hub-pipeline build-index.mjs) names a picture by its CDN file name alone: "<sha256>.<png|webp>".
@@ -48,7 +61,7 @@ export function facts(dist) {
   const seen = new Map(), dims = new Map(), warnings = [];
   const bytes = async (h, file, named) => {
     for (const n of [h, file]) { const f = resolve(dir, n); if (existsSync(f)) return readFileSync(f); }
-    if (base && /^https:\/\//.test(base)) { const r = await fetch(`${base.replace(/\/$/, "")}/${named ? file : h}`); if (r.ok) return Buffer.from(await r.arrayBuffer()); }
+    if (base && /^https:\/\//.test(base)) { const r = await fetch(probeUrl(base, named ? file : h, h)); if (r.ok) return Buffer.from(await r.arrayBuffer()); }
     return null;
   };
   /** The picture's address on the hub, or null. */

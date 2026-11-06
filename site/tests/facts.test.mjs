@@ -7,7 +7,9 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { facts } from "../scripts/lib/facts.mjs";
+// A fixed build stamp so the asked-for URLs are known (facts.mjs reads it once, before this import resolves).
+process.env.FACTS_PROBE = "test";
+const { facts, probeUrl } = await import("../scripts/lib/facts.mjs");
 
 /** A PNG header that sizeOf reads as w x h (the bytes need not decode). */
 const png = (w, h, salt) => {
@@ -76,14 +78,14 @@ test("FACTS_BASE: a Worker reference is fetched by its CDN file name, an old one
   const real = globalThis.fetch;
   globalThis.fetch = async (url) => {
     asked.push(url);
-    const body = served[url.split("/").pop()];
+    const body = served[url.split("/").pop().split("?")[0]];
     return { ok: !!body, arrayBuffer: async () => body };
   };
   try {
     const e1 = { id: "a.b", name: "A", icon: { sha256: sha(a), mime: "image/png", w: 32, h: 32, size: a.length, file: `${sha(a)}.png` } };
     const e2 = { id: "c.d", name: "C", icon: { sha256: sha(b), type: "image/png", width: 48, height: 48, size: b.length } };
     assert.deepEqual(await facts(dist).prepare([e1, e2]), []);
-    assert.deepEqual(asked, [`https://cdn.wolos.org/plugins/pictures/${sha(a)}.png`, `https://cdn.wolos.org/plugins/pictures/${sha(b)}`]);
+    assert.deepEqual(asked, [`https://cdn.wolos.org/plugins/pictures/${sha(a)}.png?probe=${sha(a).slice(0, 12)}-${process.env.FACTS_PROBE}`, `https://cdn.wolos.org/plugins/pictures/${sha(b)}?probe=${sha(b).slice(0, 12)}-${process.env.FACTS_PROBE}`]);
     assert.ok(e1.iconUrl && e2.iconUrl);
   } finally {
     globalThis.fetch = real;
@@ -105,4 +107,30 @@ test("the signed index's shape, a bare CDN file name <sha256>.<png|webp>: placed
   const w = await facts(dist).prepare([bad]);
   assert.equal(bad.iconUrl, null);
   assert.equal(w.length, 2);
+});
+
+test("FACTS_BASE: the bytes are fetched past the proxy's cache (?probe=<sha prefix>) and the page keeps the clean address", async () => {
+  const { dist } = setup();
+  const a = png(32, 32, "polished");
+  process.env.FACTS_BASE = "https://cdn.wolos.org/plugins/pictures";
+  const real = globalThis.fetch, asked = [];
+  // The proxy's cached copy of the clean URL has other bytes (Cloudflare Polish); only the query'd URL reaches the origin.
+  globalThis.fetch = async (url) => {
+    asked.push(url);
+    const body = url.includes("?probe=") ? a : png(32, 32, "re-encoded");
+    return { ok: true, arrayBuffer: async () => body };
+  };
+  try {
+    const e = { id: "a.b", name: "A", icon: `${sha(a)}.png` };
+    assert.deepEqual(await facts(dist).prepare([e]), []);
+    assert.deepEqual(asked, [`https://cdn.wolos.org/plugins/pictures/${sha(a)}.png?probe=${sha(a).slice(0, 12)}-${process.env.FACTS_PROBE}`]);
+    assert.equal(e.iconUrl, `/img/p/${sha(a)}.png`);
+    assert.ok(existsSync(join(dist, "img/p", `${sha(a)}.png`)));
+    assert.equal(probeUrl("https://x.example/p/", "f.webp", "abcdef0123456789ff", "b1"), "https://x.example/p/f.webp?probe=abcdef012345-b1");
+    // without FACTS_PROBE the stamp is the build's own, so no two builds reuse a query the proxy has cached
+    assert.match(probeUrl("https://x.example", "f.png", "0123456789abcdef", undefined), /\?probe=0123456789ab-[0-9a-z]+$/);
+  } finally {
+    globalThis.fetch = real;
+    delete process.env.FACTS_BASE;
+  }
 });
