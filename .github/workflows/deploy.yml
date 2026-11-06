@@ -3,6 +3,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # The pages are built from the signed index, so a new index serial needs a new build: hub-pipeline may send
+  # repository_dispatch "index-published" after it publishes; the schedule catches up when it does not.
+  repository_dispatch:
+    types: [index-published]
+  schedule:
+    - cron: "7 * * * *"
 permissions:
   contents: read
 concurrency:
@@ -25,6 +31,11 @@ jobs:
         run: npm run build:site
         env:
           HUB_FIXTURE: ""
+          # The published signed index (hub-pipeline build-index.mjs). Without it the build reads
+          # site/data/empty-index.json and the site shows no listings at all.
+          HUB_INDEX: https://cdn.wolos.org/plugins/index.json
+          # Icons and screenshots, by their CDN file name <sha256>.<png|webp>.
+          FACTS_BASE: https://cdn.wolos.org/plugins/pictures
       - name: Deploy to Cloudflare Pages
         run: bunx wrangler pages deploy site/dist --project-name wolos-hub --branch main
         env:

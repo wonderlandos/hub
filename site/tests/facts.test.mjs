@@ -90,3 +90,19 @@ test("FACTS_BASE: a Worker reference is fetched by its CDN file name, an old one
     delete process.env.FACTS_BASE;
   }
 });
+
+test("the signed index's shape, a bare CDN file name <sha256>.<png|webp>: placed, sized from the bytes", async () => {
+  const { dist, put } = setup();
+  const icon = png(512, 512, "bare"), shot = png(1280, 800, "bareshot");
+  put(icon, `${sha(icon)}.png`);
+  put(shot, `${sha(shot)}.png`);
+  const e = { id: "wonderlandos.battery", name: "Battery", icon: `${sha(icon)}.png`, screenshots: [`${sha(shot)}.png`] };
+  assert.deepEqual(await facts(dist).prepare([e]), []);
+  assert.equal(e.iconUrl, `/img/p/${sha(icon)}.png`);
+  assert.equal(e.icon.width, 512); // render.mjs reads e.icon.width for the icon's max-width
+  assert.deepEqual(e.shotRefs, [{ url: `/img/p/${sha(shot)}.png`, w: 1280, h: 800, alt: "Battery, picture 1" }]);
+  const bad = { id: "x.y", name: "Y", icon: "not-a-hash.png", screenshots: [`${sha(shot)}.gif`] };
+  const w = await facts(dist).prepare([bad]);
+  assert.equal(bad.iconUrl, null);
+  assert.equal(w.length, 2);
+});

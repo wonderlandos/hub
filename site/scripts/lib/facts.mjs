@@ -29,6 +29,11 @@ export function sizeOf(b) {
 
 /** A reference in either shape as {sha256, type, width, height, file}, or null (a `file` that is not its own name too). */
 export function pictureRef(ref) {
+  // The signed index (hub-pipeline build-index.mjs) names a picture by its CDN file name alone: "<sha256>.<png|webp>".
+  if (typeof ref === "string") {
+    const m = /^([0-9a-f]{64})\.(png|webp)$/.exec(ref);
+    return m ? { sha256: m[1], type: `image/${m[2]}`, width: undefined, height: undefined, file: ref } : null;
+  }
   if (!ref || typeof ref !== "object") return null;
   const r = { sha256: ref.sha256, type: ref.type ?? ref.mime, width: ref.width ?? ref.w, height: ref.height ?? ref.h };
   if (!HEX.test(r.sha256 || "") || !EXT[r.type]) return null;
@@ -40,7 +45,7 @@ export function pictureRef(ref) {
 export function facts(dist) {
   const dir = process.env.FACTS_DIR || at("data/facts"), base = process.env.FACTS_BASE;
   const out = resolve(dist, "img/p");
-  const seen = new Map(), warnings = [];
+  const seen = new Map(), dims = new Map(), warnings = [];
   const bytes = async (h, file, named) => {
     for (const n of [h, file]) { const f = resolve(dir, n); if (existsSync(f)) return readFileSync(f); }
     if (base && /^https:\/\//.test(base)) { const r = await fetch(`${base.replace(/\/$/, "")}/${named ? file : h}`); if (r.ok) return Buffer.from(await r.arrayBuffer()); }
@@ -51,14 +56,14 @@ export function facts(dist) {
     const ref = pictureRef(raw);
     if (!ref) { warnings.push(`${where}: not a picture reference`); return null; }
     if (seen.has(ref.sha256)) return seen.get(ref.sha256);
-    const b = await bytes(ref.sha256, ref.file, raw.file !== undefined);
+    const b = await bytes(ref.sha256, ref.file, typeof raw === "string" || raw.file !== undefined);
     let url = null;
     if (!b) warnings.push(`${where}: ${ref.sha256} not found`);
     else if (createHash("sha256").update(b).digest("hex") !== ref.sha256) warnings.push(`${where}: ${ref.sha256} has other bytes`);
     else {
       const s = sizeOf(b);
-      if (!s || s[0] !== ref.type || s[1] !== ref.width || s[2] !== ref.height) warnings.push(`${where}: ${ref.sha256} is not a ${ref.type} of ${ref.width}x${ref.height}`);
-      else { mkdirSync(out, { recursive: true }); url = `/img/p/${ref.sha256}.${EXT[ref.type]}`; writeFileSync(resolve(dist, "." + url), b); }
+      if (!s || s[0] !== ref.type || (ref.width !== undefined && (s[1] !== ref.width || s[2] !== ref.height))) warnings.push(`${where}: ${ref.sha256} is not a ${ref.type} of ${ref.width}x${ref.height}`);
+      else { mkdirSync(out, { recursive: true }); url = `/img/p/${ref.sha256}.${EXT[ref.type]}`; writeFileSync(resolve(dist, "." + url), b); dims.set(url, [s[1], s[2]]); }
     }
     seen.set(ref.sha256, url);
     return url;
@@ -67,11 +72,14 @@ export function facts(dist) {
   async function prepare(entries) {
     for (const e of entries) {
       e.iconUrl = e.icon ? await place(e.icon, `${e.id} icon`) : null;
+      // A bare file name carries no size: the page takes it from the bytes just checked.
+      if (e.iconUrl && typeof e.icon === "string") { const [w, h] = dims.get(e.iconUrl); e.icon = { ...pictureRef(e.icon), width: w, height: h }; }
       e.shotRefs = [];
       for (const [i, s] of (e.screenshots || []).entries()) {
-        if (s.src) { e.shotRefs.push({ legacy: true, src: s.src, alt: s.alt }); continue; }
+        if (s?.src) { e.shotRefs.push({ legacy: true, src: s.src, alt: s.alt }); continue; }
         const url = await place(s, `${e.id} screenshot ${i + 1}`);
-        if (url) e.shotRefs.push({ url, w: s.width ?? s.w, h: s.height ?? s.h, alt: s.alt || s.caption || `${e.name}, picture ${i + 1}` });
+        const [mw, mh] = (url && dims.get(url)) || [];
+        if (url) e.shotRefs.push({ url, w: s.width ?? s.w ?? mw, h: s.height ?? s.h ?? mh, alt: s.alt || s.caption || `${e.name}, picture ${i + 1}` });
       }
     }
     return warnings;
